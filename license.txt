@@ -1,0 +1,8 @@
+OXml License
+------------
+
+Please see the "license/license.txt" file for more information
+about OXml licensing.
+
+Every file of the OXml library is subject of the "license/license.txt" 
+text.
