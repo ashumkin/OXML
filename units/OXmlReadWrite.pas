@@ -75,20 +75,30 @@ type
     fOwner: TOXmlWriter;
     fElementName: OFastString;
   public
-    //write opening element
+    // <aElementName ... >, <aElementName ... /> etc.
     procedure OpenElement(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly);
     function OpenElementR(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly): TOXmlWriterElement;
+    // >
     procedure FinishOpenElement;
+    // />
     procedure FinishOpenElementClose;
+    // </fElementName>
+    procedure CloseElement;
+
+    // write attribute of an element or declaration
     procedure Attribute(const aAttrName, aAttrValue: OWideString);
 
-    procedure Text(const aText: OWideString; const aQuoteChar: OWideChar = #0);
-    procedure RawText(const aText: OWideString);
+    // <![CDATA[aText]]>
     procedure CData(const aText: OWideString);
+    // <!--aText-->
     procedure Comment(const aText: OWideString);
+    // <?aTarget aContent?>
     procedure ProcessingInstruction(const aTarget, aContent: OWideString);
 
-    procedure CloseElement;
+    // write escaped text, escape also a quote if aQuoteChar specified
+    procedure Text(const aText: OWideString; const aQuoteChar: OWideChar = #0);
+    // write raw text, do not process it
+    procedure RawText(const aText: OWideString);
   end;
 
   TOXmlWriter = class(TObject)
@@ -107,35 +117,39 @@ type
       const aWriteBOM: Boolean = True);
     destructor Destroy; override;
   public
+    // default <?xml ?> declaration
     procedure XMLDeclaration(const aEncodingAttribute: Boolean = True;
       const aVersion: OWideString = '1.0';
       const aStandAlone: OWideString = '');
-
-    // <?xml ?> tags
+    // <?xml
     procedure OpenXMLDeclaration;
+    // ?>
     procedure FinishOpenXMLDeclaration;
 
-    //<aElementName ... >, <aElementName ... /> etc.
+    // <aElementName ... >, <aElementName ... /> etc.
     procedure OpenElement(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly);
     function OpenElementR(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly): TOXmlWriterElement;
+    // >
     procedure FinishOpenElement(const {%H-}aElementName: OWideString = '');//you may pass a ElementName just to make it clear for you which element you want to close
+    // />
     procedure FinishOpenElementClose(const {%H-}aElementName: OWideString = '');//you may pass a ElementName just to make it clear for you which element you want to close
+    // </aElementName>
     procedure CloseElement(const aElementName: OWideString);
 
-    //write attribute of an element or declaration
+    // write attribute of an element or declaration
     procedure Attribute(const aAttrName, aAttrValue: OWideString);
-    //<![CDATA[aText]]>
+    // <![CDATA[aText]]>
     procedure CData(const aText: OWideString);
-    //<!--aText-->
+    // <!--aText-->
     procedure Comment(const aText: OWideString);
-    //<?aTarget aContent?>
+    // <?aTarget aContent?>
     procedure ProcessingInstruction(const aTarget, aContent: OWideString);
-    //<!DOCTYPE aDocTypeRawText> - aDocTypeRawText must be escaped, it won't be processed
+    // <!DOCTYPE aDocTypeRawText> - aDocTypeRawText must be escaped, it won't be processed
     procedure DocType(const aDocTypeRawText: OWideString);
 
-    //write escaped text, escape also a quote if aQuoteChar specified
+    // write escaped text, escape also a quote if aQuoteChar specified
     procedure Text(const aText: OWideString; const aQuoteChar: OWideChar = #0);
-    //write raw text, do not process it
+    // write raw text, do not process it
     procedure RawText(const aText: OWideString); virtual;
   public
     //encoding/BOM of the text writer
@@ -249,10 +263,11 @@ type
   public
     //use ReadNextNode for reading next XML node
     function ReadNextNode(var aNode: TOXmlReaderNode): Boolean;
+    //following are functions to work with the current path in the XML document (used by OXmlSeq.pas)
     function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
     function NodePathMatch(const aNodePath: TOWideStringList): Boolean; overload;
-    function NodePathIsParent(const aNodePath: TOWideStringList): Boolean;
-    function NodePathIsChild(const aNodePath: TOWideStringList): Boolean;
+    function RefIsChildOfNodePath(const aRefNodePath: TOWideStringList): Boolean;
+    function RefIsParentOfNodePath(const aRefNodePath: TOWideStringList): Boolean;
     procedure NodePathAssignTo(const aNodePath: TOWideStringList);
   public
     //encoding of the text file, when set, the file will be read again from the start
@@ -275,7 +290,9 @@ type
     //   = false: try to fix and go over document errors.
     property StrictXML: Boolean read fStrictXML write fStrictXML;
 
+    //current path in XML document
     property NodePath[const aIndex: Integer]: OWideString read GetNodePath;
+    //count of elements in path
     property NodePathCount: Integer read GetNodePathCount;
   end;
 
@@ -1266,17 +1283,17 @@ begin
   aNodePath.Assign(fNodePath);
 end;
 
-function TOXmlReader.NodePathIsChild(
-  const aNodePath: TOWideStringList): Boolean;
+function TOXmlReader.RefIsParentOfNodePath(
+  const aRefNodePath: TOWideStringList): Boolean;
 var
   I: Integer;
 begin
-  Result := aNodePath.Count = fNodePath.Count+1;
+  Result := aRefNodePath.Count = fNodePath.Count+1;
   if not Result then
     Exit;
 
   for I := 0 to fNodePath.Count-1 do
-  if aNodePath[I] <> fNodePath[I] then begin
+  if aRefNodePath[I] <> fNodePath[I] then begin
     Result := False;
     Exit;
   end;
@@ -1284,17 +1301,17 @@ begin
   Result := True;
 end;
 
-function TOXmlReader.NodePathIsParent(
-  const aNodePath: TOWideStringList): Boolean;
+function TOXmlReader.RefIsChildOfNodePath(
+  const aRefNodePath: TOWideStringList): Boolean;
 var
   I: Integer;
 begin
-  Result := aNodePath.Count = fNodePath.Count-1;
+  Result := aRefNodePath.Count = fNodePath.Count-1;
   if not Result then
     Exit;
 
-  for I := 0 to aNodePath.Count-1 do
-  if aNodePath[I] <> fNodePath[I] then begin
+  for I := 0 to aRefNodePath.Count-1 do
+  if aRefNodePath[I] <> fNodePath[I] then begin
     Result := False;
     Exit;
   end;

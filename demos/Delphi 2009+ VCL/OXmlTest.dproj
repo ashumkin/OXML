@@ -112,7 +112,6 @@
 			<DCCReference Include="..\..\units\OXmlSeq.pas"/>
 			<DCCReference Include="..\..\units\OXmlUtils.pas"/>
 			<DCCReference Include="..\..\units\OXmlXPath.pas"/>
-			<DCCReference Include="..\..\..\NativeXML\units\NativeXml.pas"/>
 			<DCCReference Include="..\..\units\OXmlPDOM.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>

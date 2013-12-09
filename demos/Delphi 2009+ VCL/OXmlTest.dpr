@@ -16,7 +16,6 @@ uses
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  NativeXml in '..\..\..\NativeXML\units\NativeXml.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas';
 
 {$R *.res}

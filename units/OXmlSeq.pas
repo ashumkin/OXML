@@ -268,13 +268,13 @@ begin
         while fReader.ReadNextNode(fReaderNode) do begin
           case fReaderNode.NodeType of
             etOpenElement://new element found
-            if fReader.NodePathIsParent(fTempNodePath)//fReaderNode is child of xLastNodePath
+            if fReader.RefIsChildOfNodePath(fTempNodePath)//fReaderNode is child of fTempNodePath
             then begin
               xLastNode := fXmlDoc.DOMDocument.AddChild(fReaderNode.NodeName);
               Break;
             end;
             etCloseElement://parent element may be closed
-            if fReader.NodePathIsChild(fTempNodePath)//fReaderNode is parent of xLastNodePath -> break!
+            if fReader.RefIsParentOfNodePath(fTempNodePath)//fReaderNode is parent of fTempNodePath -> exit!
             then begin
               Exit;
             end;
@@ -313,9 +313,9 @@ begin
 
       if not (fReaderNode.NodeType in [etAttribute, etOpenElement, etOpenXMLDeclaration])
         and (
-          (fReader.NodePathMatch(fTempNodePath) or fReader.NodePathIsChild(fTempNodePath))//end of the element
+          (fReader.NodePathMatch(fTempNodePath) or fReader.RefIsParentOfNodePath(fTempNodePath))//end of the element
           or
-          (aOnlyElementHeader and fReader.NodePathIsParent(fTempNodePath))//next element was found, but we want to read only header
+          (aOnlyElementHeader and fReader.RefIsChildOfNodePath(fTempNodePath))//next element was found, but we want to read only header
         )
       then begin
         if (fReaderNode.NodeType <> etFinishOpenElement) or
