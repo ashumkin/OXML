@@ -35,7 +35,7 @@
         <PackageName Value="LCL"/>
       </Item1>
     </RequiredPackages>
-    <Units Count="17">
+    <Units Count="16">
       <Unit0>
         <Filename Value="OXmlTest.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -110,20 +110,15 @@
         <UnitName Value="OXmlXPath"/>
       </Unit13>
       <Unit14>
-        <Filename Value="..\..\..\NativeXML\units\NativeXml.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="NativeXml"/>
-      </Unit14>
-      <Unit15>
         <Filename Value="..\..\units\OXmlPDOM.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="OXmlPDOM"/>
-      </Unit15>
-      <Unit16>
+      </Unit14>
+      <Unit15>
         <Filename Value="..\..\units\OXmlIntfDOM.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="OXmlIntfDOM"/>
-      </Unit16>
+      </Unit15>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -134,7 +129,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\units;..\..\..\OmniXML;..\..\..\NativeXML\units"/>
+      <OtherUnitFiles Value="..\..\units"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

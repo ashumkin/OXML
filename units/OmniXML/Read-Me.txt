@@ -1,0 +1,24 @@
+OmniXML
+-------
+
+Original author: Miha Remec
+Homepage: http://www.omnixml.com
+
+Ported to OXml by: Ondrej Pokorny
+Homepage: http://www.kluug.net/oxml.php
+
+
+This is the original OmniXML (www.omnixml.com) from November 2013,
+updated with text reader and writer from OXml.
+The advantages are faster reading and writing of XML and support of
+Lazarus and Delphi ARC compilers (iOS, Android).
+
+I have made as little changes in OmniXML as possible. This approach
+enables you to update your old projects based on OmniXML without
+changing a line of code and needing to test your projects on errors.
+
+
+License
+-------
+
+See License.txt

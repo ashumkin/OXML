@@ -1,0 +1,22 @@
+OmniXML
+-------
+
+Original author: Miha Remec
+Homepage: http://www.omnixml.com
+
+Ported to OXml by: Ondrej Pokorny
+Homepage: http://www.kluug.net/oxml.php
+
+
+This is the "OmniXML by Kluug.net" (www.kluug.net/omnixml.php)
+from November 2013, updated with text reader and writer from OXml.
+
+Use this library in your old projects based on "OmniXML by Kluug.net"
+without changing a line of code and needing to test your projects
+on errors.
+
+
+License
+-------
+
+See License.txt

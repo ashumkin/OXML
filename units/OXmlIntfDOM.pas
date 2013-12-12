@@ -2874,7 +2874,7 @@ begin
     Exit;
 
   for I := 0 to xParentNode.AttributeNodes.Count-1 do
-    aList.Add(TXMLXPathNode(xParentNode.AttributeNodes[I]));
+    aList.Add(TXMLXPathNode(xParentNode.AttributeNodes[I] as IXMLNode));
 end;
 
 procedure TXMLXPathIntfDOMAdapter.GetNodeChildren(const aParentNode: TXMLXPathNode;
@@ -2890,7 +2890,7 @@ begin
     Exit;
 
   for I := 0 to xParentNode.ChildNodes.Count-1 do
-    aList.Add(TXMLXPathNode(xParentNode.ChildNodes[I]));
+    aList.Add(TXMLXPathNode(xParentNode.ChildNodes[I] as IXMLNode));
 end;
 
 function TXMLXPathIntfDOMAdapter.GetNodeDOMDocument(
@@ -2919,7 +2919,7 @@ end;
 function TXMLXPathIntfDOMAdapter.GetNodeParent(
   const aNode: TXMLXPathNode): TXMLXPathNode;
 begin
-  Result := TXMLXPathNode((IInterface(aNode) as IXMLNode).ParentNode);
+  Result := TXMLXPathNode((IInterface(aNode) as IXMLNode).ParentNode as IXMLNode);
 end;
 
 function TXMLXPathIntfDOMAdapter.GetNodeType(
@@ -2937,7 +2937,7 @@ end;
 function TXMLXPathIntfDOMAdapter.NodeFindAttribute(const aNode: TXMLXPathNode;
   const aAttrName: OWideString): TXMLXPathNode;
 begin
-  Result := TXMLXPathNode((IInterface(aNode) as IXMLNode).AttributeNodes.FindNode(aAttrName));
+  Result := TXMLXPathNode((IInterface(aNode) as IXMLNode).AttributeNodes.FindNode(aAttrName) as IXMLNode);
 end;
 
 function TXMLXPathIntfDOMAdapter.NodeHasAttributes(

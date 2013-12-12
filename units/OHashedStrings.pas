@@ -139,7 +139,17 @@ type
     property Current: TOHashedStringDictionaryEnumPair read GetCurrent;
   end;
 
+function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
+
+const
+  OHASHEDSTRINGSINDEX_UNASSIGNED = -1;
+
 implementation
+
+function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
+begin
+  Result := aId <> OHASHEDSTRINGSINDEX_UNASSIGNED;
+end;
 
 { TOHashedStrings }
 

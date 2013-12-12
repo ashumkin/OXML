@@ -1,0 +1,15 @@
+OmniXML by Kluug.net
+--------------------
+
+Original author: Miha Remec
+Homepage: http://www.omnixml.com
+
+Modifications by and ported to OXml by: Ondrej Pokorny
+Homepage: http://www.kluug.net/oxml.php
+
+
+
+LICENSE
+-------
+
+Mozilla Public License 1.1: http://www.mozilla.org/MPL/

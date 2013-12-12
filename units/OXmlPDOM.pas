@@ -649,16 +649,16 @@ function CreateXMLDoc(const aRootNodeName: OWideString; const aAddUTF8Declaratio
 
 function XMLNodeIdAssigned(const aId: XMLNodeId): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
 
+const
+  XMLNODEID_UNASSIGNED = High(XMLNodeId);
+
 implementation
 
 uses OXmlLng;
 
-const
-  XMLNODEID_UNASSIGNED = High(XMLNodeId);
-
 function XMLNodeIdAssigned(const aId: XMLNodeId): Boolean;
 begin
-  Result := aId <> High(XMLNodeId);
+  Result := aId <> XMLNODEID_UNASSIGNED;
 end;
 
 function CreateXMLDoc: IXMLDocument;

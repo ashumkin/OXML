@@ -219,6 +219,7 @@ type
     fEntityList: TOXmlReaderEntityList;
     fLineBreak: OWideString;
     fStrictXML: Boolean;
+    fRecognizeXMLDeclaration: Boolean;
 
     fLastNode: TOXmlReaderNodeType;
     fDocumentNodeFound: Boolean;
@@ -289,6 +290,13 @@ type
     //   = true: raise Exceptions when document is not valid
     //   = false: try to fix and go over document errors.
     property StrictXML: Boolean read fStrictXML write fStrictXML;
+    //RecognizeXMLDeclaration
+    //  if set to true the processing instruction "<?xml ... ?>" will be detected as XMLDeclaration
+    //   and following element types will be fired:
+    //   etOpenXMLDeclaration, etXMLDeclarationAttribute, etXMLDeclarationFinishClose
+    //  if set to false, it will be handled as a normal processing instruction
+    //   etProcessingInstruction
+    property RecognizeXMLDeclaration: Boolean read fRecognizeXMLDeclaration write fRecognizeXMLDeclaration;
 
     //current path in XML document
     property NodePath[const aIndex: Integer]: OWideString read GetNodePath;
@@ -852,6 +860,7 @@ begin
   fLineBreak := sLineBreak;
 
   fStrictXML := True;
+  fRecognizeXMLDeclaration := True;
 end;
 
 destructor TOXmlReader.Destroy;
@@ -1468,7 +1477,10 @@ begin
   end;
 
   aNode.NodeName := fReader.GetCustomBuffer;
-  if (fLastNode = etDocumentStart) and SameText(aNode.NodeName, 'xml') then begin
+  if (fLastNode = etDocumentStart) and
+    fRecognizeXMLDeclaration and
+    SameText(aNode.NodeName, 'xml')
+  then begin
     //xml declaration: <?xml attr="value"?>
     aNode.NodeType := etOpenXMLDeclaration;
     aNode.NodeValue := '';

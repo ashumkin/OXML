@@ -109,6 +109,7 @@ type
 
     function EncodingName: OWideString; virtual; abstract;
     function EncodingAlias: OWideString;
+    function EncodingCodePage: Cardinal;
   public
     class function Default: TEncoding;
     class function Unicode: TEncoding;
@@ -160,6 +161,7 @@ type
   TEncodingHelper = class helper for TEncoding
   public
     function EncodingAlias: String;
+    function EncodingCodePage: Cardinal;
     {$IF NOT DEFINED(O_DELPHI_XE_UP)}
     function EncodingName: String;
     {$IFEND}
@@ -170,17 +172,17 @@ type
   end;
   TMBCSEncodingHelper = class helper for TMBCSEncoding
   public
-    function GetCodePage: Integer;
+    function GetCodePage: Cardinal;
   end;
 {$IFEND}
 
 
 //get or create code page from identifier
-function GetCreateCodePage(const aCodePage: Word): TEncoding; overload;
+function GetCreateCodePage(const aCodePage: Cardinal): TEncoding; overload;
 //get or create code page from alias, returns true if found
 function GetCreateCodePage(const aAlias: OWideString; var aEncoding: TEncoding): Boolean; overload;
-function AliasToCodePage(const aAlias: OWideString): Word;
-function CodePageToAlias(const aCodePage: Word): OWideString;
+function AliasToCodePage(const aAlias: OWideString): Cardinal;
+function CodePageToAlias(const aCodePage: Cardinal): OWideString;
 
 implementation
 
@@ -424,14 +426,7 @@ function TEncoding.EncodingAlias: OWideString;
 var
   xCodePage, I: Integer;
 begin
-  if Self is TMBCSEncoding then
-    xCodePage := TMBCSEncoding(Self).CodePage
-  else if Self is TUnicodeEncoding then
-    xCodePage := CP_UNICODE
-  else if Self is TUTF8Encoding then
-    xCodePage := CP_UTF8
-  else
-    xCodePage := 0;
+  xCodePage := EncodingCodePage;
 
   for I := Low(CodePages) to High(CodePages) do
   if CodePages[I].CodePage = xCodePage then begin
@@ -440,6 +435,18 @@ begin
   end;
 
   Result := IntToStr(xCodePage);
+end;
+
+function TEncoding.EncodingCodePage: Cardinal;
+begin
+  if Self is TMBCSEncoding then
+    Result := TMBCSEncoding(Self).CodePage
+  else if Self is TUnicodeEncoding then
+    Result := CP_UNICODE
+  else if Self is TUTF8Encoding then
+    Result := CP_UTF8
+  else
+    Result := 0;
 end;
 
 class function TEncoding.GetEncoding(aCodePage: Integer): TEncoding;
@@ -743,14 +750,7 @@ function TEncodingHelper.EncodingAlias: String;
 var
   xCodePage, I: Integer;
 begin
-  if Self is TMBCSEncoding then
-    xCodePage := TMBCSEncoding(Self).GetCodePage
-  else if Self is TUnicodeEncoding then
-    xCodePage := CP_UNICODE
-  else if Self is TBigEndianUnicodeEncoding then
-    xCodePage := CP_UNICODE_BE
-  else
-    xCodePage := 0;
+  xCodePage := EncodingCodePage;
 
   for I := Low(CodePages) to High(CodePages) do
   if CodePages[I].CodePage = xCodePage then begin
@@ -761,15 +761,27 @@ begin
   Result := IntToStr(xCodePage);
 end;
 
+function TEncodingHelper.EncodingCodePage: Cardinal;
+begin
+  if Self is TMBCSEncoding then
+    Result := TMBCSEncoding(Self).GetCodePage
+  else if Self is TUnicodeEncoding then
+    Result := CP_UNICODE
+  else if Self is TBigEndianUnicodeEncoding then
+    Result := CP_UNICODE_BE
+  else
+    Result := 0;
+end;
+
 { TMBCSEncodingHelper }
 
-function TMBCSEncodingHelper.GetCodePage: Integer;
+function TMBCSEncodingHelper.GetCodePage: Cardinal;
 begin
   Result := Self.FCodePage;
 end;
 {$IFEND}
 
-function GetCreateCodePage(const aCodePage: Word): TEncoding;
+function GetCreateCodePage(const aCodePage: Cardinal): TEncoding;
 begin
   case aCodePage of
     CP_UTF8: Result := TEncoding.UTF8;
@@ -781,7 +793,7 @@ end;
 
 function GetCreateCodePage(const aAlias: OWideString; var aEncoding: TEncoding): Boolean;
 var
-  xCP: Word;
+  xCP: Cardinal;
 begin
   xCP := AliasToCodePage(aAlias);
   Result := (xCP <> 0);
@@ -789,7 +801,7 @@ begin
     aEncoding := GetCreateCodePage(xCP);
 end;
 
-function AliasToCodePage(const aAlias: OWideString): Word;
+function AliasToCodePage(const aAlias: OWideString): Cardinal;
 var
   I: Integer;
 begin
@@ -801,7 +813,7 @@ begin
   Result := 0;
 end;
 
-function CodePageToAlias(const aCodePage: Word): OWideString;
+function CodePageToAlias(const aCodePage: Cardinal): OWideString;
 var
   I: Integer;
 begin

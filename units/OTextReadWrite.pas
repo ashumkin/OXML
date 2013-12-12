@@ -80,12 +80,22 @@ type
 
     function GetPreviousChar: OWideChar;
     function GetApproxStreamPosition: ONativeInt;
+
+    procedure DoCreate(aStream: TStream;
+      var aBOMFound: Boolean;
+      const aDefaultSingleByteEncoding: TEncoding;
+      const aBufferSize: Integer); virtual;
   public
     //create reader with original stream
     //aDefaultSingleByteEncoding - if no BOM is found, use this encoding,
     //  if BOM is found, always correct encoding from the BOM is used
-    constructor Create(aStream: TStream; const aDefaultSingleByteEncoding: TEncoding = nil;
-      const aBufferSize: Integer = 10*1024 {10 KB});
+    constructor Create(aStream: TStream;
+      const aDefaultSingleByteEncoding: TEncoding = nil;
+      const aBufferSize: Integer = 10*1024 {10 KB}); overload;
+    constructor Create(aStream: TStream;
+      var aBOMFound: Boolean;
+      const aDefaultSingleByteEncoding: TEncoding = nil;
+      const aBufferSize: Integer = 10*1024 {10 KB}); overload;
     destructor Destroy; override;
   public
     //read char-by-char, returns false if EOF is reached
@@ -352,13 +362,46 @@ begin
   fCustomBuffer[aBufferIndex].Position := 1;
 end;
 
-constructor TOTextReader.Create(aStream: TStream; const aDefaultSingleByteEncoding: TEncoding;
-  const aBufferSize: Integer);
-var
-  I: Integer;
+constructor TOTextReader.Create(aStream: TStream; var aBOMFound: Boolean;
+  const aDefaultSingleByteEncoding: TEncoding; const aBufferSize: Integer);
 begin
   inherited Create;
 
+  DoCreate(aStream, aBOMFound, aDefaultSingleByteEncoding, aBufferSize);
+end;
+
+constructor TOTextReader.Create(aStream: TStream; const aDefaultSingleByteEncoding: TEncoding;
+  const aBufferSize: Integer);
+var
+  xBOMFound: Boolean;
+begin
+  inherited Create;
+
+  DoCreate(aStream, xBOMFound, aDefaultSingleByteEncoding, aBufferSize);
+end;
+
+function TOTextReader.CustomBufferLength(const aBufferIndex: Byte): Integer;
+begin
+  Result := fCustomBuffer[aBufferIndex].Position - 1;
+end;
+
+destructor TOTextReader.Destroy;
+begin
+  if fOwnsStream then
+    fStream.Free;
+
+  if fOwnsEncoding then
+    fEncoding.Free;
+
+  inherited;
+end;
+
+procedure TOTextReader.DoCreate(aStream: TStream; var aBOMFound: Boolean;
+  const aDefaultSingleByteEncoding: TEncoding; const aBufferSize: Integer);
+var
+  I: Integer;
+  xStreamPosition: Integer;
+begin
   if aStream is TCustomMemoryStream then begin
     //no need for buffering on memory stream
     fStream := aStream;
@@ -376,7 +419,9 @@ begin
 
   BlockFlushTempBuffer;//block because GetEncodingFromStream seeks back in stream!
   try
+    xStreamPosition := fStreamPosition;
     fEncoding := GetEncodingFromStream(fStream, fStreamPosition, fStreamSize, aDefaultSingleByteEncoding);
+    aBOMFound := (xStreamPosition < fStreamPosition);//if BOM was found, fStreamPosition will increase
   finally
     UnblockFlushTempBuffer;
   end;
@@ -390,22 +435,6 @@ begin
     fCustomBuffer[I].Position := 1;
     SetLength(fCustomBuffer[I].Buffer, fCustomBuffer[I].Length);
   end;
-end;
-
-function TOTextReader.CustomBufferLength(const aBufferIndex: Byte): Integer;
-begin
-  Result := fCustomBuffer[aBufferIndex].Position - 1;
-end;
-
-destructor TOTextReader.Destroy;
-begin
-  if fOwnsStream then
-    fStream.Free;
-
-  if fOwnsEncoding then
-    fEncoding.Free;
-
-  inherited;
 end;
 
 function TOTextReader.GetCustomBuffer(const aBufferIndex: Byte): OWideString;
