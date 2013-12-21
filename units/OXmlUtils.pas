@@ -47,9 +47,18 @@ type
 
   EXmlDOMException = class(Exception);
 
-  TXmlOutputFormat = (ofNone, ofFlat, ofIndent);
+  TXmlIndentType = (itNone, itFlat, itIndent);
   TXmlWhiteSpaceHandling = (wsTrim, wsPreserveAll, wsPreserveInTextOnly, wsAutoTag);
   TXmlBreakReading = (brNone, brAfterDocumentNode);
+  TXmlLineBreak = (lbLF, lbCR, lbCRLF, lbDoNotProcess);
+const
+  {$IFDEF MSWINDOWS}
+  XmlDefaultLineBreak = lbCRLF;
+  {$ELSE}
+  XmlDefaultLineBreak = lbLF;
+  {$ENDIF}
+  XmlLineBreak: Array[TXmlLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
+type
 
   {$IFDEF O_GENERICS}
   TOXmlReaderEntityList = TDictionary<OWideString,OWideString>;
@@ -110,31 +119,33 @@ type
     {$ENDIF}
 
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: String; const aOutputFormat: TXmlOutputFormat = ofNone);
+    procedure SaveToFile(const aFileName: String; const aIndentType: TXmlIndentType = itNone);
     //save document to stream in encoding specified by the document
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat = ofNone); overload;
+    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
     //save document to stream and enforce encoding
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToStream(const aStream: TStream;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     //returns XML as string
-    procedure SaveToXML(var aXML: OWideString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
     {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
     {$ENDIF}
 
     {$IFDEF O_DELPHI_2009_UP}
     //returns XML as a buffer in encoding specified by the document
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat); overload;
+    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
     //returns XML as a buffer and enforce a custom encoding
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToBuffer(var aBuffer: TBytes;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     {$ENDIF}
 
   //public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
-    function XML(const aOutputFormat: TXmlOutputFormat = ofNone): OWideString;
+    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
     {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aOutputFormat: TXmlOutputFormat = ofNone): ORawByteString;
+    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
     {$ENDIF}
 
   //public

@@ -1,27 +1,29 @@
-program OXmlTest;
+// JCL_DEBUG_EXPERT_GENERATEJDBG ON
+program FileList;
 
 uses
   Forms,
-  OXmlTestUnit in 'OXmlTestUnit.pas' {Form1},
+  main in 'main.pas' {fMain},
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   ODictionary in '..\..\units\ODictionary.pas',
   OEncoding in '..\..\units\OEncoding.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
+  OXmlIntfDOM in '..\..\units\OXmlIntfDOM.pas',
   OXmlLng in '..\..\units\OXmlLng.pas',
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
-  OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlIntfDOM in '..\..\units\OXmlIntfDOM.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlXPath in '..\..\units\OXmlXPath.pas';
 
-{$R *.res}
+{$R *.RES}
 
 begin
   Application.Initialize;
-  Application.CreateForm(TForm1, Form1);
+  Application.CreateForm(TfMain, fMain);
   Application.Run;
 end.
+

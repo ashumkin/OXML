@@ -1,7 +1,7 @@
 unit OXmlTestUnit;
 
-{$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
-{$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
+{.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
+{.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
 {$DEFINE USE_INTF}//define/undefine to compare OXml DOM to Intf DOM (deprecated)
 
 {$IFDEF FPC}
@@ -61,14 +61,14 @@ type
   private
     DocDir: String;
 
-    procedure SAXStartDocument(Sender: TObject);
-    procedure SAXEndDocument(Sender: TObject);
-    procedure SAXCharacters(Sender: TObject; const aText: OWideString; var aStop: Boolean);
-    procedure SAXComment(Sender: TObject; const aText: OWideString; var aStop: Boolean);
-    procedure SAXProcessingInstruction(Sender: TObject; const aTarget, aContent: OWideString; var aStop: Boolean);
-    procedure SAXStartElement(Sender: TObject; const aName: OWideString;
+    procedure SAXStartDocument(Sender: TSAXParser);
+    procedure SAXEndDocument(Sender: TSAXParser);
+    procedure SAXCharacters(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
+    procedure SAXComment(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
+    procedure SAXProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString; var aStop: Boolean);
+    procedure SAXStartElement(Sender: TSAXParser; const aName: OWideString;
       const aAttributes: TSAXAttributes; var aStop: Boolean);
-    procedure SAXEndElement(Sender: TObject; const aName: OWideString; var aStop: Boolean);
+    procedure SAXEndElement(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean);
   protected
     procedure DoCreate; override;
   end;
@@ -91,16 +91,49 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   begin
     xT1 := GetTickCount;
     xXml := OmniXml.CreateXMLDoc;
-    xXml.WhiteSpaceHandling := OmniXml.wsPreserveAll;
-    xXml.LoadFromFile(DocDir+'sheet1.xml');
+    xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
+    //xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
+    xXml.Load(DocDir+'sheet1.xml');
     xT2 := GetTickCount;
-    xXml.SaveToFile(DocDir+'sheet1-resave.xml');
+    xXml.Save(DocDir+'sheet1-resave.xml');
 
     xXml := nil;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OmniXML DOM'+sLineBreak+
+      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure TestOmniXmlDOM_MS;
+  var
+    xXml: OmniXml.IXMLDocument;
+    xT1, xT2: Cardinal;
+    xMS: TMemoryStream;
+  begin
+    xT1 := GetTickCount;
+    xXml := OmniXml.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
+    //xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
+    xXml.Load(DocDir+'sheet1.xml');
+    xT2 := GetTickCount;
+    xMS := TMemoryStream.Create;
+    try
+      xXml.SaveToStream(xMS);
+      xMS.Position := 0;
+      xMS.SaveToFile(DocDir+'sheet1-resave.xml');
+    finally
+      xMS.Free;
+    end;
+
+    xXml := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OmniXML DOM (TMemoryStream)'+sLineBreak+
       'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
       'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
       'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
@@ -336,6 +369,8 @@ begin
   {$IFDEF USE_OMNIXML}
   TestOmniXmlDOM;
   MatchTestFiles;//comment/uncomment to check if files match
+
+  //TestOmniXmlDOM_MS;
   {$ENDIF}
 
   {$IFDEF USE_NATIVEXML}
@@ -525,7 +560,7 @@ const
     xXML.LoadFromXML(cXML);
 
     Memo2.Lines.Add('OXml interface based DOM:');
-    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(ofNone);
+    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(itNone);
   end;
   {$ENDIF}
 
@@ -540,7 +575,7 @@ const
     xXML.LoadFromXML(cXML);
 
     Memo2.Lines.Add('OXml record based DOM:');
-    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(ofNone);
+    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(itNone);
   end;
 begin
   Memo1.Lines.Text :=
@@ -656,8 +691,8 @@ end;
 procedure TForm1.BtnTestXPathClick(Sender: TObject);
 const
   cXML: OWideString =
-    '  '+sLineBreak+'  '+
-    '<?xml version="1.0" ?>'+
+    //'  '+sLineBreak+'  '+
+    '<?xml version="1.0" encoding="utf-8" ?>'+
     '<root description="test xml">'+
       '<boss name="Max Muster">'+
         '<person name="boss person"/>'+
@@ -671,6 +706,91 @@ const
       '<![CDATA[some test info]]>'+
       '<?pi processing instruction ?>'+
     '</root>';
+
+  {$IFDEF USE_OMNIXML}
+  procedure TestOmniXML;
+  var
+    xXml: OmniXML.IXMLDocument;
+
+    procedure _TestXPathElements(const aStartNode: OmniXML.IXMLNode; const aXPath, aResult: OWideString);
+    var
+      xList: OmniXML.IXMLNodeList;
+      xElement: OmniXML.IXMLNode;
+      xAttr: OmniXML.IXMLNode;
+      xStr: OWideString;
+      I: Integer;
+    begin
+      aStartNode.SelectNodes(aXPath, {%H-}xList);
+      if xList.Length > 0 then begin
+        xStr := '';
+        for I := 0 to xList.Length-1 do begin
+          xElement := xList.Item[I];
+
+          if xStr <> '' then
+            xStr := xStr+sLineBreak;
+          case xElement.NodeType of
+            ELEMENT_NODE: begin
+              xStr := xStr+xElement.NodeName+'=';
+              xAttr := xElement.Attributes.GetNamedItem('name');
+              if Assigned(xAttr) then
+                xStr := xStr+xAttr.NodeValue;
+            end;
+            ATTRIBUTE_NODE: xStr := xStr+xElement.ParentNode.NodeName+':'+xElement.NodeName+'='+xElement.NodeValue;
+            TEXT_NODE, CDATA_SECTION_NODE: xStr := xStr+xElement.NodeValue;
+          end;
+        end;
+
+        if xStr <> aResult then begin
+          Memo1.Lines.Text := (
+            'XPath test failed: '+aXPath+sLineBreak+
+              xStr+sLineBreak+
+              '-----'+sLineBreak+
+              aResult);
+          raise Exception.Create(Form1.Memo1.Lines.Text);
+        end;
+      end else begin
+        raise Exception.Create('XPath test failed (nothing selected): '+aXPath);
+      end;
+    end;
+  begin
+    xXml := OmniXML.CreateXMLDoc;
+
+    xXml.LoadXML(cXML);
+
+    _TestXPathElements(xXml.DocumentElement, '.', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root/.', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root/boss/..', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root/person', 'person=Paul Caster');
+    //not supported by OmniXML:_TestXPathElements(xXml.DocumentElement, '..//person[@name="boss person/2.1"]', 'person=boss person/2.1');
+    //not supported by OmniXML:_TestXPathElements(xXml.DocumentElement, '//person[@name="boss person/2.1"]', 'person=boss person/2.1');
+    //not supported by OmniXML:_TestXPathElements(xXml, '//person[@name]', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml, '//root//person/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+    //OmniXML: ERROR _TestXPathElements(xXml, '//person/../../boss', 'boss=Max Muster');
+    _TestXPathElements(xXml, '//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml, 'root//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml, 'root//boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
+    _TestXPathElements(xXml, 'root//*', 'boss=Max Muster'+sLineBreak+'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml, 'root/*', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml, '/root/boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
+    _TestXPathElements(xXml, 'root/boss', 'boss=Max Muster');
+    //not supported by OmniXML:_TestXPathElements(xXml, 'root/person|root/boss', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml, 'root', 'root=');
+    _TestXPathElements(xXml, 'root/boss/person[2]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+    _TestXPathElements(xXml, 'root/person[1]', 'person=Paul Caster');
+    //not supported by OmniXML:_TestXPathElements(xXml, 'root/person[last()]', 'person=Paul Caster');
+    //not supported by OmniXML:_TestXPathElements(xXml, '/root/*[last()-1]/person[last()]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+    //not supported by OmniXML:_TestXPathElements(xXml, '//text()', 'this text is in person tag'+sLineBreak+'some test info');
+    //not supported by OmniXML:_TestXPathElements(xXml, 'root/node()', 'root:description=test xml'+sLineBreak+'boss=Max Muster'+sLineBreak+'person=Paul Caster'+sLineBreak+'some test info');
+
+    //not supported by OmniXML:_TestXPathElements(xXml, 'root//@*', 'root:description=test xml'+sLineBreak+'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'dog:type=fight'+sLineBreak+'person:name=Paul Caster');
+    //not supported by OmniXML:_TestXPathElements(xXml, 'root//@name', 'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'person:name=Paul Caster');
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OmniXML DOM: All XPath tests succeeded.';
+  end;
+  {$ENDIF}
 
   {$IFDEF USE_INTF}
   procedure TestInterface;
@@ -704,7 +824,6 @@ const
         end;
 
         if xStr <> aResult then begin
-          //raise Exception.Create(
           Memo1.Lines.Text := (
             'XPath test failed: '+aXPath+sLineBreak+
               xStr+sLineBreak+
@@ -840,6 +959,10 @@ const
 begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
+
+  {$IFDEF USE_OMNIXML}
+  TestOmniXML;
+  {$ENDIF}
 
   {$IFDEF USE_INTF}
   TestInterface;
@@ -1364,11 +1487,11 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
     xXML.DocumentNode.NodeName := 'rootnode';
-    xXML.DocumentNode.SelectNode('load').LoadFromXML('some text with <b>tags</b>');
+    xXML.DocumentNode.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');
 
-    Memo1.Lines.Text := xXML.XML(ofIndent);
+    Memo1.Lines.Text := xXML.XML(itIndent);
   end;
   {$ENDIF}
 
@@ -1380,11 +1503,11 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
     xXML.DocumentNode.NodeName := 'rootnode';
-    xXML.DocumentNode.SelectNode('load').LoadFromXML('some text with <b>tags</b>');
+    xXML.DocumentNode.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');
 
-    Memo2.Lines.Text := xXML.XML(ofIndent);
+    Memo2.Lines.Text := xXML.XML(itIndent);
   end;
 begin
   Memo1.Lines.Clear;
@@ -1414,18 +1537,43 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
     I: Integer;
     xT1: Cardinal;
     xXML: OmniXml.IXMLDocument;
-    xRootNode, xNode: OmniXml.IXMLNode;
+    xRootNode, xNode, xNewChild, xFirstNode: OmniXml.IXMLNode;
+    xNewAttr: OmniXml.IXMLAttr;
   begin
     xT1 := GetTickCount;
 
-    xXML := OmniXml.CreateXMLDoc('root');
+    xXML := OmniXml.CreateXMLDoc;
+    xXML.DocumentElement := xXML.CreateElement('root');
     xRootNode := xXML.DocumentElement;
-      for I := 1 to 100*1000 do begin
-      xNode := xRootNode.AddChild('text');
-      xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').AddText('afg');
-      xNode.Attributes['attr1'] := 'A'+IntToStr(I);
-      xNode.Attributes['attr2'] := 'const';
-      xNode.Attributes['attr3'] := 'const';
+    for I := 1 to 100*1000 do begin
+      xNewChild := xXML.CreateElement('text');
+      xNode := xRootNode.AppendChild(xNewChild);
+      xFirstNode := xNode;
+
+      xNewChild := xXML.CreateElement('A'+IntToStr(I));
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateElement('noname');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateElement('some');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateElement('p');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateTextNode('afg');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewAttr := xXML.CreateAttribute('attr1');
+      xNewAttr.Value := 'A'+IntToStr(I);
+      xFirstNode.Attributes.Add(xNewAttr);
+      xNewAttr := xXML.CreateAttribute('attr2');
+      xNewAttr.Value := 'const';
+      xFirstNode.Attributes.Add(xNewAttr);
+      xNewAttr := xXML.CreateAttribute('attr3');
+      xNewAttr.Value := 'const';
+      xFirstNode.Attributes.Add(xNewAttr);
     end;
 
     xRootNode := nil;
@@ -1577,24 +1725,22 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xS := TFileStream.Create(DocDir+'simple.xml', fmCreate);
     xXmlWriter := TOXmlWriter.Create(xS, TEncoding.UTF8);
     try
-      xXmlWriter.Text(sLineBreak);
+      xXmlWriter.IndentType := itNone;
+
       xXmlWriter.DocType('root PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"');
       xXmlWriter.XmlDeclaration(True);
-      xXmlWriter.Text(sLineBreak);
 
       xRootElement := xXmlWriter.OpenElementR('root');
       xRootElement.Attribute('description', 'test xml');
-      xRootElement.FinishOpenElement;
 
       xPersonElement := xRootElement.OpenElementR('boss');
       xPersonElement.Attribute('name', '?Max Muster');
-      xPersonElement.FinishOpenElementClose;
+      xPersonElement.CloseElement;
 
       xRootElement.Comment('this is some text in comment');
 
       xPersonElement := xRootElement.OpenElementR('person');
       xPersonElement.Attribute('name', '/Paul Caster');
-      xPersonElement.FinishOpenElement;
       xPersonElement.Text('/this text is in person tag');
       xPersonElement.CloseElement;
 
@@ -1616,9 +1762,10 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xXml: OXmlIntfDOM.IXMLDocument;
   begin
     xXml := OXmlIntfDOM.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.LoadFromFile(DocDir+'simple.xml');
     Memo1.Lines.Text :=
-      xXml.XML(ofIndent)+sLineBreak+sLineBreak+
+      xXml.XML(itIndent)+sLineBreak+sLineBreak+
       '------'+sLineBreak+
       xXml.DocumentNode.Text;
   end;
@@ -1629,9 +1776,10 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xXml: OXmlPDOM.IXMLDocument;
   begin
     xXml := OXmlPDOM.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.LoadFromFile(DocDir+'simple.xml');
     Memo2.Lines.Text :=
-      xXml.XML(ofIndent)+sLineBreak+sLineBreak+
+      xXml.XML(itIndent)+sLineBreak+sLineBreak+
       '------'+sLineBreak+
       xXml.DocumentNode.Text;
   end;
@@ -1665,38 +1813,38 @@ begin
   {$IFEND}{$ENDIF}
 end;
 
-procedure TForm1.SAXCharacters(Sender: TObject; const aText: OWideString; var aStop: Boolean);
+procedure TForm1.SAXCharacters(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
 end;
 
-procedure TForm1.SAXComment(Sender: TObject; const aText: OWideString; var aStop: Boolean);
+procedure TForm1.SAXComment(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('comment("'+SAXEscapeString(aText)+'")');
 end;
 
-procedure TForm1.SAXEndDocument(Sender: TObject);
+procedure TForm1.SAXEndDocument(Sender: TSAXParser);
 begin
   Memo1.Lines.Add('endDocument()');
 end;
 
-procedure TForm1.SAXEndElement(Sender: TObject; const aName: OWideString; var aStop: Boolean);
+procedure TForm1.SAXEndElement(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('endElement("'+SAXEscapeString(aName)+'")');
 end;
 
-procedure TForm1.SAXProcessingInstruction(Sender: TObject; const aTarget,
+procedure TForm1.SAXProcessingInstruction(Sender: TSAXParser; const aTarget,
   aContent: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('processingInstruction("'+SAXEscapeString(aTarget)+'", "'+SAXEscapeString(aContent)+'")');
 end;
 
-procedure TForm1.SAXStartDocument(Sender: TObject);
+procedure TForm1.SAXStartDocument(Sender: TSAXParser);
 begin
   Memo1.Lines.Add('startDocument()');
 end;
 
-procedure TForm1.SAXStartElement(Sender: TObject; const aName: OWideString;
+procedure TForm1.SAXStartElement(Sender: TSAXParser; const aName: OWideString;
   const aAttributes: TSAXAttributes; var aStop: Boolean);
 var
   xAttrStr: OWideString;

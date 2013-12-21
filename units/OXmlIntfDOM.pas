@@ -84,7 +84,7 @@ type
     function GetParentNode: IXMLNode;
     procedure SetParentNode(const aParentNode: IXMLNode);
 
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation);
+    procedure WriteXML(const aOutputWriter: TOXMLWriter);
 
     property NameId: OHashedStringsIndex read GetNodeNameId;
     property Dictionary: TOHashedStrings read GetDictionary;
@@ -201,30 +201,32 @@ type
     {$ENDIF}
 
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: String; const aOutputFormat: TXmlOutputFormat = ofNone);
+    procedure SaveToFile(const aFileName: String; const aIndentType: TXmlIndentType = itNone);
     //save document to stream in encoding specified by the document
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat = ofNone); overload;
+    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
     //save document to stream and enforce encoding
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToStream(const aStream: TStream;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     //returns XML as string
-    procedure SaveToXML(var aXML: OWideString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
     {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
     {$ENDIF}
     {$IFDEF O_DELPHI_2009_UP}
     //returns XML as a buffer in encoding specified by the document
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat); overload;
+    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
     //returns XML as a buffer and enforce a custom encoding
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToBuffer(var aBuffer: TBytes;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     {$ENDIF}
 
   //public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
-    function XML(const aOutputFormat: TXmlOutputFormat = ofNone): OWideString;
+    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
     {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aOutputFormat: TXmlOutputFormat = ofNone): ORawByteString;
+    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
     {$ENDIF}
 
   //public
@@ -360,7 +362,7 @@ type
     {$ENDIF}
   protected
     function GetDictionary: TOHashedStrings;
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation); virtual; abstract;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); virtual; abstract;
 
     function GetText: OWideString; virtual;
     procedure SetText(const aText: OWideString); virtual;
@@ -394,8 +396,8 @@ type
     procedure SetNodeValue(const aValue: OWideString);
     function GetNodeType: TXmlNodeType; virtual; abstract;
 
-    procedure WriteChildrenXML(const aOutputWriter: TOXMLWriterIndentation);
-    procedure WriteAttributesXML(const aOutputWriter: TOXMLWriterIndentation);
+    procedure WriteChildrenXML(const aOutputWriter: TOXMLWriter);
+    procedure WriteAttributesXML(const aOutputWriter: TOXMLWriter);
   public
     constructor Create(const aOwnerDocument: TXMLDocument; const aName, aValue: OWideString);
     destructor Destroy; override;
@@ -467,24 +469,26 @@ type
     function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
     {$ENDIF}
 
-    procedure SaveToFile(const aFileName: String; const aOutputFormat: TXmlOutputFormat = ofNone);
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat = ofNone); overload;
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToFile(const aFileName: String; const aIndentType: TXmlIndentType = itNone);
+    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
+    procedure SaveToStream(const aStream: TStream;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
-    procedure SaveToXML(var aXML: OWideString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
     {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
     {$ENDIF}
 
     {$IFDEF O_DELPHI_2009_UP}
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat); overload;
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
+    procedure SaveToBuffer(var aBuffer: TBytes;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     {$ENDIF}
 
-    function XML(const aOutputFormat: TXmlOutputFormat = ofNone): OWideString;
+    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
     {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aOutputFormat: TXmlOutputFormat = ofNone): ORawByteString;
+    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
     {$ENDIF}
   public
     property ParentNode: IXMLNode read GetParentNode;
@@ -521,7 +525,7 @@ type
     procedure SetNodeValueId(const aNodeValueId: OHashedStringsIndex); override;
 
     function GetNodeType: TXmlNodeType; override;
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
   end;
 
   TXMLElement = class(TXMLNode)
@@ -540,7 +544,7 @@ type
     function GetHasChildNodes: Boolean; override;
 
     function GetNodeType: TXmlNodeType; override;
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
 
     function GetAttributeNodes: IXMLAttrList; override;
     function GetChildNodes: IXMLNodeList; override;
@@ -556,7 +560,7 @@ type
   TXMLDeclaration = class(TXMLElement)
   protected
     function GetNodeType: TXmlNodeType; override;
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
   public
     constructor Create(const aOwnerDocument: TXMLDocument);
   end;
@@ -577,19 +581,19 @@ type
   TXMLText = class(TXMLCharacterData)
   protected
     function GetNodeType: TXmlNodeType; override;
-    procedure WriteXML(const aOutputWriter: TOXmlWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
     procedure SetText(const aText: OWideString); override;
   end;
 
   TXMLCDATASection = class(TXMLCharacterData)
   protected
-    procedure WriteXML(const aOutputWriter: TOXmlWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
     function GetNodeType: TXmlNodeType; override;
   end;
 
   TXMLComment = class(TXMLCharacterData)
   protected
-    procedure WriteXML(const aOutputWriter: TOXmlWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
     function GetNodeType: TXmlNodeType; override;
     function GetText: OWideString; override;
     procedure SetText(const {%H-}aText: OWideString); override;
@@ -597,7 +601,7 @@ type
 
   TXMLDocType = class(TXMLCharacterData)
   protected
-    procedure WriteXML(const aOutputWriter: TOXmlWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
     function GetNodeType: TXmlNodeType; override;
     function GetText: OWideString; override;
     procedure SetText(const {%H-}aText: OWideString); override;
@@ -605,7 +609,7 @@ type
 
   TXMLProcessingInstruction = class(TXMLAttribute)
   protected
-    procedure WriteXML(const aOutputWriter: TOXmlWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
     function GetNodeType: TXmlNodeType; override;
     function GetText: OWideString; override;
     procedure SetText(const {%H-}aText: OWideString); override;
@@ -616,7 +620,7 @@ type
   TXMLDOMDocument = class(TXMLElement)
   protected
     function GetNodeName: OWideString; override;
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation); override;
+    procedure WriteXML(const aOutputWriter: TOXMLWriter); override;
     function GetNodeType: TXmlNodeType; override;
   end;
 
@@ -687,23 +691,25 @@ type
     function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
     {$ENDIF}
 
-    procedure SaveToFile(const aFileName: String; const aOutputFormat: TXmlOutputFormat = ofNone);
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat = ofNone); overload;
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToFile(const aFileName: String; const aIndentType: TXmlIndentType = itNone);
+    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
+    procedure SaveToStream(const aStream: TStream;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
-    procedure SaveToXML(var aXML: OWideString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
     {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
     {$ENDIF}
     {$IFDEF O_DELPHI_2009_UP}
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat); overload;
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
+    procedure SaveToBuffer(var aBuffer: TBytes;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     {$ENDIF}
 
-    function XML(const aOutputFormat: TXmlOutputFormat = ofNone): OWideString;
+    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
     {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aOutputFormat: TXmlOutputFormat = ofNone): ORawByteString;
+    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
     {$ENDIF}
   public
     property DOMDocument: IXMLNode read GetDOMDocument;
@@ -1280,28 +1286,28 @@ begin
     Result := Result + ChildNodes.Nodes[I].Text;
 end;
 
-function TXMLNode.XML(const aOutputFormat: TXmlOutputFormat): OWideString;
+function TXMLNode.XML(const aIndentType: TXmlIndentType): OWideString;
 begin
-  SaveToXML({%H-}Result, aOutputFormat);
+  SaveToXML({%H-}Result, aIndentType);
 end;
 
 {$IFNDEF NEXTGEN}
 function TXMLNode.XML_UTF8(
-  const aOutputFormat: TXmlOutputFormat): ORawByteString;
+  const aIndentType: TXmlIndentType): ORawByteString;
 begin
-  SaveToXML_UTF8({%H-}Result, aOutputFormat);
+  SaveToXML_UTF8({%H-}Result, aIndentType);
 end;
 {$ENDIF}
 
 {$IFDEF O_DELPHI_2009_UP}
 procedure TXMLNode.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat);
+    SaveToStream(xStream, aIndentType);
 
     SetLength(aBuffer, xStream.Size);
     if xStream.Size > 0 then begin
@@ -1314,14 +1320,14 @@ begin
 end;
 
 procedure TXMLNode.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat, aForceEncoding, aWriteBOM);
+    SaveToStream(xStream, aIndentType, aLineBreak, aForceEncoding, aWriteBOM);
 
     SetLength(aBuffer, xStream.Size);
     if xStream.Size > 0 then begin
@@ -1626,34 +1632,35 @@ begin
 end;
 
 procedure TXMLNode.SaveToFile(const aFileName: String;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xFS: TFileStream;
 begin
   xFS := TFileStream.Create(aFileName, fmCreate);
   try
-    SaveToStream(xFS, aOutputFormat);
+    SaveToStream(xFS, aIndentType);
   finally
     xFS.Free;
   end;
 end;
 
 procedure TXMLNode.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 var
-  xWriter: TOXmlWriterIndentation;
+  xWriter: TOXMLWriter;
 begin
   if not Assigned(aForceEncoding) then
     raise EXmlDOMException.Create(OXmlLng_ForceEncodingNil);
 
-  xWriter := TOXmlWriterIndentation.Create(aStream);
+  xWriter := TOXMLWriter.Create(aStream);
   try
     xWriter.StrictXML := OwnerDocument.StrictXML;
     xWriter.Encoding := aForceEncoding;
 
-    xWriter.OutputFormat := aOutputFormat;
+    xWriter.IndentType := aIndentType;
     xWriter.WriteBOM := aWriteBOM;
+    xWriter.LineBreak := aLineBreak;
 
     WriteXML(xWriter);
   finally
@@ -1662,13 +1669,13 @@ begin
 end;
 
 procedure TXMLNode.SaveToXML(var aXML: OWideString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat, TEncoding.OWideStringEncoding, False);
+    SaveToStream(xStream, aIndentType, XmlDefaultLineBreak, TEncoding.OWideStringEncoding, False);
 
     SetLength(aXML, xStream.Size div SizeOf(OWideChar));
     if xStream.Size > 0 then begin
@@ -1682,13 +1689,13 @@ end;
 
 {$IFNDEF NEXTGEN}
 procedure TXMLNode.SaveToXML_UTF8(var aXML: ORawByteString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat, TEncoding.UTF8, False);
+    SaveToStream(xStream, aIndentType, lbLF, TEncoding.UTF8, False);
 
     SetLength(aXML, xStream.Size);
     if xStream.Size > 0 then begin
@@ -1702,7 +1709,7 @@ end;
 {$ENDIF}
 
 procedure TXMLNode.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xEncoding: TEncoding;
   xWriteBOM: Boolean;
@@ -1710,7 +1717,7 @@ begin
   xEncoding := GetCreateCodePage(OwnerDocument.CodePage);
   xWriteBOM := True;
 
-  SaveToStream(aStream, aOutputFormat, xEncoding, xWriteBOM);
+  SaveToStream(aStream, aIndentType, lbLF, xEncoding, xWriteBOM);
 end;
 
 function TXMLNode.SelectNode(
@@ -1793,7 +1800,7 @@ begin
   AddText(aText);
 end;
 
-procedure TXMLNode.WriteChildrenXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLNode.WriteChildrenXML(const aOutputWriter: TOXMLWriter);
 var I: Integer;
 begin
   if not HasChildNodes then
@@ -1804,7 +1811,7 @@ begin
 end;
 
 procedure TXMLNode.WriteAttributesXML(
-  const aOutputWriter: TOXmlWriterIndentation);
+  const aOutputWriter: TOXMLWriter);
 var
   I: Integer;
   xAttr: IXMLNode;
@@ -2299,31 +2306,31 @@ begin
   Result := fWhiteSpaceHandling;
 end;
 
-function TXMLDocument.XML(const aOutputFormat: TXmlOutputFormat): OWideString;
+function TXMLDocument.XML(const aIndentType: TXmlIndentType): OWideString;
 begin
-  Result := DOMDocument.XML(aOutputFormat);
+  Result := DOMDocument.XML(aIndentType);
 end;
 
 {$IFNDEF NEXTGEN}
 function TXMLDocument.XML_UTF8(
-  const aOutputFormat: TXmlOutputFormat): ORawByteString;
+  const aIndentType: TXmlIndentType): ORawByteString;
 begin
-  Result := DOMDocument.XML_UTF8(aOutputFormat);
+  Result := DOMDocument.XML_UTF8(aIndentType);
 end;
 {$ENDIF}
 
 {$IFDEF O_DELPHI_2009_UP}
 procedure TXMLDocument.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToBuffer(aBuffer, aOutputFormat);
+  DOMDocument.SaveToBuffer(aBuffer, aIndentType);
 end;
 
 procedure TXMLDocument.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 begin
-  DOMDocument.SaveToBuffer(aBuffer, aOutputFormat, aForceEncoding, aWriteBOM);
+  DOMDocument.SaveToBuffer(aBuffer, aIndentType, aLineBreak, aForceEncoding, aWriteBOM);
 end;
 {$ENDIF}
 
@@ -2363,36 +2370,35 @@ end;
 {$ENDIF}
 
 procedure TXMLDocument.SaveToFile(const aFileName: String;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToFile(aFileName, aOutputFormat);
+  DOMDocument.SaveToFile(aFileName, aIndentType);
 end;
 
 procedure TXMLDocument.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToStream(aStream, aOutputFormat);
+  DOMDocument.SaveToStream(aStream, aIndentType);
 end;
 
 procedure TXMLDocument.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat;
-  const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 begin
-  DOMDocument.SaveToStream(aStream, aOutputFormat, aForceEncoding, aWriteBOM);
+  DOMDocument.SaveToStream(aStream, aIndentType, aLineBreak, aForceEncoding, aWriteBOM);
 end;
 
 procedure TXMLDocument.SaveToXML(var aXML: OWideString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToXML(aXML, aOutputFormat);
+  DOMDocument.SaveToXML(aXML, aIndentType);
 end;
 
 {$IFNDEF NEXTGEN}
 procedure TXMLDocument.SaveToXML_UTF8(var aXML: ORawByteString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToXML_UTF8(aXML, aOutputFormat);
+  DOMDocument.SaveToXML_UTF8(aXML, aIndentType);
 end;
 {$ENDIF}
 
@@ -2473,7 +2479,7 @@ begin
   Result := ntAttribute;
 end;
 
-procedure TXMLAttribute.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLAttribute.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
   aOutputWriter.Attribute(NodeName, NodeValue);
 end;
@@ -2539,9 +2545,8 @@ begin
   Result := ntXMLDeclaration;
 end;
 
-procedure TXMLDeclaration.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLDeclaration.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
-  aOutputWriter.Indent;
   aOutputWriter.OpenXMLDeclaration;
   WriteAttributesXML(aOutputWriter);
   aOutputWriter.FinishOpenXMLDeclaration;
@@ -2554,9 +2559,8 @@ begin
   Result := ntCData;
 end;
 
-procedure TXMLCDATASection.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLCDATASection.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
-  aOutputWriter.Indent;
   aOutputWriter.CData(Text);
 end;
 
@@ -2575,13 +2579,10 @@ begin
     inherited SetText(aText);
 end;
 
-procedure TXMLText.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLText.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
-  if (aOutputWriter.OutputFormat <> ofNone) and//speed optimization
-    not(fParentNode.HasChildNodes and (fParentNode.ChildNodes.Count = 1))
-  then//indent if the text is not the only child
-    aOutputWriter.Indent;
-  aOutputWriter.Text(Text);
+  aOutputWriter.Text(Text, (aOutputWriter.IndentType <> itNone) and//speed optimization
+    not(fParentNode.HasChildNodes and (fParentNode.ChildNodes.Count = 1)));
 end;
 
 { TXMLComment }
@@ -2601,9 +2602,8 @@ begin
   raise EXmlDOMException.Create(OXmlLng_CannotSetText);
 end;
 
-procedure TXMLComment.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLComment.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
-  aOutputWriter.Indent;
   aOutputWriter.Comment(NodeValue);
 end;
 
@@ -2698,25 +2698,19 @@ begin
   fPreserveWhiteSpace := aPreserveWhiteSpace;
 end;
 
-procedure TXMLElement.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLElement.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
-  aOutputWriter.Indent;
   aOutputWriter.OpenElement(NodeName);
-  aOutputWriter.IncIndentLevel;
   WriteAttributesXML(aOutputWriter);
   if HasChildNodes then begin
     aOutputWriter.FinishOpenElement;
     WriteChildrenXML(aOutputWriter);
-    aOutputWriter.DecIndentLevel;
-    if (aOutputWriter.OutputFormat <> ofNone) and//speed optimization
-      not(
-       (fChildNodes.Count = 1) and
-       (fChildNodes[0].NodeType = ntText))
-    then//indent if the text is not the only child
-      aOutputWriter.Indent;
-    aOutputWriter.CloseElement(NodeName);
+    aOutputWriter.CloseElement(NodeName,
+      (aOutputWriter.IndentType <> itNone) and//speed optimization
+      not (
+        (ChildNodes.Count = 1) and
+        (ChildNodes[0].NodeType = ntText)));
   end else begin
-    aOutputWriter.DecIndentLevel;
     aOutputWriter.FinishOpenElementClose;
   end;
 end;
@@ -2759,9 +2753,8 @@ begin
 end;
 
 procedure TXMLProcessingInstruction.WriteXML(
-  const aOutputWriter: TOXmlWriterIndentation);
+  const aOutputWriter: TOXMLWriter);
 begin
-  aOutputWriter.Indent;
   aOutputWriter.ProcessingInstruction(NodeName, NodeValue);
 end;
 
@@ -2782,9 +2775,8 @@ begin
   raise EXmlDOMException.Create(OXmlLng_CannotSetText);
 end;
 
-procedure TXMLDocType.WriteXML(const aOutputWriter: TOXmlWriterIndentation);
+procedure TXMLDocType.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
-  aOutputWriter.Indent;
   aOutputWriter.DocType(NodeValue);
 end;
 
@@ -2800,7 +2792,7 @@ begin
   Result := ntDOMDocument;
 end;
 
-procedure TXMLDOMDocument.WriteXML(const aOutputWriter: TOXMLWriterIndentation);
+procedure TXMLDOMDocument.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
   WriteChildrenXML(aOutputWriter);
 end;

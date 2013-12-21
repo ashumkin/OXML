@@ -10,3 +10,4 @@ text.
 There is an exception: files in "units/OmniXML" and "units/KOmniXML"
 are supplied with a different licensing model (please see the 
 License.txt file in each directory).
+Furthermore the demos (in "demos/" directory) are public domain.

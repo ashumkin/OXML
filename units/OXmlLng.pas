@@ -67,6 +67,7 @@ resourcestring
   OXmlLng_ChildNotFound = 'Child not found.';
   OXmlLng_ListIndexOutOfRange = 'List index out of range.';
   OXmlLng_FeatureNotSupported = 'This feature is not supported.';
+  OXmlLng_CannotWriteAttributesWhenFinished = 'You can''t add an attribute %s="%s" when the element header has been finished.';
 
 implementation
 

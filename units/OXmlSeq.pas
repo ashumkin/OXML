@@ -15,11 +15,13 @@ unit OXmlSeq;
 {
   OXmlSeq.pas
 
-  Sequential DOM XML parser based on XmlPDoc.pas
+  Sequential DOM XML parser based on XmlPDOM.pas
     -> read particular XML elements into DOM and so parse huge XML documents
        with small memory usage but still take advantage of DOM capabilities.
     -> you can also omit some XML passages and get only the information
        that is insteresting to you
+    -> OXmlSeq is about as fast as XmlPDOM - there is no significant performance
+       penalty when using sequential parser instead of pure DOM
 }
 
 {$I OXml.inc}
@@ -55,6 +57,11 @@ type
 
     function ReadNextChildNodeCustom(const aOnlyElementHeader: Boolean;
       var aElementIsOpen: Boolean): Boolean;
+
+    function GetStrictXML: Boolean;
+    function GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
+    procedure SetStrictXML(const aStrictXML: Boolean);
+    procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
   protected
     procedure DoCreate(const aForceEncoding: TEncoding); virtual;
     procedure DoDestroy; virtual;
@@ -99,6 +106,16 @@ type
     //  if no child element is found (result=false), the reader position will
     //    be set after the parent's closing element.
     function ReadNextChildNode(var aNode: PXMLNode): Boolean;
+
+  public
+    //document whitespace handling
+    //  -> used only in "ReadNextChildNode" for the resulting document
+    property WhiteSpaceHandling: TXmlWhiteSpaceHandling read GetWhiteSpaceHandling write SetWhiteSpaceHandling;
+
+    //StrictXML: document must be valid XML
+    //   = true: raise Exceptions when document is not valid
+    //   = false: try to fix and go over document errors.
+    property StrictXML: Boolean read GetStrictXML write SetStrictXML;
   end;
 
 implementation
@@ -174,13 +191,12 @@ end;
 procedure TXMLSeqParser.DoCreate(const aForceEncoding: TEncoding);
 begin
   fReader := TOXmlReader.Create(fStream, aForceEncoding);
-  fReader.BreakReading := brNone;
 
   fReaderNode.NodeType := etDocumentStart;
   fReaderNode.NodeName := '';
   fReaderNode.NodeValue := '';
 
-  fXmlDoc := CreateXMLDoc;
+  fXmlDoc := TXMLDocument.Create;
   fTempNodePath := TOWideStringList.Create;
   fTempReaderPath := TOWideStringList.Create;
 end;
@@ -192,6 +208,16 @@ begin
     fStream.Free;
   fTempNodePath.Free;
   fTempReaderPath.Free;
+end;
+
+function TXMLSeqParser.GetStrictXML: Boolean;
+begin
+  Result := fXmlDoc.StrictXML;
+end;
+
+function TXMLSeqParser.GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
+begin
+  Result := fXmlDoc.WhiteSpaceHandling;
 end;
 
 function TXMLSeqParser.GoToPath(const aPath: OWideString): Boolean;
@@ -254,10 +280,9 @@ begin
   fXmlDoc.Loading := True;
   try
     fXmlDoc.Clear;
-    fReader.NodePathAssignTo(fTempNodePath);
 
     if fReaderNode.NodeType = etOpenElement then begin
-      //last found was opening element, write it down!
+      //last found was opening element (most probably from GoToPath()), write it down!
       xLastNode := fXmlDoc.DOMDocument.AddChild(fReaderNode.NodeName)
     end else begin
       //last found was something else
@@ -268,69 +293,58 @@ begin
         while fReader.ReadNextNode(fReaderNode) do begin
           case fReaderNode.NodeType of
             etOpenElement://new element found
-            if fReader.RefIsChildOfNodePath(fTempNodePath)//fReaderNode is child of fTempNodePath
-            then begin
+            begin
               xLastNode := fXmlDoc.DOMDocument.AddChild(fReaderNode.NodeName);
               Break;
             end;
             etCloseElement://parent element may be closed
-            if fReader.RefIsParentOfNodePath(fTempNodePath)//fReaderNode is parent of fTempNodePath -> exit!
-            then begin
               Exit;
-            end;
           end;
         end;
 
-        if xLastNode = fXmlDoc.DOMDocument then begin//next child not found, exit
+        if xLastNode = fXmlDoc.DOMDocument then//next child not found, exit
           Exit;
-        end;
       end;
-
     end;
 
-    while fReader.ReadNextNode(fReaderNode) do begin
-      case fReaderNode.NodeType of
-        etOpenXMLDeclaration: xLastNode := xLastNode.AddXMLDeclaration;
-        etXMLDeclarationAttribute, etAttribute: xLastNode.Attributes[fReaderNode.NodeName] := fReaderNode.NodeValue;
-        etXMLDeclarationFinishClose, etFinishOpenElementClose, etCloseElement: begin
-          xLastNode := xLastNode.ParentNode;
-          if not Assigned(xLastNode) then begin//the parent element was closed
+    if not aOnlyElementHeader then begin
+      //read whole element contents
+      Result := xLastNode.LoadFromReader(fReader);
+    end else begin
+      //read only element header
+      while fReader.ReadNextNode(fReaderNode) do begin
+        case fReaderNode.NodeType of
+          etXMLDeclarationAttribute, etAttribute:
+            xLastNode.Attributes[fReaderNode.NodeName] := fReaderNode.NodeValue;
+          etFinishOpenElement:
+          begin
+            aElementIsOpen := True;
+            Result := True;
+            Exit;
+          end;
+          etXMLDeclarationFinishClose, etFinishOpenElementClose, etCloseElement:
+          begin
+            aElementIsOpen := False;
+            Result := True;
             Exit;
           end;
         end;
-        etOpenElement: begin
-          fDataRead := True;
-          xLastNode := xLastNode.AddChild(fReaderNode.NodeName);
-        end;
-        etText:
-          if fDataRead or not OXmlIsWhiteSpace(fReaderNode.NodeValue) then//omit empty text before root node
-            xLastNode.AddText(fReaderNode.NodeValue);
-        etCData: xLastNode.AddCDATASection(fReaderNode.NodeValue);
-        etComment: xLastNode.AddComment(fReaderNode.NodeValue);
-        etDocType: xLastNode.AddDocType(fReaderNode.NodeValue);
-        etProcessingInstruction: xLastNode.AddProcessingInstruction(fReaderNode.NodeName, fReaderNode.NodeValue);
-      end;
-
-      if not (fReaderNode.NodeType in [etAttribute, etOpenElement, etOpenXMLDeclaration])
-        and (
-          (fReader.NodePathMatch(fTempNodePath) or fReader.RefIsParentOfNodePath(fTempNodePath))//end of the element
-          or
-          (aOnlyElementHeader and fReader.RefIsChildOfNodePath(fTempNodePath))//next element was found, but we want to read only header
-        )
-      then begin
-        if (fReaderNode.NodeType <> etFinishOpenElement) or
-            aOnlyElementHeader
-        then begin
-          //next node was found, return true and exit!
-          aElementIsOpen := (fReaderNode.NodeType = etFinishOpenElement);
-          Result := True;
-          Exit;
-        end;
-      end;
-    end;
+      end;//while
+    end;//if
   finally
     fXmlDoc.Loading := False;
   end;
+end;
+
+procedure TXMLSeqParser.SetStrictXML(const aStrictXML: Boolean);
+begin
+  fXmlDoc.StrictXML := aStrictXML;
+end;
+
+procedure TXMLSeqParser.SetWhiteSpaceHandling(
+  const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
+begin
+  fXmlDoc.WhiteSpaceHandling := aWhiteSpaceHandling;
 end;
 
 end.

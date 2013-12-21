@@ -1,0 +1,20 @@
+OXml Change Log
+---------------
+
+Version 0.3 [SVN commit: 4, https://sourceforge.net/p/oxml/code/4/]
+  - OutputFormat: TXmlOutputFormat = (ofNone, ofFlat, ofIndent) renamed to:
+    IndentType: TXmlIndentType = (itNone, itFlat, itIndent)
+  - TOXmlWriterIndentation and TOXmlWriter merged: now TOXmlWriter supports automatic indentation.
+    Use TOXmlWriter.IndentType and TOXmlWriter.IndentString for automatic indentation.
+  - OXmlSeq.pas performance optimization - now TXMLSeqParser is as fast as OXmlPDOM.IXmlDocument.
+  - OXmlSAX.pas: changed Sender attribute in events from TObject to TSAXParser.
+  - OXmlSAX.pas: added NodePath* support - now you can get the current path in the XML document
+    in a SAX event.
+  - Added 2 demo applications (converted from OmniXML demos).
+
+Version 0.2 [SVN commit: 3, https://sourceforge.net/p/oxml/code/3/]
+  - Added OmniXML (original version) - ported to iOS/Android with some OXml units.
+  - Added "OmniXML by Kluug.net"
+
+Version 0.1
+  - initial release

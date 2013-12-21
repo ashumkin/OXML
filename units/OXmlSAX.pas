@@ -44,14 +44,16 @@ uses
   OHashedStrings;
 
 type
+  TSAXParser = class;
   TSAXAttribute = TOHashedStringDictionaryEnumPair;//Key = NodeName, Value = NodeValue
   TSAXAttributes = TOHashedStringDictionary;
 
-  TSAXTextEvent = procedure(Sender: TObject; const aText: OWideString; var aStop: Boolean) of Object;
-  TSAXStartElementEvent = procedure(Sender: TObject; const aName: OWideString;
+  TSAXNotifyEvent = procedure(Sender: TSAXParser) of Object;
+  TSAXTextEvent = procedure(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean) of Object;
+  TSAXStartElementEvent = procedure(Sender: TSAXParser; const aName: OWideString;
     const aAttributes: TSAXAttributes; var aStop: Boolean) of Object;
-  TSAXEndElementEvent = procedure(Sender: TObject; const aName: OWideString; var aStop: Boolean) of Object;
-  TSAXProcessingInstructionEvent = procedure(Sender: TObject; const aTarget, aContent: OWideString; var aStop: Boolean) of Object;
+  TSAXEndElementEvent = procedure(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean) of Object;
+  TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString; var aStop: Boolean) of Object;
 
   {$IFDEF O_DELPHI_2009_UP}
   TSAXNotifyProc = reference to procedure;
@@ -69,8 +71,8 @@ type
     fOwnsStream: Boolean;
     fDataRead: Boolean;
 
-    fOnStartDocument: TNotifyEvent;
-    fOnEndDocument: TNotifyEvent;
+    fOnStartDocument: TSAXNotifyEvent;
+    fOnEndDocument: TSAXNotifyEvent;
     fOnCharacters: TSAXTextEvent;
     fOnComment: TSAXTextEvent;
     fOnProcessingInstruction: TSAXProcessingInstructionEvent;
@@ -98,9 +100,12 @@ type
 
     function GetBreakReading: TXmlBreakReading;
     function GetEntityList: TOXmlReaderEntityList;
-    function GetLineBreak: OWideString;
+    function GetLineBreak: TXmlLineBreak;
     procedure SetBreakReading(const aBreakReading: TXmlBreakReading);
-    procedure SetLineBreak(const aLineBreak: OWideString);
+    procedure SetLineBreak(const aLineBreak: TXmlLineBreak);
+
+    function GetNodePath(const aIndex: Integer): OWideString;
+    function GetNodePathCount: Integer;
   protected
     procedure DoCreate(const aForceEncoding: TEncoding); virtual;
     procedure DoDestroy; virtual;
@@ -108,6 +113,17 @@ type
     //Parse the document
     //  returns true if parsing was stopped before the end of the file
     function Parse: Boolean;
+
+    //following are functions to work with the current path in the XML document
+    function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
+    function NodePathMatch(const aNodePath: TOWideStringList): Boolean; overload;
+    function NodePathMatch(const aNodePath: Array of OWideString): Boolean; overload;
+    function RefIsChildOfNodePath(const aRefNodePath: TOWideStringList): Boolean; overload;
+    function RefIsChildOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
+    function RefIsParentOfNodePath(const aRefNodePath: TOWideStringList): Boolean; overload;
+    function RefIsParentOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
+    procedure NodePathAssignTo(const aNodePath: TOWideStringList);
+    function NodePathAsString: OWideString;
   public
     //aForceEncoding - if set, parser will ignore <?xml encoding="???" ?>
     constructor Create(const aStream: TStream;
@@ -123,9 +139,9 @@ type
     destructor Destroy; override;
   public
     //root element was found -> it's not possible to stop here!
-    property OnStartDocument: TNotifyEvent read fOnStartDocument write fOnStartDocument;
+    property OnStartDocument: TSAXNotifyEvent read fOnStartDocument write fOnStartDocument;
     //reached the end of the document
-    property OnEndDocument: TNotifyEvent read fOnEndDocument write fOnEndDocument;
+    property OnEndDocument: TSAXNotifyEvent read fOnEndDocument write fOnEndDocument;
     //text or CData
     property OnCharacters: TSAXTextEvent read fOnCharacters write fOnCharacters;
     //comment
@@ -154,6 +170,11 @@ type
     property EndElementProc: TSAXElementProc read fEndElementProc write fEndElementProc;
     {$ENDIF}
 
+    //current path in XML document
+    property NodePath[const aIndex: Integer]: OWideString read GetNodePath;
+    //count of elements in path
+    property NodePathCount: Integer read GetNodePathCount;
+
     //process known entities. add user-defined entities here
     property EntityList: TOXmlReaderEntityList read GetEntityList;
     //decide if you want to read the document after the root element has been closed
@@ -161,7 +182,7 @@ type
     //process line breaks (#10, #13, #13#10) to the LineBreak character.
     //  set to empty string ('') if you don't want any processing
     //  default is your OS line break (sLineBreak)
-    property LineBreak: OWideString read GetLineBreak write SetLineBreak;
+    property LineBreak: TXmlLineBreak read GetLineBreak write SetLineBreak;
   end;
 
 implementation
@@ -336,9 +357,45 @@ begin
   Result := fReader.EntityList;
 end;
 
-function TSAXParser.GetLineBreak: OWideString;
+function TSAXParser.GetLineBreak: TXmlLineBreak;
 begin
   Result := fReader.LineBreak;
+end;
+
+function TSAXParser.GetNodePath(const aIndex: Integer): OWideString;
+begin
+  Result := fReader.NodePath[aIndex];
+end;
+
+function TSAXParser.GetNodePathCount: Integer;
+begin
+  Result := fReader.NodePathCount;
+end;
+
+procedure TSAXParser.NodePathAssignTo(const aNodePath: TOWideStringList);
+begin
+  fReader.NodePathAssignTo(aNodePath);
+end;
+
+function TSAXParser.NodePathAsString: OWideString;
+begin
+  Result := fReader.NodePathAsString;
+end;
+
+function TSAXParser.NodePathMatch(
+  const aNodePath: array of OWideString): Boolean;
+begin
+  Result := fReader.NodePathMatch(aNodePath);
+end;
+
+function TSAXParser.NodePathMatch(const aNodePath: TOWideStringList): Boolean;
+begin
+  Result := fReader.NodePathMatch(aNodePath);
+end;
+
+function TSAXParser.NodePathMatch(const aNodePath: OWideString): Boolean;
+begin
+  Result := fReader.NodePathMatch(aNodePath);
 end;
 
 function TSAXParser.Parse: Boolean;
@@ -388,14 +445,38 @@ begin
   Result := xStop;
 end;
 
+function TSAXParser.RefIsChildOfNodePath(
+  const aRefNodePath: TOWideStringList): Boolean;
+begin
+  Result := fReader.RefIsChildOfNodePath(aRefNodePath);
+end;
+
+function TSAXParser.RefIsParentOfNodePath(
+  const aRefNodePath: TOWideStringList): Boolean;
+begin
+  Result := fReader.RefIsParentOfNodePath(aRefNodePath);
+end;
+
 procedure TSAXParser.SetBreakReading(const aBreakReading: TXmlBreakReading);
 begin
   fReader.BreakReading := aBreakReading;
 end;
 
-procedure TSAXParser.SetLineBreak(const aLineBreak: OWideString);
+procedure TSAXParser.SetLineBreak(const aLineBreak: TXmlLineBreak);
 begin
   fReader.LineBreak := aLineBreak;
+end;
+
+function TSAXParser.RefIsChildOfNodePath(
+  const aRefNodePath: array of OWideString): Boolean;
+begin
+  Result := fReader.RefIsChildOfNodePath(aRefNodePath);
+end;
+
+function TSAXParser.RefIsParentOfNodePath(
+  const aRefNodePath: array of OWideString): Boolean;
+begin
+  Result := fReader.RefIsParentOfNodePath(aRefNodePath);
 end;
 
 end.

@@ -181,6 +181,8 @@ type
 function GetCreateCodePage(const aCodePage: Cardinal): TEncoding; overload;
 //get or create code page from alias, returns true if found
 function GetCreateCodePage(const aAlias: OWideString; var aEncoding: TEncoding): Boolean; overload;
+//get or create code page from alias, returns nil if not found
+function GetCreateCodePage(const aAlias: OWideString): TEncoding; overload;
 function AliasToCodePage(const aAlias: OWideString): Cardinal;
 function CodePageToAlias(const aCodePage: Cardinal): OWideString;
 
@@ -798,7 +800,14 @@ begin
   xCP := AliasToCodePage(aAlias);
   Result := (xCP <> 0);
   if Result then
-    aEncoding := GetCreateCodePage(xCP);
+    aEncoding := GetCreateCodePage(xCP)
+  else
+    aEncoding := nil;
+end;
+
+function GetCreateCodePage(const aAlias: OWideString): TEncoding;
+begin
+  GetCreateCodePage(aAlias, {%H-}Result);
 end;
 
 function AliasToCodePage(const aAlias: OWideString): Cardinal;

@@ -82,14 +82,19 @@ type
     procedure Insert(const aNew, aBeforeNode: PXMLNode; const aChildType: TXMLChildType);
     procedure Remove(const aOld: PXMLNode; const aChildType: TXMLChildType);
     procedure Delete(const aOld: PXMLNode; const aChildType: TXMLChildType);
-  private
-    function GetFirstChild: PXMLNode;
-    function GetLastChild: PXMLNode;
-    function GetFirstAttribute: PXMLNode;
-    function GetLastAttribute: PXMLNode;
+
+    function GetNextCChild(var aChildEnum: PXMLNode; const aChildType: TXMLChildType): Boolean;
+    function GetPreviousCChild(var aChildEnum: PXMLNode; const aChildType: TXMLChildType): Boolean;
+    function GetFirstCChild(const aChildType: TXMLChildType): PXMLNode;
+    function GetLastChild(const aChildType: TXMLChildType): PXMLNode;
+    function GetChildFromBegin(const aIndex: Integer; const aChildType: TXMLChildType): PXMLNode;
+    function GetChildFromEnd(const aIndex: Integer; const aChildType: TXMLChildType): PXMLNode;
+
     function GetNextSibling: PXMLNode;
     function GetPreviousSibling: PXMLNode;
+
     function GetParentNode: PXMLNode;
+  private
     function GetNodeName: OWideString;
     function GetNodeValue: OWideString;
     procedure SetNodeName(const aName: OWideString);
@@ -107,10 +112,13 @@ type
     function GetAttributeCount: Integer;
     function GetChildCount: Integer;
     function TryGetChildNodes(var aList: TXMLChildNodeList; const aChildType: TXMLChildType): Boolean;
-  private
-    procedure WriteChildrenXML(const aOutputWriter: TOXMLWriterIndentation);
-    procedure WriteAttributesXML(const aOutputWriter: TOXMLWriterIndentation);
-    procedure WriteXML(const aOutputWriter: TOXMLWriterIndentation);
+  public
+    //methods for direct reading/writing
+    procedure WriteChildrenXML(const aOutputWriter: TOXMLWriter);
+    procedure WriteAttributesXML(const aOutputWriter: TOXMLWriter);
+    procedure WriteXML(const aOutputWriter: TOXMLWriter);
+
+    function LoadFromReader(const aReader: TOXmlReader): Boolean;
   public
     procedure Init(const aId: XMLNodeId; const aNodeType: TXmlNodeType;
       const aOwnerDocument: TXMLDocument);
@@ -251,30 +259,33 @@ type
     {$ENDIF}
 
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: String; const aOutputFormat: TXmlOutputFormat = ofNone);
+    procedure SaveToFile(const aFileName: String;
+      const aIndentType: TXmlIndentType = itNone);
     //save document to stream in encoding specified by the document
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat = ofNone); overload;
+    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
     //save document to stream and enforce encoding
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToStream(const aStream: TStream;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     //returns XML as string
-    procedure SaveToXML(var aXML: OWideString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
     {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
     {$ENDIF}
 
     {$IFDEF O_DELPHI_2009_UP}
     //returns XML as a buffer in encoding specified by the document
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat); overload;
+    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
     //returns XML as a buffer and enforce a custom encoding
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToBuffer(var aBuffer: TBytes;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     {$ENDIF}
   public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
-    function XML(const aOutputFormat: TXmlOutputFormat = ofNone): OWideString;
+    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
     {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aOutputFormat: TXmlOutputFormat = ofNone): ORawByteString;
+    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
     {$ENDIF}
   public
     property Id: XMLNodeId read fId;
@@ -287,10 +298,15 @@ type
     property ParentNode: PXMLNode read GetParentNode;
     property OwnerDocument: TXMLDocument read fOwnerDocument;
 
-    property FirstChild: PXMLNode read GetFirstChild;
-    property LastChild: PXMLNode read GetLastChild;
-    property FirstAttribute: PXMLNode read GetFirstAttribute;
-    property LastAttribute: PXMLNode read GetLastAttribute;
+    property FirstChild: PXMLNode index ctChild read GetFirstCChild;
+    property LastChild: PXMLNode index ctChild read GetLastChild;
+    property ChildFromBegin[const aIndex: Integer]: PXMLNode index ctChild read GetChildFromBegin;
+    property ChildFromEnd[const aIndex: Integer]: PXMLNode index ctChild read GetChildFromEnd;
+    property FirstAttribute: PXMLNode index ctAttribute read GetFirstCChild;
+    property LastAttribute: PXMLNode index ctAttribute read GetLastChild;
+    property AttributeFromBegin[const aIndex: Integer]: PXMLNode index ctAttribute read GetChildFromBegin;
+    property AttributeFromEnd[const aIndex: Integer]: PXMLNode index ctAttribute read GetChildFromEnd;
+
     property NextSibling: PXMLNode read GetNextSibling;
     property PreviousSibling: PXMLNode read GetPreviousSibling;
 
@@ -313,13 +329,21 @@ type
     property NullResNodeList: IXMLNodeList read GetNullResNodeList;
 
   //public
+    //attribute aName="aValue"
     function CreateAttribute(const aName: OWideString; const aValue: OWideString = ''): PXMLNode;
+    //element <aNodeName />
     function CreateElement(const aNodeName: OWideString): PXMLNode;
+    //xml declaration <?xml ?>
     function CreateXMLDeclaration: PXMLNode;
+    //text
     function CreateTextNode(const aText: OWideString): PXMLNode;
+    //cdata <![CDATA[aText]]>
     function CreateCDATASection(const aData: OWideString): PXMLNode;
+    //comment <!--aText-->
     function CreateComment(const aText: OWideString): PXMLNode;
+    //doctype <!DOCTYPE aDocTypeRawText>
     function CreateDocType(const aDocTypeRawText: OWideString): PXMLNode;
+    //custom PI <?aTarget aContent?>
     function CreateProcessingInstruction(const aTarget, aContent: OWideString): PXMLNode;
 
   //public
@@ -346,7 +370,7 @@ type
     fTempChildNodes: Array[TXMLChildType] of TODictionary;
     {$ENDIF}
     fLastNodeId: XMLNodeId;//highest used NodeId
-    fNodesLength: XMLNodeId;//= Length(fNodes)
+    fNodesLength: XMLNodeId;//= "Count(fNodes)*1024" - count of allocated nodes
     fDOMDocument: PXMLNode;//the blank document element
     fNullNode: PXMLNode;
     fNullNodeList: IXMLNodeList;
@@ -379,7 +403,7 @@ type
     function GetDocumentNode: PXMLNode;//first element in document (=root)
     procedure SetDocumentNode(const aDocumentNode: PXMLNode);
 
-    procedure DisposeNodes;
+    procedure ClearNodes(const aDisposeNodes: Boolean);
   protected
     procedure FreeNode(const aNode: PXMLNode);
     function CreateNode(const aNodeType: TXmlNodeType; var aNode: PXMLNode): XMLNodeId;
@@ -429,24 +453,26 @@ type
     function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
     {$ENDIF}
 
-    procedure SaveToFile(const aFileName: String; const aOutputFormat: TXmlOutputFormat = ofNone);
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat = ofNone); overload;
-    procedure SaveToStream(const aStream: TStream; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToFile(const aFileName: String; const aIndentType: TXmlIndentType = itNone);
+    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
+    procedure SaveToStream(const aStream: TStream;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
 
     {$IFDEF O_DELPHI_2009_UP}
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat); overload;
-    procedure SaveToBuffer(var aBuffer: TBytes; const aOutputFormat: TXmlOutputFormat;
+    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
+    procedure SaveToBuffer(var aBuffer: TBytes;
+      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
       const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
     {$ENDIF}
-    procedure SaveToXML(var aXML: OWideString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
     {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aOutputFormat: TXmlOutputFormat);
+    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
     {$ENDIF}
   public
-    function XML(const aOutputFormat: TXmlOutputFormat = ofNone): OWideString;
+    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
     {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aOutputFormat: TXmlOutputFormat = ofNone): ORawByteString;
+    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
     {$ENDIF}
   public
     property DOMDocument: PXMLNode read GetDOMDocument;
@@ -993,6 +1019,40 @@ begin
     Inc(Result);
 end;
 
+function TXMLNode.GetChildFromBegin(const aIndex: Integer;
+  const aChildType: TXMLChildType): PXMLNode;
+var
+  I: Integer;
+begin
+  if aIndex < 0 then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  //search forwards through all nodes
+  I := -1;
+  while (I < aIndex) and GetNextCChild({%H-}Result, aChildType) do
+    Inc(I);
+
+  if (I <> aIndex) or not Assigned(Result) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+end;
+
+function TXMLNode.GetChildFromEnd(const aIndex: Integer;
+  const aChildType: TXMLChildType): PXMLNode;
+var
+  I: Integer;
+begin
+  if aIndex < 0 then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  //search forwards through all nodes
+  I := -1;
+  while (I < aIndex) and GetPreviousCChild({%H-}Result, aChildType) do
+    Inc(I);
+
+  if (I <> aIndex) or not Assigned(Result) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+end;
+
 function TXMLNode.GetChildNodes: TXMLChildNodeList;
 begin
   Result := OwnerDocument.GetCreateTempChildNodeList(@Self, ctChild);
@@ -1004,24 +1064,14 @@ begin
   Result := OwnerDocument.TryGetTempChildNodeList(@Self, aChildType, aList);
 end;
 
-function TXMLNode.GetFirstAttribute: PXMLNode;
+function TXMLNode.GetFirstCChild(const aChildType: TXMLChildType): PXMLNode;
 begin
-  Result := fOwnerDocument.GetNode(fFirstChildId[ctAttribute]);
+  Result := fOwnerDocument.GetNode(fFirstChildId[aChildType]);
 end;
 
-function TXMLNode.GetFirstChild: PXMLNode;
+function TXMLNode.GetLastChild(const aChildType: TXMLChildType): PXMLNode;
 begin
-  Result := fOwnerDocument.GetNode(fFirstChildId[ctChild]);
-end;
-
-function TXMLNode.GetLastAttribute: PXMLNode;
-begin
-  Result := fOwnerDocument.GetNode(fLastChildId[ctAttribute]);
-end;
-
-function TXMLNode.GetLastChild: PXMLNode;
-begin
-  Result := fOwnerDocument.GetNode(fLastChildId[ctChild]);
+  Result := fOwnerDocument.GetNode(fLastChildId[aChildType]);
 end;
 
 function TXMLNode.GetNodeName: OWideString;
@@ -1031,22 +1081,23 @@ end;
 
 function TXMLNode.GetNextAttribute(var aAttributeEnum: PXMLNode): Boolean;
 begin
-  if Assigned(aAttributeEnum) then
-    aAttributeEnum := aAttributeEnum.NextSibling
-  else
-    aAttributeEnum := FirstAttribute;
-
-  Result := Assigned(aAttributeEnum);
+  Result := GetNextCChild(aAttributeEnum, ctAttribute);
 end;
 
-function TXMLNode.GetNextChild(var aChildEnum: PXMLNode): Boolean;
+function TXMLNode.GetNextCChild(var aChildEnum: PXMLNode;
+  const aChildType: TXMLChildType): Boolean;
 begin
   if Assigned(aChildEnum) then
     aChildEnum := aChildEnum.NextSibling
   else
-    aChildEnum := FirstChild;
+    aChildEnum := GetFirstCChild(aChildType);
 
   Result := Assigned(aChildEnum);
+end;
+
+function TXMLNode.GetNextChild(var aChildEnum: PXMLNode): Boolean;
+begin
+  Result := GetNextCChild(aChildEnum, ctChild);
 end;
 
 function TXMLNode.GetNextSibling: PXMLNode;
@@ -1061,22 +1112,23 @@ end;
 
 function TXMLNode.GetPreviousAttribute(var aAttributeEnum: PXMLNode): Boolean;
 begin
-  if Assigned(aAttributeEnum) then
-    aAttributeEnum := aAttributeEnum.PreviousSibling
-  else
-    aAttributeEnum := LastAttribute;
-
-  Result := Assigned(aAttributeEnum);
+  Result := GetPreviousCChild(aAttributeEnum, ctAttribute);
 end;
 
-function TXMLNode.GetPreviousChild(var aChildEnum: PXMLNode): Boolean;
+function TXMLNode.GetPreviousCChild(var aChildEnum: PXMLNode;
+  const aChildType: TXMLChildType): Boolean;
 begin
   if Assigned(aChildEnum) then
     aChildEnum := aChildEnum.PreviousSibling
   else
-    aChildEnum := LastChild;
+    aChildEnum := GetLastChild(aChildType);
 
   Result := Assigned(aChildEnum);
+end;
+
+function TXMLNode.GetPreviousChild(var aChildEnum: PXMLNode): Boolean;
+begin
+  Result := GetPreviousCChild(aChildEnum, ctChild);
 end;
 
 function TXMLNode.GetPreviousSibling: PXMLNode;
@@ -1100,16 +1152,16 @@ begin
   end
 end;
 
-function TXMLNode.XML(const aOutputFormat: TXmlOutputFormat): OWideString;
+function TXMLNode.XML(const aIndentType: TXmlIndentType): OWideString;
 begin
-  SaveToXML({%H-}Result, aOutputFormat);
+  SaveToXML({%H-}Result, aIndentType);
 end;
 
 {$IFNDEF NEXTGEN}
 function TXMLNode.XML_UTF8(
-  const aOutputFormat: TXmlOutputFormat): ORawByteString;
+  const aIndentType: TXmlIndentType): ORawByteString;
 begin
-  SaveToXML_UTF8({%H-}Result, aOutputFormat);
+  SaveToXML_UTF8({%H-}Result, aIndentType);
 end;
 {$ENDIF}
 
@@ -1295,41 +1347,58 @@ begin
   end;
 end;
 
-function TXMLNode.LoadFromStream(const aStream: TStream;
-  const aForceEncoding: TEncoding): Boolean;
+function TXMLNode.LoadFromReader(const aReader: TOXmlReader): Boolean;
 var
-  xReader: TOXmlReader;
   xReaderNode: TOXmlReaderNode;
-  xDataRead: Boolean;
-  xLastNode: PXMLNode;
+  xLastNode, xLastParentNode: PXMLNode;
+  xOmitEmptyTextInTheBeginning: Boolean;
 begin
+  {$IFNDEF FPC}
+  Result := False;//to avoid false warnings in Delphi
+  {$ENDIF}
+
+  xOmitEmptyTextInTheBeginning := True;
+
   if not (NodeType in [ntDOMDocument, ntElement]) then
     raise EXmlDOMException.Create(OXmlLng_NodeMustBeDOMDocumentOrElement);
 
-  xReaderNode.NodeType := etDocumentStart;
-  xReaderNode.NodeName := '';
-  xReaderNode.NodeValue := '';
-
-  DeleteChildren(True);
-
-  OwnerDocument.Loading := True;
-  xReader := TOXmlReader.Create(aStream, aForceEncoding);
+  fOwnerDocument.Loading := True;
   try
-    xReader.StrictXML := OwnerDocument.StrictXML;
-    xReader.BreakReading := OwnerDocument.BreakReading;
+    xReaderNode.NodeType := etDocumentStart;
+    xReaderNode.NodeName := '';
+    xReaderNode.NodeValue := '';
+
     xLastNode := @Self;
-    xDataRead := (@Self <> OwnerDocument.DOMDocument);//omit empty text before root node -> only for DOMDocument
-    while xReader.ReadNextNode(xReaderNode) do begin
+    while aReader.ReadNextNode(xReaderNode) do begin
       case xReaderNode.NodeType of
         etOpenXMLDeclaration: xLastNode := xLastNode.AddXMLDeclaration;
         etXMLDeclarationAttribute, etAttribute: xLastNode.Attributes[xReaderNode.NodeName] := xReaderNode.NodeValue;
-        etXMLDeclarationFinishClose, etFinishOpenElementClose, etCloseElement: xLastNode := xLastNode.ParentNode;
+        etXMLDeclarationFinishClose, etFinishOpenElementClose, etCloseElement: begin
+          xLastParentNode := xLastNode.ParentNode;
+
+          if
+            not Assigned(xLastParentNode) or//we reached the very top of the DOM
+            ( //break reading after the root element (when reading into a DOM Document)
+              (NodeType = ntDOMDocument) and
+              (fOwnerDocument.BreakReading = brAfterDocumentNode) and
+              (xLastNode.NodeType = ntElement) and
+              (xLastParentNode = fOwnerDocument.fDOMDocument)
+            ) or ( //break reading after this element has been closed (when reading into an element)
+              (NodeType = ntElement) and
+              (xLastNode = @Self)
+            )
+          then
+            Exit;
+
+          xLastNode := xLastParentNode;
+        end;
         etOpenElement: begin
-          xDataRead := True;
+          xOmitEmptyTextInTheBeginning := False;
           xLastNode := xLastNode.AddChild(xReaderNode.NodeName);
         end;
         etText:
-          if xDataRead or not OXmlIsWhiteSpace(xReaderNode.NodeValue) then//omit empty text before root node
+          if not (xOmitEmptyTextInTheBeginning and OXmlIsWhiteSpace(xReaderNode.NodeValue))
+          then//omit empty text before root node
             xLastNode.AddText(xReaderNode.NodeValue);
         etCData: xLastNode.AddCDATASection(xReaderNode.NodeValue);
         etComment: xLastNode.AddComment(xReaderNode.NodeValue);
@@ -1338,11 +1407,26 @@ begin
       end;
     end;
   finally
-    xReader.Free;
-    OwnerDocument.Loading := False;
+    fOwnerDocument.Loading := False;
+    Result := HasAttributes or HasChildNodes;
   end;
+end;
 
-  Result := True;
+function TXMLNode.LoadFromStream(const aStream: TStream;
+  const aForceEncoding: TEncoding): Boolean;
+var
+  xReader: TOXmlReader;
+begin
+  DeleteChildren(True);
+
+  xReader := TOXmlReader.Create(aStream, aForceEncoding);
+  try
+    xReader.StrictXML := OwnerDocument.StrictXML;
+    xReader.BreakReading := OwnerDocument.BreakReading;
+    Result := LoadFromReader(xReader);
+  finally
+    xReader.Free;
+  end;
 end;
 
 function TXMLNode.LoadFromXML(const aXML: OWideString): Boolean;
@@ -1466,20 +1550,20 @@ begin
 end;
 
 procedure TXMLNode.SaveToFile(const aFileName: String;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xFS: TFileStream;
 begin
   xFS := TFileStream.Create(aFileName, fmCreate);
   try
-    SaveToStream(xFS, aOutputFormat);
+    SaveToStream(xFS, aIndentType);
   finally
     xFS.Free;
   end;
 end;
 
 procedure TXMLNode.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xEncoding: TEncoding;
   xWriteBOM: Boolean;
@@ -1487,25 +1571,26 @@ begin
   xEncoding := GetCreateCodePage(OwnerDocument.CodePage);
   xWriteBOM := True;
 
-  SaveToStream(aStream, aOutputFormat, xEncoding, xWriteBOM);
+  SaveToStream(aStream, aIndentType, lbLF, xEncoding, xWriteBOM);
 end;
 
 procedure TXMLNode.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 var
-  xWriter: TOXmlWriterIndentation;
+  xWriter: TOXMLWriter;
 begin
   if not Assigned(aForceEncoding) then
     raise EXmlDOMException.Create(OXmlLng_ForceEncodingNil);
 
-  xWriter := TOXmlWriterIndentation.Create(aStream);
+  xWriter := TOXMLWriter.Create(aStream);
   try
     xWriter.StrictXML := OwnerDocument.StrictXML;
     xWriter.Encoding := aForceEncoding;
 
-    xWriter.OutputFormat := aOutputFormat;
+    xWriter.IndentType := aIndentType;
     xWriter.WriteBOM := aWriteBOM;
+    xWriter.LineBreak := aLineBreak;
 
     WriteXML(xWriter);
   finally
@@ -1514,13 +1599,14 @@ begin
 end;
 
 procedure TXMLNode.SaveToXML(var aXML: OWideString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat, TEncoding.OWideStringEncoding, False);
+    SaveToStream(xStream, aIndentType, XmlDefaultLineBreak,
+      TEncoding.OWideStringEncoding, False);
 
     SetLength(aXML, xStream.Size div SizeOf(OWideChar));
     if xStream.Size > 0 then begin
@@ -1534,13 +1620,13 @@ end;
 
 {$IFNDEF NEXTGEN}
 procedure TXMLNode.SaveToXML_UTF8(var aXML: ORawByteString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat, TEncoding.UTF8, False);
+    SaveToStream(xStream, aIndentType, lbLF, TEncoding.UTF8, False);
 
     SetLength(aXML, xStream.Size);
     if xStream.Size > 0 then begin
@@ -1656,7 +1742,7 @@ begin
 end;
 
 procedure TXMLNode.WriteChildrenXML(
-  const aOutputWriter: TOXMLWriterIndentation);
+  const aOutputWriter: TOXMLWriter);
 var
   xChild: PXMLNode;
 begin
@@ -1666,7 +1752,7 @@ begin
 end;
 
 procedure TXMLNode.WriteAttributesXML(
-  const aOutputWriter: TOXMLWriterIndentation);
+  const aOutputWriter: TOXMLWriter);
 var
   xAttr: PXMLNode;
 begin
@@ -1681,59 +1767,45 @@ begin
     aOutputWriter.Attribute('xml:space', OXmlPreserveToStr(Self.fPreserveWhiteSpace));
 end;
 
-procedure TXMLNode.WriteXML(const aOutputWriter: TOXMLWriterIndentation);
+procedure TXMLNode.WriteXML(const aOutputWriter: TOXMLWriter);
 begin
   case fNodeType of
     ntDOMDocument: WriteChildrenXML(aOutputWriter);
     ntElement: begin
-      aOutputWriter.Indent;
       aOutputWriter.OpenElement(NodeName);
-      aOutputWriter.IncIndentLevel;
       WriteAttributesXML(aOutputWriter);
       if HasChildNodes then begin
         aOutputWriter.FinishOpenElement;
         WriteChildrenXML(aOutputWriter);
-        aOutputWriter.DecIndentLevel;
-        if not(
-           XMLNodeIdAssigned(fFirstChildId[ctChild]) and
-           (fFirstChildId[ctChild] = fLastChildId[ctChild]) and
-           (FirstChild.NodeType = ntText))
-        then//indent if the text is not the only child
-          aOutputWriter.Indent;
-        aOutputWriter.CloseElement(NodeName);
+        aOutputWriter.CloseElement(NodeName,
+          (aOutputWriter.IndentType <> itNone) and//speed optimization
+          not (
+            (fFirstChildId[ctChild] = fLastChildId[ctChild]) and
+            (FirstChild.NodeType = ntText)));
       end else begin
-        aOutputWriter.DecIndentLevel;
         aOutputWriter.FinishOpenElementClose;
       end;
     end;
     ntXMLDeclaration: begin
-      aOutputWriter.Indent;
       aOutputWriter.OpenXMLDeclaration;
       WriteAttributesXML(aOutputWriter);
       aOutputWriter.FinishOpenXMLDeclaration;
     end;
     ntAttribute: aOutputWriter.Attribute(NodeName, NodeValue);
     ntText: begin
-      if XMLNodeIdAssigned(fNextSiblingId) or
-         XMLNodeIdAssigned(fPreviousSiblingId)
-      then//indent if the text is not the only child
-        aOutputWriter.Indent;
-      aOutputWriter.Text(NodeValue);
+      aOutputWriter.Text(NodeValue,
+        XMLNodeIdAssigned(fNextSiblingId) or XMLNodeIdAssigned(fPreviousSiblingId));
     end;
     ntCData: begin
-      aOutputWriter.Indent;
       aOutputWriter.CData(NodeValue);
     end;
     ntComment: begin
-      aOutputWriter.Indent;
       aOutputWriter.Comment(NodeValue);
     end;
     ntDocType: begin
-      aOutputWriter.Indent;
       aOutputWriter.DocType(NodeValue);
     end;
     ntProcessingInstruction: begin
-      aOutputWriter.Indent;
       aOutputWriter.ProcessingInstruction(NodeName, NodeValue);
     end;
   end;
@@ -1741,13 +1813,13 @@ end;
 
 {$IFDEF O_DELPHI_2009_UP}
 procedure TXMLNode.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat);
+    SaveToStream(xStream, aIndentType);
 
     SetLength(aBuffer, xStream.Size);
     if xStream.Size > 0 then begin
@@ -1760,14 +1832,14 @@ begin
 end;
 
 procedure TXMLNode.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 var
   xStream: TMemoryStream;
 begin
   xStream := TMemoryStream.Create;
   try
-    SaveToStream(xStream, aOutputFormat, aForceEncoding, aWriteBOM);
+    SaveToStream(xStream, aIndentType, aLineBreak, aForceEncoding, aWriteBOM);
 
     SetLength(aBuffer, xStream.Size);
     if xStream.Size > 0 then begin
@@ -1897,16 +1969,47 @@ end;
 
 procedure TXMLDocument.Clear;
 begin
-  DisposeNodes;
-  Grow;
+  ClearNodes(False);
   CreateNode(ntDOMDocument, fDOMDocument);
+end;
+
+procedure TXMLDocument.ClearNodes(const aDisposeNodes: Boolean);
+var
+  I: Integer;
+  C: TXMLChildType;
+begin
+  fDictionary.Clear;
+
+  fFreeIds.Clear;
+  fLastNodeId := XMLNODEID_UNASSIGNED;
+
+  //clear nodes list
+  if aDisposeNodes then begin
+    fNodesLength := 0;
+    for I := 0 to fNodes.Count-1 do
+      Dispose(PXMLNodeArray(fNodes[I]));
+    fNodes.Clear;
+  end;
+
+  //clear temp nodes
+  fDOMDocument := nil;
+  fNullNode := nil;
+
+  //clear temp nodes list
+  for C := Low(C) to High(C) do
+    ClearTempChildNodeLists(C);
+end;
+
+procedure TXMLDocument.ClearTempChildNodeLists(const aChildType: TXMLChildType);
+begin
+  fTempChildNodes[aChildType].Clear;
 end;
 
 destructor TXMLDocument.Destroy;
 var
   C: TXMLChildType;
 begin
-  DisposeNodes;
+  ClearNodes(True);
   fDictionary.Free;
   fNodes.Free;
   fFreeIds.Free;
@@ -1920,28 +2023,6 @@ procedure TXMLDocument.DestroyTempChildNodeList(const aParentNode: PXMLNode;
   const aChildType: TXMLChildType);
 begin
   fTempChildNodes[aChildType].Remove(aParentNode.fId);
-end;
-
-procedure TXMLDocument.ClearTempChildNodeLists(const aChildType: TXMLChildType);
-begin
-  fTempChildNodes[aChildType].Clear;
-end;
-
-procedure TXMLDocument.DisposeNodes;
-var
-  I: Integer;
-  C: TXMLChildType;
-begin
-  fNodesLength := 0;
-  fFreeIds.Clear;
-  fLastNodeId := XMLNODEID_UNASSIGNED;
-  for I := 0 to fNodes.Count-1 do
-    Dispose(PXMLNodeArray(fNodes[I]));
-  fNodes.Clear;
-  fDOMDocument := nil;
-  fNullNode := nil;
-  for C := Low(C) to High(C) do
-    ClearTempChildNodeLists(C);
 end;
 
 procedure TXMLDocument.DoCreate;
@@ -2133,31 +2214,31 @@ begin
   Result := fWhiteSpaceHandling;
 end;
 
-function TXMLDocument.XML(const aOutputFormat: TXmlOutputFormat): OWideString;
+function TXMLDocument.XML(const aIndentType: TXmlIndentType): OWideString;
 begin
-  Result := DOMDocument.XML(aOutputFormat);
+  Result := DOMDocument.XML(aIndentType);
 end;
 
 {$IFNDEF NEXTGEN}
 function TXMLDocument.XML_UTF8(
-  const aOutputFormat: TXmlOutputFormat): ORawByteString;
+  const aIndentType: TXmlIndentType): ORawByteString;
 begin
-  Result := DOMDocument.XML_UTF8(aOutputFormat);
+  Result := DOMDocument.XML_UTF8(aIndentType);
 end;
 {$ENDIF}
 
 {$IFDEF O_DELPHI_2009_UP}
 procedure TXMLDocument.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToBuffer(aBuffer, aOutputFormat);
+  DOMDocument.SaveToBuffer(aBuffer, aIndentType);
 end;
 
 procedure TXMLDocument.SaveToBuffer(var aBuffer: TBytes;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 begin
-  DOMDocument.SaveToBuffer(aBuffer, aOutputFormat, aForceEncoding, aWriteBOM);
+  DOMDocument.SaveToBuffer(aBuffer, aIndentType, aLineBreak, aForceEncoding, aWriteBOM);
 end;
 {$ENDIF}
 
@@ -2209,36 +2290,37 @@ end;
 {$ENDIF}
 
 procedure TXMLDocument.SaveToFile(const aFileName: String;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToFile(aFileName, aOutputFormat);
+  DOMDocument.SaveToFile(aFileName, aIndentType);
 end;
 
 procedure TXMLDocument.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat; const aForceEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+  const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
+  const aForceEncoding: TEncoding; const aWriteBOM: Boolean);
 begin
-  DOMDocument.SaveToStream(aStream, aOutputFormat, aForceEncoding, aWriteBOM);
+  DOMDocument.SaveToStream(aStream, aIndentType, aLineBreak,
+    aForceEncoding, aWriteBOM);
 end;
 
 procedure TXMLDocument.SaveToXML(var aXML: OWideString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToXML(aXML, aOutputFormat);
+  DOMDocument.SaveToXML(aXML, aIndentType);
 end;
 
 {$IFNDEF NEXTGEN}
 procedure TXMLDocument.SaveToXML_UTF8(var aXML: ORawByteString;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToXML_UTF8(aXML, aOutputFormat);
+  DOMDocument.SaveToXML_UTF8(aXML, aIndentType);
 end;
 {$ENDIF}
 
 procedure TXMLDocument.SaveToStream(const aStream: TStream;
-  const aOutputFormat: TXmlOutputFormat);
+  const aIndentType: TXmlIndentType);
 begin
-  DOMDocument.SaveToStream(aStream, aOutputFormat);
+  DOMDocument.SaveToStream(aStream, aIndentType);
 end;
 
 procedure TXMLDocument.SetBreakReading(const aBreakReading: TXmlBreakReading);

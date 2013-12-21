@@ -62,14 +62,14 @@ type
   private
     DocDir: String;
 
-    procedure SAXStartDocument(Sender: TObject);
-    procedure SAXEndDocument(Sender: TObject);
-    procedure SAXCharacters(Sender: TObject; const aText: OWideString; var aStop: Boolean);
-    procedure SAXComment(Sender: TObject; const aText: OWideString; var aStop: Boolean);
-    procedure SAXProcessingInstruction(Sender: TObject; const aTarget, aContent: OWideString; var aStop: Boolean);
-    procedure SAXStartElement(Sender: TObject; const aName: OWideString;
+    procedure SAXStartDocument(Sender: TSAXParser);
+    procedure SAXEndDocument(Sender: TSAXParser);
+    procedure SAXCharacters(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
+    procedure SAXComment(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
+    procedure SAXProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString; var aStop: Boolean);
+    procedure SAXStartElement(Sender: TSAXParser; const aName: OWideString;
       const aAttributes: TSAXAttributes; var aStop: Boolean);
-    procedure SAXEndElement(Sender: TObject; const aName: OWideString; var aStop: Boolean);
+    procedure SAXEndElement(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean);
   protected
     procedure DoCreate; override;
   end;
@@ -561,7 +561,7 @@ const
     xXML.LoadFromXML(cXML);
 
     Memo2.Lines.Add('OXml interface based DOM:');
-    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(ofNone);
+    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(itNone);
   end;
   {$ENDIF}
 
@@ -576,7 +576,7 @@ const
     xXML.LoadFromXML(cXML);
 
     Memo2.Lines.Add('OXml record based DOM:');
-    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(ofNone);
+    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(itNone);
   end;
 begin
   Memo1.Lines.Text :=
@@ -742,7 +742,6 @@ const
         end;
 
         if xStr <> aResult then begin
-          //raise Exception.Create(
           Memo1.Lines.Text := (
             'XPath test failed: '+aXPath+sLineBreak+
               xStr+sLineBreak+
@@ -826,7 +825,6 @@ const
         end;
 
         if xStr <> aResult then begin
-          //raise Exception.Create(
           Memo1.Lines.Text := (
             'XPath test failed: '+aXPath+sLineBreak+
               xStr+sLineBreak+
@@ -1490,11 +1488,11 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
     xXML.DocumentNode.NodeName := 'rootnode';
-    xXML.DocumentNode.SelectNode('load').LoadFromXML('some text with <b>tags</b>');
+    xXML.DocumentNode.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');
 
-    Memo1.Lines.Text := xXML.XML(ofIndent);
+    Memo1.Lines.Text := xXML.XML(itIndent);
   end;
   {$ENDIF}
 
@@ -1506,11 +1504,11 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
     xXML.DocumentNode.NodeName := 'rootnode';
-    xXML.DocumentNode.SelectNode('load').LoadFromXML('some text with <b>tags</b>');
+    xXML.DocumentNode.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');
 
-    Memo2.Lines.Text := xXML.XML(ofIndent);
+    Memo2.Lines.Text := xXML.XML(itIndent);
   end;
 begin
   Memo1.Lines.Clear;
@@ -1728,24 +1726,22 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xS := TFileStream.Create(DocDir+'simple.xml', fmCreate);
     xXmlWriter := TOXmlWriter.Create(xS, TEncoding.UTF8);
     try
-      xXmlWriter.Text(sLineBreak);
+      xXmlWriter.IndentType := itNone;
+
       xXmlWriter.DocType('root PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"');
       xXmlWriter.XmlDeclaration(True);
-      xXmlWriter.Text(sLineBreak);
 
       xRootElement := xXmlWriter.OpenElementR('root');
       xRootElement.Attribute('description', 'test xml');
-      xRootElement.FinishOpenElement;
 
       xPersonElement := xRootElement.OpenElementR('boss');
       xPersonElement.Attribute('name', '?Max Muster');
-      xPersonElement.FinishOpenElementClose;
+      xPersonElement.CloseElement;
 
       xRootElement.Comment('this is some text in comment');
 
       xPersonElement := xRootElement.OpenElementR('person');
       xPersonElement.Attribute('name', '/Paul Caster');
-      xPersonElement.FinishOpenElement;
       xPersonElement.Text('/this text is in person tag');
       xPersonElement.CloseElement;
 
@@ -1767,9 +1763,10 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xXml: OXmlIntfDOM.IXMLDocument;
   begin
     xXml := OXmlIntfDOM.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.LoadFromFile(DocDir+'simple.xml');
     Memo1.Lines.Text :=
-      xXml.XML(ofIndent)+sLineBreak+sLineBreak+
+      xXml.XML(itIndent)+sLineBreak+sLineBreak+
       '------'+sLineBreak+
       xXml.DocumentNode.Text;
   end;
@@ -1780,9 +1777,10 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xXml: OXmlPDOM.IXMLDocument;
   begin
     xXml := OXmlPDOM.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.LoadFromFile(DocDir+'simple.xml');
     Memo2.Lines.Text :=
-      xXml.XML(ofIndent)+sLineBreak+sLineBreak+
+      xXml.XML(itIndent)+sLineBreak+sLineBreak+
       '------'+sLineBreak+
       xXml.DocumentNode.Text;
   end;
@@ -1816,38 +1814,38 @@ begin
   {$IFEND}{$ENDIF}
 end;
 
-procedure TForm1.SAXCharacters(Sender: TObject; const aText: OWideString; var aStop: Boolean);
+procedure TForm1.SAXCharacters(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
 end;
 
-procedure TForm1.SAXComment(Sender: TObject; const aText: OWideString; var aStop: Boolean);
+procedure TForm1.SAXComment(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('comment("'+SAXEscapeString(aText)+'")');
 end;
 
-procedure TForm1.SAXEndDocument(Sender: TObject);
+procedure TForm1.SAXEndDocument(Sender: TSAXParser);
 begin
   Memo1.Lines.Add('endDocument()');
 end;
 
-procedure TForm1.SAXEndElement(Sender: TObject; const aName: OWideString; var aStop: Boolean);
+procedure TForm1.SAXEndElement(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('endElement("'+SAXEscapeString(aName)+'")');
 end;
 
-procedure TForm1.SAXProcessingInstruction(Sender: TObject; const aTarget,
+procedure TForm1.SAXProcessingInstruction(Sender: TSAXParser; const aTarget,
   aContent: OWideString; var aStop: Boolean);
 begin
   Memo1.Lines.Add('processingInstruction("'+SAXEscapeString(aTarget)+'", "'+SAXEscapeString(aContent)+'")');
 end;
 
-procedure TForm1.SAXStartDocument(Sender: TObject);
+procedure TForm1.SAXStartDocument(Sender: TSAXParser);
 begin
   Memo1.Lines.Add('startDocument()');
 end;
 
-procedure TForm1.SAXStartElement(Sender: TObject; const aName: OWideString;
+procedure TForm1.SAXStartElement(Sender: TSAXParser; const aName: OWideString;
   const aAttributes: TSAXAttributes; var aStop: Boolean);
 var
   xAttrStr: OWideString;

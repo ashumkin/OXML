@@ -15,7 +15,7 @@ unit OXmlReadWrite;
 {
   OXmlReadWrite.pas
 
-  Basic XML reader/writer. OXmlDoc.pas, OXmlPDoc.pas and OXmlSAX.pas use
+  Basic XML reader/writer. OXmlIntfDOM.pas, OXmlPDOM.pas and OXmlSAX.pas use
   this unit to read and write XML.
 
   Use when performance is crucial for you.
@@ -28,10 +28,7 @@ unit OXmlReadWrite;
     - all line breaks (#10, #13, #13#10) are automatically changed to LineBreak
       -> default value for LineBreak is #10 (according to XML specification)
       -> if you don't want to change them, set LineBreak to empty string ('')
-
-
-  TOXmlWriterIndentation
-    - supports manual indentation of XML
+    - supports automatic indentation of XML
 
   TOXmlReader
     - fast sequential XML reader/parser
@@ -70,19 +67,21 @@ type
     stFinish,       //"<node>"
     stFinishClose); //"<node/>"
 
+  POXmlWriterElement = ^TOXmlWriterElement;
   TOXmlWriterElement = {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fOwner: TOXmlWriter;
-    fElementName: OFastString;
+    fElementName: OWideString;
+    fOpenElementFinished: Boolean;
+    fChildrenWritten: Boolean;
+
+    procedure FinishOpenElement;
   public
     // <aElementName ... >, <aElementName ... /> etc.
     procedure OpenElement(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly);
     function OpenElementR(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly): TOXmlWriterElement;
-    // >
-    procedure FinishOpenElement;
-    // />
-    procedure FinishOpenElementClose;
-    // </fElementName>
+
+    // </fElementName> or "/>" if no children were written
     procedure CloseElement;
 
     // write attribute of an element or declaration
@@ -95,27 +94,45 @@ type
     // <?aTarget aContent?>
     procedure ProcessingInstruction(const aTarget, aContent: OWideString);
 
-    // write escaped text, escape also a quote if aQuoteChar specified
-    procedure Text(const aText: OWideString; const aQuoteChar: OWideChar = #0);
-    // write raw text, do not process it
-    procedure RawText(const aText: OWideString);
+    // write escaped text, do not escape quotes
+    procedure Text(const aText: OWideString);
   end;
 
   TOXmlWriter = class(TObject)
   private
+    fCreatedStream: TStream;
     fWriter: TOTextWriter;
-    fLineBreak: OWideString;
+    fLineBreak: TXmlLineBreak;
     fStrictXML: Boolean;
+
     function GetEncoding: TEncoding;
     function GetOwnsEncoding: Boolean;
     function GetWriteBOM: Boolean;
     procedure SetEncoding(const Value: TEncoding);
     procedure SetOwnsEncoding(const Value: Boolean);
     procedure SetWriteBOM(const Value: Boolean);
+
+  private//indentation support
+    fIndentLevel: Integer;
+    fIndentString: OWideString;
+    fIndentType: TXmlIndentType;
+    fWritten: Boolean;
+  protected
+    procedure DoCreate(const aStream: TStream; const aEncoding: TEncoding;
+      const aWriteBOM: Boolean; const aDefaultIndentLevel: Integer); virtual;
   public
-    constructor Create(aStream: TStream; const aEncoding: TEncoding = nil;
-      const aWriteBOM: Boolean = True);
+    constructor Create(const aStream: TStream; const aEncoding: TEncoding = nil;
+      const aWriteBOM: Boolean = True; const aDefaultIndentLevel: Integer = 0);
+    constructor CreateFromFile(const aFileName: String; const aEncoding: TEncoding = nil;
+      const aWriteBOM: Boolean = True; const aDefaultIndentLevel: Integer = 0);
     destructor Destroy; override;
+
+  public
+    //manual indentation support - you can use Indent+IncIndentLevel+DecIndentLevel
+    //  manually if you want to. Set IndentType to itNone in this case.
+    procedure Indent;
+    procedure IncIndentLevel;
+    procedure DecIndentLevel;
   public
     // default <?xml ?> declaration
     procedure XMLDeclaration(const aEncodingAttribute: Boolean = True;
@@ -127,14 +144,16 @@ type
     procedure FinishOpenXMLDeclaration;
 
     // <aElementName ... >, <aElementName ... /> etc.
-    procedure OpenElement(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly);
-    function OpenElementR(const aElementName: OWideString; const aMode: TOXmlWriterElementMode = stOpenOnly): TOXmlWriterElement;
+    procedure OpenElement(const aElementName: OWideString;
+      const aMode: TOXmlWriterElementMode = stOpenOnly);
+    function OpenElementR(const aElementName: OWideString;
+      const aMode: TOXmlWriterElementMode = stOpenOnly): TOXmlWriterElement;
     // >
     procedure FinishOpenElement(const {%H-}aElementName: OWideString = '');//you may pass a ElementName just to make it clear for you which element you want to close
     // />
     procedure FinishOpenElementClose(const {%H-}aElementName: OWideString = '');//you may pass a ElementName just to make it clear for you which element you want to close
-    // </aElementName>
-    procedure CloseElement(const aElementName: OWideString);
+    // </aElementName>, decide if you want to indent
+    procedure CloseElement(const aElementName: OWideString; const aIndent: Boolean = True);
 
     // write attribute of an element or declaration
     procedure Attribute(const aAttrName, aAttrValue: OWideString);
@@ -148,9 +167,11 @@ type
     procedure DocType(const aDocTypeRawText: OWideString);
 
     // write escaped text, escape also a quote if aQuoteChar specified
-    procedure Text(const aText: OWideString; const aQuoteChar: OWideChar = #0);
+    procedure Text(const aText: OWideString; const aQuoteChar: OWideChar); overload;
+    // write escaped text, decide if you want to indent
+    procedure Text(const aText: OWideString; const aIndent: Boolean = True); overload;
     // write raw text, do not process it
-    procedure RawText(const aText: OWideString); virtual;
+    procedure RawText(const aText: OWideString);
   public
     //encoding/BOM of the text writer
     property Encoding: TEncoding read GetEncoding write SetEncoding;
@@ -158,33 +179,16 @@ type
     property WriteBOM: Boolean read GetWriteBOM write SetWriteBOM;
 
     //process line breaks (#10, #13, #13#10) to the LineBreak character
-    //  set to empty string ('') if you don't want any processing
-    //  default is #10 (according to XML specification)
-    property LineBreak: OWideString read fLineBreak write fLineBreak;
+    //  set to lbDoNotProcess if you don't want any processing
+    //  default is lbLF (#10, according to XML specification)
+    property LineBreak: TXmlLineBreak read fLineBreak write fLineBreak;
     //StrictXML: document must be valid XML
     //   = true: element names & values checking
     //   = false: no element names & values checking
     property StrictXML: Boolean read fStrictXML write fStrictXML;
-  end;
 
-  TOXmlWriterIndentation = class(TOXmlWriter)
-  private
-    fIndentLevel: Integer;
-    fIndentString: OWideString;
-    fOutputFormat: TXmlOutputFormat;
-    fWritten: Boolean;
-  public
-    constructor Create(aStream: TStream; const aDefaultLevel: Integer = 0);
-  public
-    procedure Indent;
-    procedure IncIndentLevel;
-    procedure DecIndentLevel;
-
-    procedure RawText(const aText: OWideString); override;
-  public
-    property IndentLevel: Integer read fIndentLevel write fIndentLevel;
     property IndentString: OWideString read fIndentString write fIndentString;
-    property OutputFormat: TXmlOutputFormat read fOutputFormat write fOutputFormat;
+    property IndentType: TXmlIndentType read fIndentType write fIndentType;
   end;
 
   TOXmlReaderNodeType = (
@@ -217,7 +221,7 @@ type
     fAllowSetEncodingFromFile: Boolean;//internal, for external use ForceEncoding
 
     fEntityList: TOXmlReaderEntityList;
-    fLineBreak: OWideString;
+    fLineBreak: TXmlLineBreak;
     fStrictXML: Boolean;
     fRecognizeXMLDeclaration: Boolean;
 
@@ -264,12 +268,17 @@ type
   public
     //use ReadNextNode for reading next XML node
     function ReadNextNode(var aNode: TOXmlReaderNode): Boolean;
-    //following are functions to work with the current path in the XML document (used by OXmlSeq.pas)
+
+    //following are functions to work with the current path in the XML document
     function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
     function NodePathMatch(const aNodePath: TOWideStringList): Boolean; overload;
-    function RefIsChildOfNodePath(const aRefNodePath: TOWideStringList): Boolean;
-    function RefIsParentOfNodePath(const aRefNodePath: TOWideStringList): Boolean;
+    function NodePathMatch(const aNodePath: Array of OWideString): Boolean; overload;
+    function RefIsChildOfNodePath(const aRefNodePath: TOWideStringList): Boolean; overload;
+    function RefIsChildOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
+    function RefIsParentOfNodePath(const aRefNodePath: TOWideStringList): Boolean; overload;
+    function RefIsParentOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
     procedure NodePathAssignTo(const aNodePath: TOWideStringList);
+    function NodePathAsString: OWideString;
   public
     //encoding of the text file, when set, the file will be read again from the start
     property Encoding: TEncoding read GetEncoding write SetEncoding;
@@ -283,9 +292,9 @@ type
     //decide if you want to read the document after the root element has been closed
     property BreakReading: TXmlBreakReading read fBreakReading write fBreakReading;
     //process line breaks (#10, #13, #13#10) to the LineBreak character
-    //  set to empty string ('') if you don't want any processing
-    //  default is your OS line break (sLineBreak)
-    property LineBreak: OWideString read fLineBreak write fLineBreak;
+    //  set to lbDoNotProcess if you don't want any processing
+    //  default is your OS line break (XmlDefaultLineBreak)
+    property LineBreak: TXmlLineBreak read fLineBreak write fLineBreak;
     //StrictXML: document must be valid XML
     //   = true: raise Exceptions when document is not valid
     //   = false: try to fix and go over document errors.
@@ -326,6 +335,8 @@ begin
   if fStrictXML and not OXmlValidCData(aText) then
     raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidCData, [aText]);
 
+  Indent;
+
   RawText('<![CDATA[');
   RawText(aText);//MUST BE RAWTEXT - must contain unescaped characters
   RawText(']]>');
@@ -336,16 +347,48 @@ begin
   if fStrictXML and not OXmlValidComment(aText) then
     raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidComment, [aText]);
 
+  Indent;
+
   RawText('<!--');
   RawText(aText);//MUST BE RAWTEXT - must contain unescaped characters
   RawText('-->');
 end;
 
-constructor TOXmlWriter.Create(aStream: TStream; const aEncoding: TEncoding;
-  const aWriteBOM: Boolean);
+constructor TOXmlWriter.Create(const aStream: TStream; const aEncoding: TEncoding;
+  const aWriteBOM: Boolean; const aDefaultIndentLevel: Integer);
 begin
   inherited Create;
 
+  fCreatedStream := nil;
+  DoCreate(aStream, aEncoding, aWriteBOM, aDefaultIndentLevel);
+end;
+
+constructor TOXmlWriter.CreateFromFile(const aFileName: String;
+  const aEncoding: TEncoding; const aWriteBOM: Boolean;
+  const aDefaultIndentLevel: Integer);
+begin
+  inherited Create;
+
+  fCreatedStream := TFileStream.Create(aFileName, fmCreate);
+  DoCreate(fCreatedStream, aEncoding, aWriteBOM, aDefaultIndentLevel);
+end;
+
+procedure TOXmlWriter.DecIndentLevel;
+begin
+  Dec(fIndentLevel);
+end;
+
+destructor TOXmlWriter.Destroy;
+begin
+  fWriter.Free;
+  fCreatedStream.Free;
+
+  inherited;
+end;
+
+procedure TOXmlWriter.DoCreate(const aStream: TStream; const aEncoding: TEncoding;
+  const aWriteBOM: Boolean; const aDefaultIndentLevel: Integer);
+begin
   fWriter := TOTextWriter.Create(aStream);
   if Assigned(aEncoding) then
     fWriter.Encoding := aEncoding
@@ -353,27 +396,28 @@ begin
     fWriter.Encoding := TEncoding.UTF8;
   fWriter.WriteBOM := aWriteBOM;
 
-  fLineBreak := #10;
+  fLineBreak := lbLF;
 
   fStrictXML := True;
-end;
 
-destructor TOXmlWriter.Destroy;
-begin
-  fWriter.Free;
-
-  inherited;
+  fIndentLevel := aDefaultIndentLevel;
+  fIndentString := '  ';//2 spaces
 end;
 
 procedure TOXmlWriter.DocType(const aDocTypeRawText: OWideString);
 begin
+  Indent;
+
   RawText('<!DOCTYPE ');
   RawText(aDocTypeRawText);//MUST BE RAW ESCAPED TEXT - the programmer has to be sure that aDocTypeRawText is valid
   RawText('>');
 end;
 
-procedure TOXmlWriter.CloseElement(const aElementName: OWideString);
+procedure TOXmlWriter.CloseElement(const aElementName: OWideString; const aIndent: Boolean);
 begin
+  DecIndentLevel;
+  if aIndent then
+    Indent;
   RawText('</');
   RawText(aElementName);//can be rawtext, because validated (in OpenElement)!
   RawText('>');
@@ -394,6 +438,24 @@ begin
   Result := fWriter.WriteBOM;
 end;
 
+procedure TOXmlWriter.IncIndentLevel;
+begin
+  Inc(fIndentLevel);
+end;
+
+procedure TOXmlWriter.Indent;
+var I: Integer;
+begin
+  if (fIndentType in [itFlat, itIndent]) and
+    fWritten//do not indent at the very beginning of the document
+  then
+    RawText(XmlLineBreak[fLineBreak]);
+
+  if fIndentType = itIndent then
+  for I := 1 to fIndentLevel do
+    RawText(fIndentString);
+end;
+
 procedure TOXmlWriter.ProcessingInstruction(const aTarget,
   aContent: OWideString);
 begin
@@ -402,6 +464,8 @@ begin
 
   if fStrictXML and not OXmlValidPIContent(aContent) then
     raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidPIContent, [aContent]);
+
+  Indent;
 
   RawText('<?');
   RawText(aTarget);
@@ -413,6 +477,8 @@ end;
 
 procedure TOXmlWriter.RawText(const aText: OWideString);
 begin
+  fWritten := True;
+
   fWriter.WriteString(aText);
 end;
 
@@ -424,7 +490,7 @@ begin
   RawText(' ');
   RawText(aAttrName);//can be rawtext, because validated!
   RawText('="');
-  Text(aAttrValue, '"');
+  Text(aAttrValue, OWideChar('"'));
   RawText('"');
 end;
 
@@ -443,8 +509,17 @@ begin
   fWriter.WriteBOM := Value;
 end;
 
+procedure TOXmlWriter.Text(const aText: OWideString; const aIndent: Boolean);
+begin
+  if aIndent then
+    Indent;
+
+  Text(aText, OWideChar(#0));
+end;
+
 procedure TOXmlWriter.OpenXMLDeclaration;
 begin
+  Indent;
   RawText('<?xml');
 end;
 
@@ -458,10 +533,16 @@ begin
   if fStrictXML and not OXmlValidName(aElementName) then
     raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidElementName, [aElementName]);
 
+  Indent;
+
   RawText('<');
   RawText(aElementName);
   case aMode of
-    stFinish: RawText('>');
+    stOpenOnly: IncIndentLevel;
+    stFinish: begin
+      RawText('>');
+      IncIndentLevel;
+    end;
     stFinishClose: RawText('/>');
   end;
 end;
@@ -473,6 +554,7 @@ end;
 
 procedure TOXmlWriter.FinishOpenElementClose(const aElementName: OWideString);
 begin
+  DecIndentLevel;
   RawText('/>');
 end;
 
@@ -481,11 +563,17 @@ function TOXmlWriter.OpenElementR(const aElementName: OWideString;
 begin
   OpenElement(aElementName, aMode);
 
-  Result.fOwner := Self;
-  Result.fElementName := OWideToFast(aElementName);
+  if aMode = stFinishClose then begin
+    Result.fOwner := nil;//do not use after close
+  end else begin
+    Result.fOwner := Self;
+    Result.fElementName := aElementName;
+    Result.fOpenElementFinished := (aMode = stFinish);
+    Result.fChildrenWritten := False;
+  end;
 end;
 
-procedure TOXmlWriter.Text(const aText: OWideString; const aQuoteChar: OWideChar = #0);
+procedure TOXmlWriter.Text(const aText: OWideString; const aQuoteChar: OWideChar);
 var
   xC: OWideChar;
   I, xLength: Integer;
@@ -511,15 +599,15 @@ begin
         else
           RawText(xC);
       #10:
-        if (fLineBreak = '') then//no line break handling
+        if (fLineBreak = lbDoNotProcess) then//no line break handling
           RawText(xC)
         else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
-          RawText(fLineBreak);
+          RawText(XmlLineBreak[fLineBreak]);
       #13:
-        if fLineBreak = '' then
+        if fLineBreak = lbDoNotProcess then
           RawText(xC)
         else
-          RawText(fLineBreak);
+          RawText(XmlLineBreak[fLineBreak]);
     else
       RawText(xC);
     end;
@@ -545,22 +633,32 @@ end;
 
 procedure TOXmlWriterElement.Attribute(const aAttrName, aAttrValue: OWideString);
 begin
-  fOwner.Attribute(aAttrName, aAttrValue);
+  if not fOpenElementFinished then
+    fOwner.Attribute(aAttrName, aAttrValue)
+  else
+    raise EXmlDOMException.CreateFmt(OXmlLng_CannotWriteAttributesWhenFinished, [aAttrName, aAttrValue]);
 end;
 
 procedure TOXmlWriterElement.CData(const aText: OWideString);
 begin
+  FinishOpenElement;
+  fChildrenWritten := True;
   fOwner.CData(aText);
 end;
 
 procedure TOXmlWriterElement.Comment(const aText: OWideString);
 begin
+  FinishOpenElement;
+  fChildrenWritten := True;
   fOwner.Comment(aText);
 end;
 
 procedure TOXmlWriterElement.CloseElement;
 begin
-  fOwner.CloseElement(OFastToWide(fElementName));
+  if fChildrenWritten then
+    fOwner.CloseElement(fElementName, True)
+  else
+    fOwner.FinishOpenElementClose;
 
   //DO NOT USE THIS RECORD ANY MORE
   fOwner := nil;
@@ -570,44 +668,40 @@ end;
 procedure TOXmlWriterElement.ProcessingInstruction(const aTarget,
   aContent: OWideString);
 begin
+  FinishOpenElement;
+  fChildrenWritten := True;
   fOwner.ProcessingInstruction(aTarget, aContent);
-end;
-
-procedure TOXmlWriterElement.RawText(const aText: OWideString);
-begin
-  fOwner.RawText(aText);
 end;
 
 procedure TOXmlWriterElement.OpenElement(const aElementName: OWideString;
   const aMode: TOXmlWriterElementMode);
 begin
+  FinishOpenElement;
+  fChildrenWritten := True;
   fOwner.OpenElement(aElementName, aMode);
 end;
 
 procedure TOXmlWriterElement.FinishOpenElement;
 begin
-  fOwner.FinishOpenElement;
-end;
-
-procedure TOXmlWriterElement.FinishOpenElementClose;
-begin
-  fOwner.FinishOpenElementClose;
-
-  //DO NOT USE THIS RECORD ANY MORE
-  fOwner := nil;
-  fElementName := '';
+  if not fOpenElementFinished then begin
+    fOwner.FinishOpenElement;
+    fOpenElementFinished := True;
+  end;
 end;
 
 function TOXmlWriterElement.OpenElementR(const aElementName: OWideString;
   const aMode: TOXmlWriterElementMode): TOXmlWriterElement;
 begin
+  FinishOpenElement;
+  fChildrenWritten := True;
   Result := fOwner.OpenElementR(aElementName, aMode);
 end;
 
-procedure TOXmlWriterElement.Text(const aText: OWideString;
-  const aQuoteChar: OWideChar);
+procedure TOXmlWriterElement.Text(const aText: OWideString);
 begin
-  fOwner.Text(aText, aQuoteChar);
+  FinishOpenElement;
+  fChildrenWritten := True;
+  fOwner.Text(aText);
 end;
 
 { TOXmlReader }
@@ -670,13 +764,7 @@ begin
     case xC of
       #0, '<': break;
       '&': ProcessEntity;
-      #10, #13: begin
-        if fLineBreak <> '' then begin
-          ProcessNewLineChar(xC);
-        end else begin
-          fReader.WritePreviousCharToBuffer;
-        end;
-      end;
+      #10, #13: ProcessNewLineChar(xC);
     else
       fReader.WritePreviousCharToBuffer;
     end;
@@ -857,7 +945,7 @@ begin
 
   fNodePath := TOWideStringList.Create;
 
-  fLineBreak := sLineBreak;
+  fLineBreak := XmlDefaultLineBreak;
 
   fStrictXML := True;
   fRecognizeXMLDeclaration := True;
@@ -1292,6 +1380,39 @@ begin
   aNodePath.Assign(fNodePath);
 end;
 
+function TOXmlReader.NodePathAsString: OWideString;
+var
+  I: Integer;
+begin
+  if fNodePath.Count = 0 then
+  begin
+    Result := '';
+    Exit;
+  end;
+
+  Result := fNodePath[0];
+  for I := 1 to fNodePath.Count-1 do
+    Result := Result + '/' + fNodePath[I];
+end;
+
+function TOXmlReader.NodePathMatch(
+  const aNodePath: array of OWideString): Boolean;
+var
+  I: Integer;
+begin
+  Result := Length(aNodePath) = fNodePath.Count;
+  if not Result then
+    Exit;
+
+  for I := 0 to Length(aNodePath)-1 do
+  if aNodePath[I] <> fNodePath[I] then begin
+    Result := False;
+    Exit;
+  end;
+
+  Result := True;
+end;
+
 function TOXmlReader.RefIsParentOfNodePath(
   const aRefNodePath: TOWideStringList): Boolean;
 var
@@ -1513,55 +1634,54 @@ end;
 procedure TOXmlReader.ProcessNewLineChar(const aLastChar: OWideChar);
 var
   xC: OWideChar{$IFDEF FPC} = #0{$ENDIF};
+begin
+  if fLineBreak <> lbDoNotProcess then begin
+    if aLastChar = #13 then begin
+      fReader.ReadNextChar(xC);
+      if xC <> #10 then
+        fReader.UndoRead;
+    end;
+
+    fReader.WriteStringToBuffer(XmlLineBreak[fLineBreak]);
+  end else begin
+    fReader.WriteCharToBuffer(aLastChar);
+  end;
+end;
+
+function TOXmlReader.RefIsChildOfNodePath(
+  const aRefNodePath: array of OWideString): Boolean;
+var
   I: Integer;
 begin
-  if aLastChar = #13 then begin
-    fReader.ReadNextChar(xC);
-    if xC <> #10 then
-      fReader.UndoRead;
+  Result := Length(aRefNodePath) = fNodePath.Count-1;
+  if not Result then
+    Exit;
+
+  for I := 0 to Length(aRefNodePath)-1 do
+  if aRefNodePath[I] <> fNodePath[I] then begin
+    Result := False;
+    Exit;
   end;
 
-  for I := 1 to Length(fLineBreak) do
-    fReader.WriteCharToBuffer(OWideChar(fLineBreak[I]));
+  Result := True;
 end;
 
-{ TOXmlWriterIndentation }
-
-constructor TOXmlWriterIndentation.Create(aStream: TStream;
-  const aDefaultLevel: Integer);
+function TOXmlReader.RefIsParentOfNodePath(
+  const aRefNodePath: array of OWideString): Boolean;
+var
+  I: Integer;
 begin
-  inherited Create(aStream);
+  Result := Length(aRefNodePath) = fNodePath.Count+1;
+  if not Result then
+    Exit;
 
-  fIndentLevel := aDefaultLevel;
-  fIndentString := '  ';//2 spaces
-end;
+  for I := 0 to fNodePath.Count-1 do
+  if aRefNodePath[I] <> fNodePath[I] then begin
+    Result := False;
+    Exit;
+  end;
 
-procedure TOXmlWriterIndentation.DecIndentLevel;
-begin
-  Dec(fIndentLevel);
-end;
-
-procedure TOXmlWriterIndentation.Indent;
-var I: Integer;
-begin
-  if (OutputFormat in [ofFlat, ofIndent]) and fWritten then
-    RawText(#10);//do not indent at the very beginning of the document
-
-  if OutputFormat = ofIndent then
-  for I := 1 to fIndentLevel do
-    RawText(fIndentString);
-end;
-
-procedure TOXmlWriterIndentation.IncIndentLevel;
-begin
-  Inc(fIndentLevel);
-end;
-
-procedure TOXmlWriterIndentation.RawText(const aText: OWideString);
-begin
-  inherited RawText(aText);
-
-  fWritten := True;
+  Result := True;
 end;
 
 { EXmlReaderException }

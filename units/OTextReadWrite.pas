@@ -377,7 +377,7 @@ var
 begin
   inherited Create;
 
-  DoCreate(aStream, xBOMFound, aDefaultSingleByteEncoding, aBufferSize);
+  DoCreate(aStream, {%H-}xBOMFound, aDefaultSingleByteEncoding, aBufferSize);
 end;
 
 function TOTextReader.CustomBufferLength(const aBufferIndex: Byte): Integer;
@@ -421,7 +421,7 @@ begin
   try
     xStreamPosition := fStreamPosition;
     fEncoding := GetEncodingFromStream(fStream, fStreamPosition, fStreamSize, aDefaultSingleByteEncoding);
-    aBOMFound := (xStreamPosition < fStreamPosition);//if BOM was found, fStreamPosition will increase
+    aBOMFound := (xStreamPosition < fStreamPosition);//if BOM was found, fStreamPosition increased
   finally
     UnblockFlushTempBuffer;
   end;
