@@ -21,7 +21,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, ExtCtrls,
-  OXmlPDOM, OXmlUtils;
+  OXmlDOM, OXmlUtils;
 
 type
   TfrmXPathDemo = class(TForm)
@@ -88,7 +88,7 @@ var
   validResult   : boolean;
 begin
   outResult.Lines.Clear;
-  queryNode := FXMLDocument.DocumentNode;
+  queryNode := FXMLDocument.DocumentElement;
   expressionList := FXPathExpressions[cbxExample.ItemIndex];
   repeat
     p := Pos('+', expressionList);
@@ -99,7 +99,7 @@ begin
     end
     else
       expression := expressionList;
-    nodeList := queryNode.SelectNodesNull(expression);
+    nodeList := queryNode.SelectNodes(expression);
     if nodeList.Count > 0 then
       queryNode := nodeList[0]
     else
@@ -107,7 +107,7 @@ begin
   until p = 0;
   for iNode := 0 to nodeList.Count-1 do begin
     outResult.Lines.Add(Format('%d:', [iNode]));
-    outResult.Lines.Add(nodeList[iNode].XML(itIndent));
+    outResult.Lines.Add(nodeList[iNode].XML);
   end; //for iNode
   validResult := (outResult.Lines.Text = FXPathResults[cbxExample.ItemIndex]);
   outResult.Lines.Add('');
@@ -163,6 +163,7 @@ end; { TfrmXPathDemo.cbxExampleChange }
 procedure TfrmXPathDemo.FormCreate(Sender: TObject);
 begin
   FXMLDocument := CreateXMLDoc;
+  FXMLDocument.WriterSettings.IndentType := itIndent;
   if not FXMLDocument.LoadFromXML(inpSourceDocument.Lines.Text) then
     raise Exception.Create('Source document is not valid');
   FXPathExpressions := TStringList.Create;

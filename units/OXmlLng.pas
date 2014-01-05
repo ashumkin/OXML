@@ -43,6 +43,7 @@ resourcestring
   OXmlLng_InvalidCharacterInText = 'The character "%s" cannot occur in text.';
   OXmlLng_InvalidStringInText = 'The string "%s" cannot occur in text.';
   OXmlLng_InvalidCharacterInElement = 'The character "%s" cannot occur in element header.';
+  OXmlLng_InvalidAttributeStartChar = 'An attribute cannot start with the character "%s".';
   OXmlLng_EqualSignMustFollowAttribute = 'Equal sign must follow the attribute "%s".';
   OXmlLng_AttributeValueMustBeEnclosed = '"%s" attribute value must be enclosed in quotes.';
   OXmlLng_TooManyElementsClosed = 'Too many elements closed.';
@@ -62,12 +63,11 @@ resourcestring
   OXmlLng_NodeToDeleteNotAChild = 'You can''t delete a node that is not a child of current node.';
   OXmlLng_NodeToInsertNotAChild = 'You can''t insert node before a node that is not a child of current node.';
   OXmlLng_NodeMustBeDOMDocumentOrElement = 'Node must be a DOMDocument or an element.';
-  OXmlLng_ForceEncodingNil = 'aForceEncoding cannot be nil.';
   OXmlLng_CannotSetText = 'You can''t set the text property of this node. Use NodeValue instead.';
   OXmlLng_ChildNotFound = 'Child not found.';
   OXmlLng_ListIndexOutOfRange = 'List index out of range.';
   OXmlLng_FeatureNotSupported = 'This feature is not supported.';
-  OXmlLng_CannotWriteAttributesWhenFinished = 'You can''t add an attribute %s="%s" when the element header has been finished.';
+  OXmlLng_CannotWriteAttributesWhenFinished = 'You can''t add an attribute %s="%s" when the element header ("%s") has been finished.';
 
 implementation
 

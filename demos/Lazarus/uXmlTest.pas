@@ -4,7 +4,7 @@ unit uXmlTest;
 
 {.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
 {.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
-{$DEFINE USE_INTF}//define/undefine to compare OXml DOM to Intf DOM (deprecated)
+{.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML
 
 {$IFDEF FPC}
   {$DEFINE USE_GENERICS}
@@ -24,8 +24,8 @@ uses
   {$IFDEF USE_NATIVEXML}
   NativeXml,
   {$ENDIF}
-  {$IFDEF USE_INTF}
-  OXmlIntfDOM,
+  {$IFDEF USE_VERYSIMPLE}
+  Xml.VerySimple,
   {$ENDIF}
   OXmlReadWrite, OXmlUtils, OEncoding, Windows, OXmlPDOM, OXmlSAX,
   OWideSupp, OTextReadWrite, OXmlSeq, fgl;
@@ -175,32 +175,35 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   end;
   {$ENDIF}
 
-  {$IFDEF USE_INTF}
-  procedure TestInterfaceDOM;
+  {$IFDEF USE_VERYSIMPLE}
+  procedure TestVerySimpleXmlDOM;
   var
-    xXml: OXmlIntfDOM.IXMLDocument;
+    xXml: Xml.VerySimple.TXmlVerySimple;
     xT1, xT2: Cardinal;
   begin
     xT1 := GetTickCount;
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.WhiteSpaceHandling := wsPreserveAll;
-    xXml.LoadFromFile(DocDir+'sheet1.xml');
-    xT2 := GetTickCount;
-    xXml.SaveToFile(DocDir+'sheet1-resave.xml');
+    xXml := Xml.VerySimple.TXmlVerySimple.Create;
+    try
+      xXml.LoadFromFile(DocDir+'sheet1.xml');
+      xT2 := GetTickCount;
+      xXml.SaveToFile(DocDir+'sheet1-resave.xml');
 
-    xXml := nil;
+      FreeAndNil(xXml);
 
-    Memo1.Lines.Text :=
-      Memo1.Lines.Text+sLineBreak+
-      'OXml Intf DOM'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
-      sLineBreak+sLineBreak;
+      Memo1.Lines.Text :=
+        Memo1.Lines.Text+sLineBreak+
+        'VerySimpleXML DOM'+sLineBreak+
+        'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+        'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+        'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+        sLineBreak+sLineBreak;
+    finally
+      xXml.Free;
+    end;
   end;
   {$ENDIF}
 
-  procedure TestRecordDOM;
+  procedure TestOXmlPDOM;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xT1, xT2: Cardinal;
@@ -383,12 +386,12 @@ begin
   MatchTestFiles;//comment/uncomment to check if files match
   {$ENDIF}
 
-  {$IFDEF USE_INTF}
-  TestInterfaceDOM;
+  {$IFDEF USE_VERYSIMPLE}
+  TestVerySimpleXmlDOM;
   MatchTestFiles;//comment/uncomment to check if files match
   {$ENDIF}
 
-  TestRecordDOM;
+  TestOXmlPDOM;
   MatchTestFiles;//comment/uncomment to check if files match
 
   TestSAX;
@@ -485,36 +488,18 @@ begin
 end;
 
 procedure TForm1.BtnTestWriteInvalidClick(Sender: TObject);
-  {$IFDEF USE_INTF}
-  procedure TestInterface;
-  var
-    xXML: OXmlIntfDOM.IXMLDocument;
-    xRoot: OXmlIntfDOM.IXMLNode;
-  begin
-    xXML := OXmlIntfDOM.CreateXMLDoc('root');
-    xXML.StrictXML := False;//set to true/false - allow/disallow invalid document
 
-    //comment/uncomment to test validity
-    xRoot := xXML.DocumentNode;
-    xRoot.Attributes['0name'] := 'test';//invalid attribute name
-    xRoot.AddChild('0name');//invalid name
-    xRoot.AddComment('te--st');//invalid comment (a comment cannot contain "--" string
-    xRoot.AddCDATASection('te]]>st');//invalid cdata (a cdata section cannot contain "]]>" string
-
-    Memo1.Lines.Text := xXML.XML;
-  end;
-  {$ENDIF}
-
-  procedure TestRecord;
+  procedure TestOXmlPDOM;
   var
     xXML: OXmlPDOM.IXMLDocument;
     xRoot: OXmlPDOM.PXMLNode;
   begin
     xXML := OXmlPDOM.CreateXMLDoc('root');
-    xXML.StrictXML := False;//set to true/false - allow/disallow invalid document
+    xXML.WriterSettings.StrictXML := False;//set to true/false - allow/disallow invalid document
+    xXML.ReaderSettings.StrictXML := False;//set to true/false - allow/disallow invalid document
 
     //comment/uncomment to test validity
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     xRoot.Attributes['0name'] := 'test';//invalid attribute name
     xRoot.AddChild('0name');//invalid name
     xRoot.AddComment('te--st');//invalid comment (a comment cannot contain "--" string
@@ -526,10 +511,7 @@ begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
 
-  {$IFDEF USE_INTF}
-  TestInterface;
-  {$ENDIF}
-  TestRecord;
+  TestOXmlPDOM;
 end;
 
 procedure TForm1.BtnTestReadInvalidClick(Sender: TObject);
@@ -553,34 +535,19 @@ const
     '  <??>'+
     '</root>';
 
-  {$IFDEF USE_INTF}
-  procedure TestInterface;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-  begin
-    xXML := OXmlIntfDOM.CreateXMLDoc;
-    xXML.StrictXML := False;//set to true/false - allow/disallow invalid document
-
-    xXML.WhiteSpaceHandling := wsPreserveAll;
-    xXML.LoadFromXML(cXML);
-
-    Memo2.Lines.Add('OXml interface based DOM:');
-    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(itNone);
-  end;
-  {$ENDIF}
-
-  procedure TestRecord;
+  procedure TestOXmlPDOM;
   var
     xXml: OXmlPDOM.IXMLDocument;
   begin
     xXML := OXmlPDOM.CreateXMLDoc;
-    xXML.StrictXML := False;//set to true/false - allow/disallow invalid document
+    xXML.ReaderSettings.StrictXML := False;//set to true/false - allow/disallow invalid document
+    xXML.WriterSettings.StrictXML := False;//set to true/false - allow/disallow invalid document
 
     xXML.WhiteSpaceHandling := wsPreserveAll;
     xXML.LoadFromXML(cXML);
 
     Memo2.Lines.Add('OXml record based DOM:');
-    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML(itNone);
+    Memo2.Lines.Text := Memo2.Lines.Text + xXML.XML;
   end;
 begin
   Memo1.Lines.Text :=
@@ -589,13 +556,7 @@ begin
   Memo2.Lines.Text :=
     'XML as it is read and understood by OXml:'+sLineBreak+sLineBreak;
 
-  {$IFDEF USE_INTF}
-  TestInterface;
-  Memo2.Lines.Add('');
-  Memo2.Lines.Add('');
-  {$ENDIF}
-
-  TestRecord;
+  TestOXmlPDOM;
 end;
 
 procedure TForm1.BtnTestSAXClick(Sender: TObject);
@@ -797,90 +758,7 @@ const
   end;
   {$ENDIF}
 
-  {$IFDEF USE_INTF}
-  procedure TestInterface;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-
-    procedure _TestXPathElements(const aStartNode: OXmlIntfDOM.IXMLNode; const aXPath, aResult: OWideString);
-    var
-      xList: OXmlIntfDOM.IXMLNodeList;
-      xElement: OXmlIntfDOM.IXMLNode;
-      xStr: OWideString;
-      {$IFNDEF USE_GENERICS}
-      I: Integer;
-      {$ENDIF}
-    begin
-      if aStartNode.SelectNodes(aXPath, {%H-}xList) then begin
-        xStr := '';
-        {$IFDEF USE_GENERICS}
-        for xElement in xList do begin
-        {$ELSE}
-        for I := 0 to xList.Count-1 do begin
-          xElement := xList[I];
-        {$ENDIF}
-          if xStr <> '' then
-            xStr := xStr+sLineBreak;
-          case xElement.NodeType of
-            ntElement: xStr := xStr+xElement.NodeName+'='+xElement.Attributes['name'];
-            ntAttribute: xStr := xStr+xElement.ParentNode.NodeName+':'+xElement.NodeName+'='+xElement.NodeValue;
-            ntText, ntCData: xStr := xStr+xElement.NodeValue;
-          end;
-        end;
-
-        if xStr <> aResult then begin
-          Memo1.Lines.Text := (
-            'XPath test failed: '+aXPath+sLineBreak+
-              xStr+sLineBreak+
-              '-----'+sLineBreak+
-              aResult);
-          raise Exception.Create(Form1.Memo1.Lines.Text);
-        end;
-      end else begin
-        raise Exception.Create('XPath test failed (nothing selected): '+aXPath);
-      end;
-    end;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-
-    xXml.LoadFromXML(cXML);
-
-    _TestXPathElements(xXml.DocumentNode, '.', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root/.', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root/boss/..', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root/person', 'person=Paul Caster');
-    _TestXPathElements(xXml.DocumentNode, '..//person[@name="boss person/2.1"]', 'person=boss person/2.1');
-    _TestXPathElements(xXml.DocumentNode, '//person[@name="boss person/2.1"]', 'person=boss person/2.1');
-    _TestXPathElements(xXml.DOMDocument, '//person[@name]', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, '//root//person/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
-    _TestXPathElements(xXml.DOMDocument, '//person/../../boss', 'boss=Max Muster');
-    _TestXPathElements(xXml.DOMDocument, '//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root//boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
-    _TestXPathElements(xXml.DOMDocument, 'root//*', 'boss=Max Muster'+sLineBreak+'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root/*', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, '/root/boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
-    _TestXPathElements(xXml.DOMDocument, 'root/boss', 'boss=Max Muster');
-    _TestXPathElements(xXml.DOMDocument, 'root/person|root/boss', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root', 'root=');
-    _TestXPathElements(xXml.DOMDocument, 'root/boss/person[2]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
-    _TestXPathElements(xXml.DOMDocument, 'root/person[1]', 'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root/person[last()]', 'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, '/root/*[last()-1]/person[last()]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
-    _TestXPathElements(xXml.DOMDocument, '//text()', 'this text is in person tag'+sLineBreak+'some test info');
-    _TestXPathElements(xXml.DOMDocument, 'root/node()', 'root:description=test xml'+sLineBreak+'boss=Max Muster'+sLineBreak+'person=Paul Caster'+sLineBreak+'some test info');
-
-    _TestXPathElements(xXml.DOMDocument, 'root//@*', 'root:description=test xml'+sLineBreak+'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'dog:type=fight'+sLineBreak+'person:name=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root//@name', 'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'person:name=Paul Caster');
-
-    Memo1.Lines.Text :=
-      Memo1.Lines.Text+sLineBreak+
-      'OXml Intf DOM: All XPath tests succeeded.';
-  end;
-  {$ENDIF}
-
-  procedure TestRecord;
+  procedure TestOXmlPDOM;
   var
     xXml: OXmlPDOM.IXMLDocument;
 
@@ -889,13 +767,13 @@ const
       xList: OXmlPDOM.IXMLNodeList;
       xElement: OXmlPDOM.PXMLNode;
       xStr: OWideString;
-      {$IFNDEF USE_GENERICS}
+      {$IFNDEF USE_FORIN}
       I: Integer;
       {$ENDIF}
     begin
       if aStartNode.SelectNodes(aXPath, {%H-}xList) then begin
         xStr := '';
-        {$IFDEF USE_GENERICS}
+        {$IFDEF USE_FORIN}
         for xElement in xList do begin
         {$ELSE}
         for I := 0 to xList.Count-1 do begin
@@ -925,37 +803,38 @@ const
     end;
   begin
     xXml := OXmlPDOM.CreateXMLDoc;
+    xXml := TXMLDocument.Create(nil);
     xXml.LoadFromXML(cXML);
 
-    _TestXPathElements(xXml.DocumentNode, '.', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root/.', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root/boss/..', 'root=');
-    _TestXPathElements(xXml.DocumentNode, '../root/person', 'person=Paul Caster');
-    _TestXPathElements(xXml.DocumentNode, '..//person[@name="boss person/2.1"]', 'person=boss person/2.1');
-    _TestXPathElements(xXml.DocumentNode, '//person[@name="boss person/2.1"]', 'person=boss person/2.1');
-    _TestXPathElements(xXml.DOMDocument, '//person[@name]', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, '//root//person/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
-    _TestXPathElements(xXml.DOMDocument, '//person/../../boss', 'boss=Max Muster');
-    _TestXPathElements(xXml.DOMDocument, '//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root//boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
-    _TestXPathElements(xXml.DOMDocument, 'root//*', 'boss=Max Muster'+sLineBreak+'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root/*', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, '/root/boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
-    _TestXPathElements(xXml.DOMDocument, 'root/boss', 'boss=Max Muster');
-    _TestXPathElements(xXml.DOMDocument, 'root/person|root/boss', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root', 'root=');
-    _TestXPathElements(xXml.DOMDocument, 'root/boss/person[2]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
-    _TestXPathElements(xXml.DOMDocument, 'root/person[1]', 'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root/person[last()]', 'person=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, '/root/*[last()-1]/person[last()]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
-    _TestXPathElements(xXml.DOMDocument, '//text()', 'this text is in person tag'+sLineBreak+'some test info');
-    _TestXPathElements(xXml.DOMDocument, 'root/node()', 'root:description=test xml'+sLineBreak+'boss=Max Muster'+sLineBreak+'person=Paul Caster'+sLineBreak+'some test info');
+    _TestXPathElements(xXml.DocumentElement, '.', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root/.', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root/boss/..', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root/person', 'person=Paul Caster');
+    _TestXPathElements(xXml.DocumentElement, '..//person[@name="boss person/2.1"]', 'person=boss person/2.1');
+    _TestXPathElements(xXml.DocumentElement, '//person[@name="boss person/2.1"]', 'person=boss person/2.1');
+    _TestXPathElements(xXml.Node, '//person[@name]', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml.Node, '//root//person/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+    _TestXPathElements(xXml.Node, '//person/../../boss', 'boss=Max Muster');
+    _TestXPathElements(xXml.Node, '//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root//boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
+    _TestXPathElements(xXml.Node, 'root//*', 'boss=Max Muster'+sLineBreak+'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root/*', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml.Node, '/root/boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
+    _TestXPathElements(xXml.Node, 'root/boss', 'boss=Max Muster');
+    _TestXPathElements(xXml.Node, 'root/person|root/boss', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root', 'root=');
+    _TestXPathElements(xXml.Node, 'root/boss/person[2]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+    _TestXPathElements(xXml.Node, 'root/person[1]', 'person=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root/person[last()]', 'person=Paul Caster');
+    _TestXPathElements(xXml.Node, '/root/*[last()-1]/person[last()]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+    _TestXPathElements(xXml.Node, '//text()', 'this text is in person tag'+sLineBreak+'some test info');
+    _TestXPathElements(xXml.Node, 'root/node()', 'root:description=test xml'+sLineBreak+'boss=Max Muster'+sLineBreak+'person=Paul Caster'+sLineBreak+'some test info');
 
 
-    _TestXPathElements(xXml.DOMDocument, 'root//@*', 'root:description=test xml'+sLineBreak+'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'dog:type=fight'+sLineBreak+'person:name=Paul Caster');
-    _TestXPathElements(xXml.DOMDocument, 'root//@name', 'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'person:name=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root//@*', 'root:description=test xml'+sLineBreak+'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'dog:type=fight'+sLineBreak+'person:name=Paul Caster');
+    _TestXPathElements(xXml.Node, 'root//@name', 'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'person:name=Paul Caster');
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
@@ -969,11 +848,7 @@ begin
   TestOmniXML;
   {$ENDIF}
 
-  {$IFDEF USE_INTF}
-  TestInterface;
-  {$ENDIF}
-
-  TestRecord;
+  TestOXmlPDOM;
 end;
 
 procedure TForm1.BtnIterateTestClick(Sender: TObject);
@@ -985,196 +860,8 @@ const
       '<element3/>'+
     '</root>';
 
-  {$IFDEF USE_INTF}
-  {$IFDEF USE_GENERICS}
-  procedure TestInterfaceForIn;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    for xNode in xXML.DocumentNode.ChildNodes do
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-
-    Memo1.Lines.Add('');
-  end;
-  {$ENDIF}
-
-  procedure TestInterfaceForTo;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-    I: Integer;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xRoot := xXML.DocumentNode;
-    for I := 0 to xRoot.ChildNodes.Count-1 do begin
-      xNode := xRoot.ChildNodes[I];
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-    end;
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfaceForDownTo;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-    I: Integer;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xRoot := xXML.DocumentNode;
-    for I := xRoot.ChildNodes.Count-1 downto 0 do begin
-      xNode := xRoot.ChildNodes[I];
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-    end;
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfaceNextChild;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xNode := nil;
-    xRoot := xXML.DocumentNode;
-    while xRoot.GetNextChild(xNode) do
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfacePreviousChild;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xNode := nil;
-    xRoot := xXML.DocumentNode;
-    while xRoot.GetPreviousChild(xNode) do
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfaceNextSibling;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xNode := xXML.DocumentNode.FirstChild;
-    while Assigned(xNode) do begin
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-      xNode := xNode.NextSibling;
-    end;
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfacePreviousSibling;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xNode := xXML.DocumentNode.LastChild;
-    while Assigned(xNode) do begin
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
-      xNode := xNode.PreviousSibling;
-    end;
-
-    Memo1.Lines.Add('');
-  end;
-
-  {$IFDEF USE_GENERICS}
-  procedure TestInterfaceAttributesForIn;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    for xNode in xXML.DocumentNode.AttributeNodes do
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
-
-    Memo1.Lines.Add('');
-  end;
-  {$ENDIF}
-
-  procedure TestInterfaceAttributesForTo;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-    I: Integer;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xRoot := xXML.DocumentNode;
-    for I := 0 to xRoot.AttributeNodes.Count-1 do begin
-      xNode := xRoot.AttributeNodes[I];
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
-    end;
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfaceAttributesForDownTo;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-    I: Integer;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xRoot := xXML.DocumentNode;
-    for I := xRoot.AttributeNodes.Count-1 downto 0 do begin
-      xNode := xRoot.AttributeNodes[I];
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
-    end;
-
-    Memo1.Lines.Add('');
-  end;
-
-  procedure TestInterfaceNextAttribute;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-    xRoot, xNode: OXmlIntfDOM.IXMLNode;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.LoadFromXML(cXML);
-
-    xRoot := xXML.DocumentNode;
-    xNode := nil;
-    while xRoot.GetNextAttribute(xNode) do
-      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
-
-    Memo1.Lines.Add('');
-  end;
-  {$ENDIF}
-
-  {$IFDEF USE_GENERICS}
-  procedure TestRecordForIn;
+  {$IFDEF USE_FORIN}
+  procedure TestOXmlPDOMForIn;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xNode: OXmlPDOM.PXMLNode;
@@ -1182,14 +869,14 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    for xNode in xXML.DocumentNode.ChildNodes do
+    for xNode in xXML.DocumentElement.ChildNodes do
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
 
     Memo2.Lines.Add('');
   end;
   {$ENDIF}
 
-  procedure TestRecordForTo;
+  procedure TestOXmlPDOMForTo;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1198,7 +885,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     for I := 0 to xRoot.ChildNodes.Count-1 do begin
       xNode := xRoot.ChildNodes[I];
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
@@ -1207,7 +894,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordForDownTo;
+  procedure TestOXmlPDOMForDownTo;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1216,7 +903,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     for I := xRoot.ChildNodes.Count-1 downto 0 do begin
       xNode := xRoot.ChildNodes[I];
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
@@ -1225,7 +912,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordNextChild;
+  procedure TestOXmlPDOMNextChild;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1233,7 +920,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     xNode := nil;
     while xRoot.GetNextChild(xNode) do
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
@@ -1241,7 +928,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordPreviousChild;
+  procedure TestOXmlPDOMPreviousChild;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1249,7 +936,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     xNode := nil;
     while xRoot.GetPreviousChild(xNode) do
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
@@ -1257,7 +944,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordNextSibling;
+  procedure TestOXmlPDOMNextSibling;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xNode: OXmlPDOM.PXMLNode;
@@ -1265,7 +952,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xNode := xXML.DocumentNode.FirstChild;
+    xNode := xXML.DocumentElement.FirstChild;
     while Assigned(xNode) do begin
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
       xNode := xNode.NextSibling;
@@ -1274,7 +961,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordPreviousSibling;
+  procedure TestOXmlPDOMPreviousSibling;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xNode: OXmlPDOM.PXMLNode;
@@ -1282,7 +969,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xNode := xXML.DocumentNode.LastChild;
+    xNode := xXML.DocumentElement.LastChild;
     while Assigned(xNode) do begin
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
       xNode := xNode.PreviousSibling;
@@ -1291,8 +978,8 @@ const
     Memo2.Lines.Add('');
   end;
 
-  {$IFDEF USE_GENERICS}
-  procedure TestRecordAttributesForIn;
+  {$IFDEF USE_FORIN}
+  procedure TestOXmlPDOMAttributesForIn;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xNode: OXmlPDOM.PXMLNode;
@@ -1300,14 +987,14 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    for xNode in xXML.DocumentNode.AttributeNodes do
+    for xNode in xXML.DocumentElement.AttributeNodes do
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
 
     Memo2.Lines.Add('');
   end;
   {$ENDIF}
 
-  procedure TestRecordAttributesForTo;
+  procedure TestOXmlPDOMAttributesForTo;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1316,7 +1003,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     for I := 0 to xRoot.AttributeNodes.Count-1 do begin
       xNode := xRoot.AttributeNodes[I];
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
@@ -1325,7 +1012,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordAttributesForDownTo;
+  procedure TestOXmlPDOMAttributesForDownTo;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1334,7 +1021,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     for I := xRoot.AttributeNodes.Count-1 downto 0 do begin
       xNode := xRoot.AttributeNodes[I];
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
@@ -1343,7 +1030,7 @@ const
     Memo2.Lines.Add('');
   end;
 
-  procedure TestRecordNextAttribute;
+  procedure TestOXmlPDOMNextAttribute;
   var
     xXml: OXmlPDOM.IXMLDocument;
     xRoot, xNode: OXmlPDOM.PXMLNode;
@@ -1351,7 +1038,7 @@ const
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.LoadFromXML(cXML);
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
     xNode := nil;
     while xRoot.GetNextAttribute(xNode) do
       Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
@@ -1366,81 +1053,30 @@ begin
     Memo1.Lines.Clear;
     Memo2.Lines.Clear;
 
-    {$IFDEF USE_INTF}
-    {$IFDEF USE_GENERICS}
-    TestInterfaceForIn;
+    {$IFDEF USE_FORIN}
+    TestOXmlPDOMForIn;
     {$ENDIF}
-    TestInterfaceForTo;
-    TestInterfaceForDownTo;
-    TestInterfaceNextChild;
-    TestInterfaceNextSibling;
-    TestInterfacePreviousChild;
-    TestInterfacePreviousSibling;
-    {$IFDEF USE_GENERICS}
-    TestInterfaceAttributesForIn;
+    TestOXmlPDOMForTo;
+    TestOXmlPDOMForDownTo;
+    TestOXmlPDOMNextChild;
+    TestOXmlPDOMNextSibling;
+    TestOXmlPDOMPreviousChild;
+    TestOXmlPDOMPreviousSibling;
+    {$IFDEF USE_FORIN}
+    TestOXmlPDOMAttributesForIn;
     {$ENDIF}
-    TestInterfaceAttributesForTo;
-    TestInterfaceAttributesForDownTo;
-    TestInterfaceNextAttribute;
-    {$ENDIF}
-
-    {$IFDEF USE_GENERICS}
-    TestRecordForIn;
-    {$ENDIF}
-    TestRecordForTo;
-    TestRecordForDownTo;
-    TestRecordNextChild;
-    TestRecordNextSibling;
-    TestRecordPreviousChild;
-    TestRecordPreviousSibling;
-    {$IFDEF USE_GENERICS}
-    TestRecordAttributesForIn;
-    {$ENDIF}
-    TestRecordAttributesForTo;
-    TestRecordAttributesForDownTo;
-    TestRecordNextAttribute;
+    TestOXmlPDOMAttributesForTo;
+    TestOXmlPDOMAttributesForDownTo;
+    TestOXmlPDOMNextAttribute;
 
   finally
     Memo1.Lines.EndUpdate;
     Memo2.Lines.EndUpdate;
   end;
-
-  {$IFDEF USE_INTF}
-  if Memo1.Lines.Text <> Memo2.Lines.Text then
-    raise Exception.Create('Results do not match!');
-  {$ENDIF}
 end;
 
 procedure TForm1.BtnDOMTestClick(Sender: TObject);
-  {$IFDEF USE_INTF}
-  procedure TestInterface;
-  var
-    xXML: OXmlIntfDOM.IXMLDocument;
-    xRoot: OXmlIntfDOM.IXMLNode;
-    xChild1, xChild2, xChild3: OXmlIntfDOM.IXMLNode;
-    xAttribute: OXmlIntfDOM.IXMLNode;
-  begin
-    xXML := OXmlIntfDOM.CreateXMLDoc('root');
-
-    xRoot := xXML.DocumentNode;
-
-    xChild1 := xXML.CreateElement('test');
-    xRoot.AppendChild(xChild1);
-
-    xAttribute := xXML.CreateAttribute('attr', 'value');
-    xChild1.SetAttributeNode(xAttribute);
-
-    xChild2 := xXML.CreateElement('child2');
-    xRoot.InsertBefore(xChild2, xChild1);
-
-    xChild3 := xXML.CreateElement('node3');
-    xRoot.ReplaceChild(xChild3, xChild2);
-
-    Memo1.Lines.Text := xXML.XML;
-  end;
-  {$ENDIF}
-
-  procedure TestRecord;
+  procedure TestOXmlPDOM;
   var
     xXML: OXmlPDOM.IXMLDocument;
     xRoot: OXmlPDOM.PXMLNode;
@@ -1449,7 +1085,7 @@ procedure TForm1.BtnDOMTestClick(Sender: TObject);
   begin
     xXML := OXmlPDOM.CreateXMLDoc('root');
 
-    xRoot := xXML.DocumentNode;
+    xRoot := xXML.DocumentElement;
 
     xChild1 := xXML.CreateElement('test');
     xRoot.AppendChild(xChild1);
@@ -1471,62 +1107,30 @@ begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
 
-  {$IFDEF USE_INTF}
-  TestInterface;
-  {$ENDIF}
-  TestRecord;
-
-  {$IFDEF USE_INTF}
-  if Memo1.Lines.Text <> Memo2.Lines.Text then
-    raise Exception.Create('Results do not match!');
-  {$ENDIF}
+  TestOXmlPDOM;
 end;
 
 procedure TForm1.BtnEncodingTestClick(Sender: TObject);
-  {$IFDEF USE_INTF}
-  procedure TestInterface;
-  var
-    xXML: OXmlIntfDOM.IXMLDocument;
-  begin
-    xXML := OXmlIntfDOM.CreateXMLDoc;
-
-    xXML.LoadFromFile(DocDir+'koi8-r.xml');
-    xXML.DocumentNode.NodeName := 'rootnode';
-    xXML.DocumentNode.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
-    xXML.CodePage := CP_WIN_1251;
-    xXML.SaveToFile(DocDir+'1251.xml');
-
-    Memo1.Lines.Text := xXML.XML(itIndent);
-  end;
-  {$ENDIF}
-
-  procedure TestRecord;
+  procedure TestOXmlPDOM;
   var
     xXML: OXmlPDOM.IXMLDocument;
   begin
     xXML := OXmlPDOM.CreateXMLDoc;
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
-    xXML.DocumentNode.NodeName := 'rootnode';
-    xXML.DocumentNode.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
+    xXML.DocumentElement.NodeName := 'rootnode';
+    xXML.DocumentElement.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');
 
-    Memo2.Lines.Text := xXML.XML(itIndent);
+    xXML.WriterSettings.IndentType := itIndent;
+    Memo2.Lines.Text := xXML.XML;
   end;
 begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
 
-  {$IFDEF USE_INTF}
-  TestInterface;
-  {$ENDIF}
-  TestRecord;
-
-  {$IFDEF USE_INTF}
-  if Memo1.Lines.Text <> Memo2.Lines.Text then
-    raise Exception.Create('INTERFACE AND RECORD DOM PARSERS DIFFER.');
-  {$ENDIF}
+  TestOXmlPDOM;
 end;
 
 procedure TForm1.FormResize(Sender: TObject);
@@ -1645,39 +1249,43 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   end;
   {$ENDIF}
 
-  {$IFDEF USE_INTF}
-  procedure InterfaceTest;
+  {$IFDEF USE_VERYSIMPLE}
+  procedure VerySimpleXmlTest;
   var
-    xXML: OXmlIntfDOM.IXMLDocument;
+    xXML: Xml.VerySimple.TXmlVerySimple;
     I: Integer;
     xT1: Cardinal;
-    xRootNode, xNode: OXmlIntfDOM.IXMLNode;
+    xRootNode, xNode: Xml.VerySimple.TXMLNode;
   begin
     xT1 := GetTickCount;
 
-    xXML := OXmlIntfDOM.CreateXMLDoc('root');
-    xRootNode := xXML.DocumentNode;
-    for I := 1 to 100*1000 do begin
-      xNode := xRootNode.AddChild('text');
-      xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').AddText('afg');
-      xNode.Attributes['attr1'] := 'A'+IntToStr(I);
-      xNode.Attributes['attr2'] := 'const';
-      xNode.Attributes['attr3'] := 'const';
-    end;
+    xXML := Xml.VerySimple.TXmlVerySimple.Create;
+    try
+      xXML.Root.NodeName := 'root';
+      xRootNode := xXML.Root;
+      for I := 1 to 100*1000 do begin
+        xNode := xRootNode.AddChild('text');
+        xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').Text := 'afg';
+        xNode.SetAttribute('attr1', 'A'+IntToStr(I));
+        xNode.SetAttribute('attr2', 'const');
+        xNode.SetAttribute('attr3', 'const');
+      end;
 
-    xRootNode := nil;
-    xNode := nil;
-    xXML := nil;
+      xRootNode := nil;
+      xNode := nil;
+    finally
+      xXML.Free;
+    end;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
-      'OXml Intf DOM'+sLineBreak+
+      'VerySimpleXML DOM'+sLineBreak+
       FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
 
-  procedure RecordTest;
+  procedure OXmlPDOMTest;
   var
     xXML: OXmlPDOM.IXMLDocument;
     I: Integer;
@@ -1687,7 +1295,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
     xT1 := GetTickCount;
 
     xXML := OXmlPDOM.CreateXMLDoc('root');
-    xRootNode := xXML.DocumentNode;
+    xRootNode := xXML.DocumentElement;
     for I := 1 to 100*1000 do begin
       xNode := xRootNode.AddChild('text');
       xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').AddText('afg');
@@ -1714,10 +1322,10 @@ begin
   {$IFDEF USE_NATIVEXML}
   NativeXmlTest;
   {$ENDIF}
-  {$IFDEF USE_INTF}
-  InterfaceTest;
+  {$IFDEF USE_VERYSIMPLE}
+  VerySimpleXmlTest;
   {$ENDIF}
-  RecordTest;
+  OXmlPDOMTest;
 end;
 
 procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
@@ -1761,32 +1369,18 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     end;
   end;
 
-  {$IFDEF USE_INTF}
-  procedure TestInterface;
-  var
-    xXml: OXmlIntfDOM.IXMLDocument;
-  begin
-    xXml := OXmlIntfDOM.CreateXMLDoc;
-    xXml.WhiteSpaceHandling := wsPreserveAll;
-    xXml.LoadFromFile(DocDir+'simple.xml');
-    Memo1.Lines.Text :=
-      xXml.XML(itIndent)+sLineBreak+sLineBreak+
-      '------'+sLineBreak+
-      xXml.DocumentNode.Text;
-  end;
-  {$ENDIF}
-
-  procedure TestRecord;
+  procedure TestOXmlPDOM;
   var
     xXml: OXmlPDOM.IXMLDocument;
   begin
     xXml := OXmlPDOM.CreateXMLDoc;
     xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.LoadFromFile(DocDir+'simple.xml');
+    xXML.WriterSettings.IndentType := itIndent;
     Memo2.Lines.Text :=
-      xXml.XML(itIndent)+sLineBreak+sLineBreak+
+      xXml.XML+sLineBreak+sLineBreak+
       '------'+sLineBreak+
-      xXml.DocumentNode.Text;
+      xXml.DocumentElement.Text;
   end;
 begin
   Memo1.Lines.Clear;
@@ -1796,15 +1390,7 @@ begin
   WriteDocument;
 
   //READ DOCUMENT AND FORMAT IT NICELY
-  {$IFDEF USE_INTF}
-  TestInterface;
-  {$ENDIF}
-  TestRecord;
-
-  {$IFDEF USE_INTF}
-  if Memo1.Lines.Text <> Memo2.Lines.Text then
-    raise Exception.Create('INTERFACE AND RECORD DOM PARSERS DIFFER.');
-  {$ENDIF}
+  TestOXmlPDOM;
 end;
 
 procedure TForm1.DoCreate;
@@ -1854,12 +1440,12 @@ procedure TForm1.SAXStartElement(Sender: TSAXParser; const aName: OWideString;
 var
   xAttrStr: OWideString;
   xAttr: TSAXAttribute;
-  {$IFNDEF USE_GENERICS}
+  {$IFNDEF USE_FORIN}
   I: Integer;
   {$ENDIF}
 begin
   xAttrStr := '';
-  {$IFDEF USE_GENERICS}
+  {$IFDEF USE_FORIN}
   for xAttr in aAttributes do begin
   {$ELSE}
   for I := 0 to aAttributes.Count-1 do begin

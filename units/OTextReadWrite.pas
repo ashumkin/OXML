@@ -138,7 +138,7 @@ type
     property Encoding: TEncoding read fEncoding write SetEncoding;
     property OwnsEncoding: Boolean read fOwnsEncoding write fOwnsEncoding;
 
-    //Approximate position in original stream
+    //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
     property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
     //size of original stream
@@ -402,12 +402,14 @@ var
   I: Integer;
   xStreamPosition: Integer;
 begin
-  if aStream is TCustomMemoryStream then begin
-    //no need for buffering on memory stream
+  if (aStream is TCustomMemoryStream) or (aStream is TFileStream) then begin
+    //no need for buffering on memory stream or file stream
+    //  buffering is here just because some (custom) streams may not support seeking
+    //  which is needed when reading encoding from xml header
     fStream := aStream;
     fOwnsStream := False;
   end else begin
-    //we need buffering support for file or zip streams etc.
+    //we need to buffer streams that do not support seeking (zip etc.)
     fStream := TOBufferedReadStream.Create(aStream, aBufferSize);
     fStreamPosition := fStream.Position;
     fStreamStartPosition := fStreamPosition;

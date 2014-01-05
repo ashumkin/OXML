@@ -40,13 +40,14 @@ interface
 
 uses
   SysUtils, Classes, OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding,
-  OXmlPDOM;
+  OXmlDOM;
 
 type
 
   TXMLSeqParser = class(TObject)
   private
     fReader: TOXmlReader;
+    fOwnsReader: Boolean;
     fReaderNode: TOXmlReaderNode;
     fDataRead: Boolean;
     fTempReaderPath: TOWideStringList;
@@ -58,14 +59,16 @@ type
     function ReadNextChildNodeCustom(const aOnlyElementHeader: Boolean;
       var aElementIsOpen: Boolean): Boolean;
 
-    function GetStrictXML: Boolean;
     function GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
-    procedure SetStrictXML(const aStrictXML: Boolean);
     procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
+    function GetReaderSettings: TOXmlReaderSettings;
+    function GetApproxStreamPosition: ONativeInt;
+    function GetStreamSize: ONativeInt;
   protected
     procedure DoCreate(const aForceEncoding: TEncoding); virtual;
     procedure DoDestroy; virtual;
   public
+    constructor CreateFromReader(const aReader: TOXmlReader);
     //aForceEncoding - if set, parser will ignore <?xml encoding="???" ?>
     constructor Create(const aStream: TStream;
       const aForceEncoding: TEncoding = nil);
@@ -80,19 +83,27 @@ type
     destructor Destroy; override;
   public
     //seek forward through document to an element path.
-    //  the path can be absolute or relative, no XPath support.
+    //  the path can be absolute or relative, no XPath support
+    //  (with the exception of "//elementName" syntax)
     //  only XML elements supported, no attributes!
-    //  (examples: "/root/node/child", "node/child" etc.)
+    //  (examples: "/root/node/child", "node/child", "//node" etc.)
     function GoToPath(const aPath: OWideString): Boolean;
+    //seek to next child XML element and read its name, text nodes are ignored.
+    //  if no child element is found (result=false), the reader position will
+    //    be set after the parent's closing element (i.e. no GoToPath('..') call
+    //    is needed).
+    function GoToNextChildElement(var aElementName: OWideString): Boolean;
 
     //seek to next child XML element and read the header, text nodes are ignored.
     //  (e.g. '<child attr="value">' will be read
     //  aElementIsOpen will be set to true if the element is open (<node>).
     //  if no child element is found (result=false), the reader position will
-    //    be set after the parent's closing element (i.e. no GoToParent call
+    //    be set after the parent's closing element (i.e. no GoToPath('..') call
     //    is needed).
     function ReadNextChildElementHeader(var aNode: PXMLNode;
       var aElementIsOpen: Boolean): Boolean;
+    //the same as ReadNextChildElementHeader, but no information is returned
+    function PassNextChildElementHeader(var aElementIsOpen: Boolean): Boolean;
 
     //seek to next child XML element and read the header, text nodes are ignored.
     //  (e.g. '<child attr="value">' will be read
@@ -106,16 +117,21 @@ type
     //  if no child element is found (result=false), the reader position will
     //    be set after the parent's closing element.
     function ReadNextChildNode(var aNode: PXMLNode): Boolean;
+    //the same as ReadNextChildNode, but no information is returned
+    function PassNextChildNode: Boolean;
 
   public
     //document whitespace handling
     //  -> used only in "ReadNextChildNode" for the resulting document
     property WhiteSpaceHandling: TXmlWhiteSpaceHandling read GetWhiteSpaceHandling write SetWhiteSpaceHandling;
-
-    //StrictXML: document must be valid XML
-    //   = true: raise Exceptions when document is not valid
-    //   = false: try to fix and go over document errors.
-    property StrictXML: Boolean read GetStrictXML write SetStrictXML;
+    //XML reader settings
+    property ReaderSettings: TOXmlReaderSettings read GetReaderSettings;
+  public
+    //Approximate position in original read stream
+    //  exact position cannot be determined because of variable UTF-8 character lengths
+    property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    //size of original stream
+    property StreamSize: ONativeInt read GetStreamSize;
   end;
 
 implementation
@@ -164,6 +180,18 @@ begin
   DoCreate(aForceEncoding);
 end;
 
+constructor TXMLSeqParser.CreateFromReader(const aReader: TOXmlReader);
+begin
+  inherited Create;
+
+  fStream := nil;
+  fOwnsStream := False;
+  fReader := aReader;
+  fOwnsReader := False;
+
+  DoCreate(nil);
+end;
+
 constructor TXMLSeqParser.CreateFromXML(const aXML: OWideString);
 var
   xLength: Integer;
@@ -190,11 +218,14 @@ end;
 
 procedure TXMLSeqParser.DoCreate(const aForceEncoding: TEncoding);
 begin
-  fReader := TOXmlReader.Create(fStream, aForceEncoding);
+  if not Assigned(fReader) then begin
+    fReader := TOXmlReader.Create(fStream, aForceEncoding);
+    fReaderNode.NodeType := etDocumentStart;
+    fReaderNode.NodeName := '';
+    fReaderNode.NodeValue := '';
 
-  fReaderNode.NodeType := etDocumentStart;
-  fReaderNode.NodeName := '';
-  fReaderNode.NodeValue := '';
+    fOwnsReader := True;
+  end;
 
   fXmlDoc := TXMLDocument.Create;
   fTempNodePath := TOWideStringList.Create;
@@ -203,21 +234,53 @@ end;
 
 procedure TXMLSeqParser.DoDestroy;
 begin
-  fReader.Free;
+  if fOwnsReader then
+    fReader.Free;
   if fOwnsStream then
     fStream.Free;
   fTempNodePath.Free;
   fTempReaderPath.Free;
 end;
 
-function TXMLSeqParser.GetStrictXML: Boolean;
+function TXMLSeqParser.GetApproxStreamPosition: ONativeInt;
 begin
-  Result := fXmlDoc.StrictXML;
+  Result := fReader.ApproxStreamPosition;
+end;
+
+function TXMLSeqParser.GetReaderSettings: TOXmlReaderSettings;
+begin
+  Result := fReader;//direct access to reader settings
+end;
+
+function TXMLSeqParser.GetStreamSize: ONativeInt;
+begin
+  Result := fReader.StreamSize;
 end;
 
 function TXMLSeqParser.GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
 begin
   Result := fXmlDoc.WhiteSpaceHandling;
+end;
+
+function TXMLSeqParser.GoToNextChildElement(
+  var aElementName: OWideString): Boolean;
+begin
+  while fReader.ReadNextNode(fReaderNode) do
+  begin
+    case fReaderNode.NodeType of
+      etOpenElement: begin
+        aElementName := fReaderNode.NodeName;
+        Result := True;
+        Exit;
+      end;
+      etCloseElement: begin
+        Break;//Result = False
+      end;
+    end;
+  end;
+
+  aElementName := '';
+  Result := False;
 end;
 
 function TXMLSeqParser.GoToPath(const aPath: OWideString): Boolean;
@@ -243,12 +306,30 @@ begin
   Result := False;
 end;
 
+function TXMLSeqParser.PassNextChildElementHeader(
+  var aElementIsOpen: Boolean): Boolean;
+var
+  x: PXMLNode;
+begin
+  Result := ReadNextChildElementHeader({%H-}x, aElementIsOpen);
+end;
+
+function TXMLSeqParser.PassNextChildNode: Boolean;
+var
+  x: PXMLNode;
+begin
+  //use ReadNextChildElementHeaderClose instead of ReadNextChildNode
+  //  -> the same result/functionality, but better performance because
+  //  the inner nodes are not created
+  Result := ReadNextChildElementHeaderClose({%H-}x);
+end;
+
 function TXMLSeqParser.ReadNextChildElementHeader(
   var aNode: PXMLNode; var aElementIsOpen: Boolean): Boolean;
 begin
   Result := ReadNextChildNodeCustom(True, aElementIsOpen);
   if Result then
-    aNode := fXmlDoc.DocumentNode;
+    aNode := fXmlDoc.DocumentElement;
 end;
 
 function TXMLSeqParser.ReadNextChildElementHeaderClose(
@@ -267,7 +348,7 @@ var
 begin
   Result := ReadNextChildNodeCustom(False, {%H-}x);
   if Result then
-    aNode := fXmlDoc.DocumentNode;
+    aNode := fXmlDoc.DocumentElement;
 end;
 
 function TXMLSeqParser.ReadNextChildNodeCustom(
@@ -283,10 +364,10 @@ begin
 
     if fReaderNode.NodeType = etOpenElement then begin
       //last found was opening element (most probably from GoToPath()), write it down!
-      xLastNode := fXmlDoc.DOMDocument.AddChild(fReaderNode.NodeName)
+      xLastNode := fXmlDoc.Node.AddChild(fReaderNode.NodeName)
     end else begin
       //last found was something else
-      xLastNode := fXmlDoc.DOMDocument;
+      xLastNode := fXmlDoc.Node;
 
       //go to next child
       if aOnlyElementHeader then begin
@@ -294,7 +375,7 @@ begin
           case fReaderNode.NodeType of
             etOpenElement://new element found
             begin
-              xLastNode := fXmlDoc.DOMDocument.AddChild(fReaderNode.NodeName);
+              xLastNode := fXmlDoc.Node.AddChild(fReaderNode.NodeName);
               Break;
             end;
             etCloseElement://parent element may be closed
@@ -302,7 +383,7 @@ begin
           end;
         end;
 
-        if xLastNode = fXmlDoc.DOMDocument then//next child not found, exit
+        if xLastNode = fXmlDoc.Node then//next child not found, exit
           Exit;
       end;
     end;
@@ -334,11 +415,6 @@ begin
   finally
     fXmlDoc.Loading := False;
   end;
-end;
-
-procedure TXMLSeqParser.SetStrictXML(const aStrictXML: Boolean);
-begin
-  fXmlDoc.StrictXML := aStrictXML;
 end;
 
 procedure TXMLSeqParser.SetWhiteSpaceHandling(

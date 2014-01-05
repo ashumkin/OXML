@@ -42,22 +42,24 @@ uses
   ;
 
 type
-  TXmlNodeType = (ntDOMDocument, ntDocType, ntXMLDeclaration, ntElement,
+  TXMLNodeType = (ntDocument, ntDocType, ntXMLDeclaration, ntElement,
     ntAttribute, ntText, ntCData, ntComment, ntProcessingInstruction);
 
-  EXmlDOMException = class(Exception);
+  EXMLDOMException = class(Exception);
 
-  TXmlIndentType = (itNone, itFlat, itIndent);
-  TXmlWhiteSpaceHandling = (wsTrim, wsPreserveAll, wsPreserveInTextOnly, wsAutoTag);
-  TXmlBreakReading = (brNone, brAfterDocumentNode);
-  TXmlLineBreak = (lbLF, lbCR, lbCRLF, lbDoNotProcess);
+  TXMLIndentType = (itNone, itFlat, itIndent);
+  TXMLWhiteSpaceHandling = (wsTrim, wsPreserveAll, wsPreserveInTextOnly, wsAutoTag);
+  TXMLBreakReading = (brNone, brAfterDocumentElement);
+  TXMLLineBreak = (lbLF, lbCR, lbCRLF, lbDoNotProcess);
+  TXMLChildType = (ctChild, ctAttribute);
+
 const
   {$IFDEF MSWINDOWS}
-  XmlDefaultLineBreak = lbCRLF;
+  XMLDefaultLineBreak = lbCRLF;
   {$ELSE}
-  XmlDefaultLineBreak = lbLF;
+  XMLDefaultLineBreak = lbLF;
   {$ENDIF}
-  XmlLineBreak: Array[TXmlLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
+  XMLLineBreak: Array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
 type
 
   {$IFDEF O_GENERICS}
@@ -72,106 +74,6 @@ type
   public
     procedure SetPointer(aPtr: Pointer; const aSize: Longint); reintroduce;//public
     function Write(const {%H-}Buffer; {%H-}Count: Longint): Longint; override;
-  end;
-
-  IXMLCustomDocument = interface
-    ['{C0ADA341-6E9C-41CD-9E67-E4F92222FBDA}']
-
-  //protected
-    function GetLoading: Boolean;
-    procedure SetLoading(const aLoading: Boolean);
-    function GetCodePage: Word;
-    procedure SetCodePage(const aCodePage: Word);
-    function GetVersion: OWideString;
-    procedure SetVersion(const aVersion: OWideString);
-    function GetEncoding: OWideString;
-    procedure SetEncoding(const aEncoding: OWideString);
-    function GetStandAlone: OWideString;
-    procedure SetStandAlone(const aStandAlone: OWideString);
-    function GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
-    procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
-    function GetStrictXML: Boolean;
-    procedure SetStrictXML(const aStrictXML: Boolean);
-    function GetBreakReading: TXmlBreakReading;
-    procedure SetBreakReading(const aBreakReading: TXmlBreakReading);
-
-    property Loading: Boolean read GetLoading write SetLoading;
-  //public
-    //clear the whole document
-    procedure Clear;
-
-    //load document from file in encoding specified by the document
-    function LoadFromFile(const aFileName: String): Boolean;
-    //load document from file
-    // if aForceEncoding = nil: in encoding specified by the document
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function LoadFromStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
-    //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
-    function LoadFromXML(const aXML: OWideString): Boolean;
-    {$IFNDEF NEXTGEN}
-    function LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
-    {$ENDIF}
-    {$IFDEF O_DELPHI_2009_UP}
-    //load document from TBytes buffer
-    // if aForceEncoding = nil: in encoding specified by the document
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
-    {$ENDIF}
-
-    //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: String; const aIndentType: TXmlIndentType = itNone);
-    //save document to stream in encoding specified by the document
-    procedure SaveToStream(const aStream: TStream; const aIndentType: TXmlIndentType = itNone); overload;
-    //save document to stream and enforce encoding
-    procedure SaveToStream(const aStream: TStream;
-      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
-      const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
-    //returns XML as string
-    procedure SaveToXML(var aXML: OWideString; const aIndentType: TXmlIndentType);
-    {$IFNDEF NEXTGEN}
-    procedure SaveToXML_UTF8(var aXML: ORawByteString; const aIndentType: TXmlIndentType);
-    {$ENDIF}
-
-    {$IFDEF O_DELPHI_2009_UP}
-    //returns XML as a buffer in encoding specified by the document
-    procedure SaveToBuffer(var aBuffer: TBytes; const aIndentType: TXmlIndentType); overload;
-    //returns XML as a buffer and enforce a custom encoding
-    procedure SaveToBuffer(var aBuffer: TBytes;
-      const aIndentType: TXmlIndentType; const aLineBreak: TXmlLineBreak;
-      const aForceEncoding: TEncoding; const aWriteBOM: Boolean); overload;
-    {$ENDIF}
-
-  //public
-    //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
-    function XML(const aIndentType: TXmlIndentType = itNone): OWideString;
-    {$IFNDEF NEXTGEN}
-    function XML_UTF8(const aIndentType: TXmlIndentType = itNone): ORawByteString;
-    {$ENDIF}
-
-  //public
-
-    //document whitespace handling
-    property WhiteSpaceHandling: TXmlWhiteSpaceHandling read GetWhiteSpaceHandling write SetWhiteSpaceHandling;
-
-    //StrictXML: document must be valid XML
-    // READING:
-    //   = true: raise Exceptions when document is not valid
-    //   = false: try to fix and go over document errors.
-    //WRITING:
-    //   = true: element names & values checking
-    //   = false: no element names & values checking
-    property StrictXML: Boolean read GetStrictXML write SetStrictXML;
-    //decide if you want to read the document after the root element has been closed
-    property BreakReading: TXmlBreakReading read GetBreakReading write SetBreakReading;
-
-    //document encoding (as integer identifier) - from <?xml encoding="???"?>
-    property CodePage: Word read GetCodePage write SetCodePage;
-    //document encoding (as string alias) - from <?xml encoding="???"?>
-    property Encoding: OWideString read GetEncoding write SetEncoding;
-    //document standalone - from <?xml standalone="???"?>
-    property StandAlone: OWideString read GetStandAlone write SetStandAlone;
-    //document version - from <?xml version="???"?>
-    property Version: OWideString read GetVersion write SetVersion;
   end;
 
 function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;

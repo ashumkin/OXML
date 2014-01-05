@@ -1,6 +1,21 @@
 OXml Change Log
 ---------------
 
+Version 0.4 [SVN commit: 5, https://sourceforge.net/p/oxml/code/5/]
+  - Deleted OXmlIntfDOM.pas
+  - Renamed OXmlPDOM.pas to OXmlDOM.pas
+  - Deleted aIndentType and other parameters from IXMLDocument.SaveTo* functions, use IXMLDocument.WriterSettings instead
+  - Renamed TXmlNodeType.ntDOMDocument to ntDocument (compatibility to Delphi XML)
+  - Renamed IXMLDocument.DOMDocument to Node (compatibility to Delphi XML)
+  - Renamed IXMLDocument.DocumentNode to DocumentElement (compatibility to OmniXML/Delphi XML)
+  - Renamed IXMLNode.SelectNodesNull to SelectNodes (the same functionality as OmniXML)
+  - Moved IXMLDocument.StrictXML to IXMLDocument.WriterSettings.StrictXML or IXMLDocument.ReaderSettings.StrictXML
+  - Added IXMLDocument.ReaderSettings
+  - Added IXMLDocument.WriterSettings
+  - Added IXMLDocument.AddChild()
+  - Added IXMLNodeList.Get()
+  - Added IXMLNode.IsTextElement()
+
 Version 0.3 [SVN commit: 4, https://sourceforge.net/p/oxml/code/4/]
   - OutputFormat: TXmlOutputFormat = (ofNone, ofFlat, ofIndent) renamed to:
     IndentType: TXmlIndentType = (itNone, itFlat, itIndent)

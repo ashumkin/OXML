@@ -51,7 +51,6 @@
 				<MainSource>MainSource</MainSource>
 			</DelphiCompile>
 			<DCCReference Include="rtl.dcp"/>
-			<DCCReference Include="..\..\units\OXmlIntfDOM.pas"/>
 			<DCCReference Include="..\..\units\OXmlSeq.pas"/>
 			<DCCReference Include="..\..\units\OTextReadWrite.pas"/>
 			<DCCReference Include="..\..\units\OWideSupp.pas"/>
@@ -64,7 +63,7 @@
 			<DCCReference Include="..\..\units\OHashedStrings.pas"/>
 			<DCCReference Include="..\..\units\OBufferedStreams.pas"/>
 			<DCCReference Include="..\..\units\OEncoding.pas"/>
-			<DCCReference Include="..\..\units\OXmlPDOM.pas"/>
+			<DCCReference Include="..\..\units\OXmlDOM.pas"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

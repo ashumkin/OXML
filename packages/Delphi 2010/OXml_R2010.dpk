@@ -30,7 +30,6 @@ requires
   rtl;
 
 contains
-  OXmlIntfDOM in '..\..\units\OXmlIntfDOM.pas',
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
@@ -43,6 +42,6 @@ contains
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   OEncoding in '..\..\units\OEncoding.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlDOM in '..\..\units\OXmlDOM.pas';
 
 end.

@@ -98,14 +98,11 @@ type
       const aAttributes: TSAXAttributes; var aStop: Boolean);
     procedure DoOnEndElement(const aName: OWideString; var aStop: Boolean);
 
-    function GetBreakReading: TXmlBreakReading;
-    function GetEntityList: TOXmlReaderEntityList;
-    function GetLineBreak: TXmlLineBreak;
-    procedure SetBreakReading(const aBreakReading: TXmlBreakReading);
-    procedure SetLineBreak(const aLineBreak: TXmlLineBreak);
-
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
+    function GetReaderSettings: TOXmlReaderSettings;
+    function GetApproxStreamPosition: ONativeInt;
+    function GetStreamSize: ONativeInt;
   protected
     procedure DoCreate(const aForceEncoding: TEncoding); virtual;
     procedure DoDestroy; virtual;
@@ -175,14 +172,14 @@ type
     //count of elements in path
     property NodePathCount: Integer read GetNodePathCount;
 
-    //process known entities. add user-defined entities here
-    property EntityList: TOXmlReaderEntityList read GetEntityList;
-    //decide if you want to read the document after the root element has been closed
-    property BreakReading: TXmlBreakReading read GetBreakReading write SetBreakReading;
-    //process line breaks (#10, #13, #13#10) to the LineBreak character.
-    //  set to empty string ('') if you don't want any processing
-    //  default is your OS line break (sLineBreak)
-    property LineBreak: TXmlLineBreak read GetLineBreak write SetLineBreak;
+    //XML reader settings
+    property ReaderSettings: TOXmlReaderSettings read GetReaderSettings;
+  public
+    //Approximate position in original read stream
+    //  exact position cannot be determined because of variable UTF-8 character lengths
+    property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    //size of original stream
+    property StreamSize: ONativeInt read GetStreamSize;
   end;
 
 implementation
@@ -347,19 +344,9 @@ begin
   {$ENDIF}
 end;
 
-function TSAXParser.GetBreakReading: TXmlBreakReading;
+function TSAXParser.GetApproxStreamPosition: ONativeInt;
 begin
-  Result := fReader.BreakReading;
-end;
-
-function TSAXParser.GetEntityList: TOXmlReaderEntityList;
-begin
-  Result := fReader.EntityList;
-end;
-
-function TSAXParser.GetLineBreak: TXmlLineBreak;
-begin
-  Result := fReader.LineBreak;
+  Result := fReader.ApproxStreamPosition;
 end;
 
 function TSAXParser.GetNodePath(const aIndex: Integer): OWideString;
@@ -370,6 +357,16 @@ end;
 function TSAXParser.GetNodePathCount: Integer;
 begin
   Result := fReader.NodePathCount;
+end;
+
+function TSAXParser.GetReaderSettings: TOXmlReaderSettings;
+begin
+  Result := fReader;//direct access to reader settings
+end;
+
+function TSAXParser.GetStreamSize: ONativeInt;
+begin
+  Result := fReader.StreamSize;
 end;
 
 procedure TSAXParser.NodePathAssignTo(const aNodePath: TOWideStringList);
@@ -455,16 +452,6 @@ function TSAXParser.RefIsParentOfNodePath(
   const aRefNodePath: TOWideStringList): Boolean;
 begin
   Result := fReader.RefIsParentOfNodePath(aRefNodePath);
-end;
-
-procedure TSAXParser.SetBreakReading(const aBreakReading: TXmlBreakReading);
-begin
-  fReader.BreakReading := aBreakReading;
-end;
-
-procedure TSAXParser.SetLineBreak(const aLineBreak: TXmlLineBreak);
-begin
-  fReader.LineBreak := aLineBreak;
 end;
 
 function TSAXParser.RefIsChildOfNodePath(

@@ -51,7 +51,7 @@ uses
 type
 
   OHashedStringsIndex = Integer;
-  TOHashedStrings = class
+  TOHashedStrings = class(TPersistent)
   private
     {$IFDEF FPC}
     fHashTable: TFPHashList;
@@ -64,6 +64,8 @@ type
 
     procedure Grow;
     procedure RefreshHashTable;
+  protected
+    procedure AssignTo(Dest: TPersistent); override;
   public
     constructor Create;
     destructor Destroy; override;
@@ -94,7 +96,7 @@ type
   end;
   {$ENDIF}
 
-  TOHashedStringDictionary = class(TObject)
+  TOHashedStringDictionary = class(TPersistent)
   private
     fKeys: TOHashedStrings;
     fValues: TOWideStringList;
@@ -104,6 +106,8 @@ type
     function GetValueOfKey(const aKey: OWideString): OWideString;
     procedure SetValueOfKey(const aKey, aValue: OWideString);
     function GetPair(const aIndex: OHashedStringsIndex): TOHashedStringDictionaryEnumPair;
+  protected
+    procedure AssignTo(Dest: TPersistent); override;
   public
     constructor Create;
     destructor Destroy; override;
@@ -179,6 +183,21 @@ begin
   Result := xValue;
 end;
 
+procedure TOHashedStrings.AssignTo(Dest: TPersistent);
+var
+  xDest: TOHashedStrings;
+begin
+  if Dest is TOHashedStrings then begin
+    xDest := TOHashedStrings(Dest);
+
+    xDest.Clear;
+    xDest.fTextList.Assign(Self.fTextList);
+    xDest.fLastHashI := Self.fLastHashI;
+    xDest.RefreshHashTable;
+  end else
+    inherited;
+end;
+
 procedure TOHashedStrings.Clear;
 begin
   fHashTable.Clear;
@@ -195,7 +214,7 @@ begin
   inherited Create;
 
   fTextList := TStringList.Create;
-  Grow;
+  RefreshHashTable;
 end;
 
 procedure TOHashedStrings.Delete(const aIndex: OHashedStringsIndex);
@@ -231,31 +250,8 @@ begin
 end;
 
 procedure TOHashedStrings.Grow;
-var
-  xTableSize: LongWord;
-const
-  cHashTable: Array[0..27] of LongWord =
-  ( 53,         97,         193,       389,       769,
-    1543,       3079,       6151,      12289,     24593,
-    49157,      98317,      196613,    393241,    786433,
-    1572869,    3145739,    6291469,   12582917,  25165843,
-    50331653,   100663319,  201326611, 402653189, 805306457,
-    1610612741, 3221225473, 4294967291 );
 begin
-  if Assigned(fHashTable) then begin
-    fHashTable.Free;
-    Inc(fLastHashI);
-  end;
-
-  xTableSize := cHashTable[fLastHashI];
-
-  {$IFDEF FPC}
-  fHashTable := TFPHashList.Create;
-  fHashTable.Capacity := xTableSize;
-  {$ELSE}
-  fHashTable := TStringHash.Create(xTableSize);
-  {$ENDIF}
-  fMaxItemsBeforeGrow := (xTableSize * 2) div 3;
+  Inc(fLastHashI);
 
   RefreshHashTable;
 end;
@@ -286,8 +282,29 @@ end;
 procedure TOHashedStrings.RefreshHashTable;
 var
   I: OHashedStringsIndex;
+  xTableSize: LongWord;
+const
+  cHashTable: Array[0..27] of LongWord =
+  ( 53,         97,         193,       389,       769,
+    1543,       3079,       6151,      12289,     24593,
+    49157,      98317,      196613,    393241,    786433,
+    1572869,    3145739,    6291469,   12582917,  25165843,
+    50331653,   100663319,  201326611, 402653189, 805306457,
+    1610612741, 3221225473, 4294967291 );
 begin
-  fHashTable.Clear;
+  if Assigned(fHashTable) then
+    fHashTable.Free;
+
+  xTableSize := cHashTable[fLastHashI];
+
+  {$IFDEF FPC}
+  fHashTable := TFPHashList.Create;
+  fHashTable.Capacity := xTableSize;
+  {$ELSE}
+  fHashTable := TStringHash.Create(xTableSize);
+  {$ENDIF}
+  fMaxItemsBeforeGrow := (xTableSize * 2) div 3;
+
   for I := 0 to fTextList.Count-1 do
     fHashTable.Add(fTextList[I], {$IFDEF FPC}{%H-}Pointer(I){$ELSE}I{$ENDIF});
 end;
@@ -421,6 +438,19 @@ end;
 function TOHashedStringDictionary.Count: OHashedStringsIndex;
 begin
   Result := fKeys.Count;
+end;
+
+procedure TOHashedStringDictionary.AssignTo(Dest: TPersistent);
+var
+  xDest: TOHashedStringDictionary;
+begin
+  if Dest is TOHashedStringDictionary then begin
+    xDest := TOHashedStringDictionary(Dest);
+
+    xDest.fKeys.Assign(Self.fKeys);
+    xDest.fValues.Assign(Self.fValues);
+  end else
+    inherited;
 end;
 
 procedure TOHashedStringDictionary.Clear;

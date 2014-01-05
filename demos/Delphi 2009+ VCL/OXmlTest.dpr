@@ -9,14 +9,13 @@ uses
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
-  OXmlIntfDOM in '..\..\units\OXmlIntfDOM.pas',
   OXmlLng in '..\..\units\OXmlLng.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlDOM in '..\..\units\OXmlDOM.pas';
 
 {$R *.res}
 

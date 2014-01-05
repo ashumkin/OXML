@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, FileCtrl, ComCtrls, ExtCtrls,
-  OEncoding, OXmlUtils, OXmlPDOM, OXmlReadWrite, OXmlSeq;
+  OEncoding, OXmlUtils, OXmlDOM, OXmlReadWrite, OXmlSeq;
 
 type
   TfMain = class(TForm)
@@ -101,10 +101,10 @@ begin
     TreeView.Items.Clear;
     xStartMS := GetTickCount;
     XMLDoc.LoadFromFile(FileName);
-    if XMLDoc.DocumentNode <> nil then begin
+    if XMLDoc.DocumentElement <> nil then begin
       RootNode := TreeView.Items.Add(nil,
-        Format('DRIVE %s', [XMLDoc.DocumentNode.GetAttribute('name')]));
-      AddNode(RootNode, XMLDoc.DocumentNode);
+        Format('DRIVE %s', [XMLDoc.DocumentElement.GetAttribute('name')]));
+      AddNode(RootNode, XMLDoc.DocumentElement);
     end else
       RootNode := nil;
     EllapsedMS := GetTickCount-xStartMS;
@@ -261,24 +261,21 @@ begin
   Screen.Cursor := crHourGlass;
   try
     XMLDoc := CreateXMLDoc;
-    try
-      // create xml declaration
-      PI := XMLDoc.DOMDocument.AddXMLDeclaration;
-      PI.AddAttribute('version', '1.0');
-      PI.AddAttribute('encoding', cobCodePage.Items[cobCodePage.ItemIndex]);
+    XMLDoc.WriterSettings.IndentType := TXmlIndentType(rgOutputFormat.ItemIndex);
+    // create xml declaration
+    PI := XMLDoc.Node.AddXMLDeclaration;
+    PI.AddAttribute('version', '1.0');
+    PI.AddAttribute('encoding', cobCodePage.Items[cobCodePage.ItemIndex]);
 
-      // create root element
-      RootElement := XMLDoc.DOMDocument.AddChild('drive');
+    // create root element
+    RootElement := XMLDoc.Node.AddChild('drive');
 
-      RootElement.SetAttribute('name', cobDrive.Drive);
-      // start recursive scan of selected drive
-      StartDOM(cobDrive.Drive + ':', RootElement, USE_DIR_LEVELS);
-      // save document to file
-      ForceDirectories(ExtractFileDir(eFileName.Text));
-      XMLDoc.SaveToFile(eFileName.Text, TXmlIndentType(rgOutputFormat.ItemIndex));
-    finally
-      XMLDoc := nil;
-    end;
+    RootElement.SetAttribute('name', cobDrive.Drive);
+    // start recursive scan of selected drive
+    StartDOM(cobDrive.Drive + ':', RootElement, USE_DIR_LEVELS);
+    // save document to file
+    ForceDirectories(ExtractFileDir(eFileName.Text));
+    XMLDoc.SaveToFile(eFileName.Text);
   finally
     Screen.Cursor := crDefault;
   end;
