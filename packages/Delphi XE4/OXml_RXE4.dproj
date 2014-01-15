@@ -136,7 +136,7 @@
         <DCCReference Include="..\..\units\OHashedStrings.pas"/>
         <DCCReference Include="..\..\units\OBufferedStreams.pas"/>
         <DCCReference Include="..\..\units\OEncoding.pas"/>
-        <DCCReference Include="..\..\units\OXmlDOM.pas"/>
+        <DCCReference Include="..\..\units\OXmlPDOM.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, FileCtrl, ComCtrls, ExtCtrls,
-  OEncoding, OXmlUtils, OXmlDOM, OXmlReadWrite, OXmlSeq;
+  OEncoding, OXmlUtils, OXmlPDOM, OXmlReadWrite, OXmlSeq;
 
 type
   TfMain = class(TForm)
@@ -42,7 +42,7 @@ type
     procedure StartDOM(const Dir: string;
       const Element: PXMLNode; const MaxLevel: Integer);
     procedure StartDirect(const Dir: string;
-      const Element: POXmlWriterElement; const MaxLevel: Integer);
+      const Element: PXMLWriterElement; const MaxLevel: Integer);
   public
     { Public declarations }
   end;
@@ -53,7 +53,7 @@ var
 implementation
 
 const
-  USE_DIR_LEVELS = 8;//dir levels to write
+  USE_DIR_LEVELS = 6;//directory levels to write
 
 {$R *.DFM}
 
@@ -148,8 +148,10 @@ var
 begin
   ItemsCreated := 0;
   TreeView.Items.BeginUpdate;
-  XMLSeq := TXMLSeqParser.CreateFromFile(FileName);
+  XMLSeq := TXMLSeqParser.Create;
   try
+    XMLSeq.InitFile(FileName);
+
     TreeView.Items.Clear;
 
     if PreserveWhiteSpace then
@@ -216,18 +218,19 @@ end;
 
 procedure TfMain.bDriveSaveDirectClick(Sender: TObject);
 var
-  XMLWriter: TOXmlWriter;
-  RootElement: TOXmlWriterElement;
+  XMLWriter: TXMLWriter;
+  RootElement: TXMLWriterElement;
   xT: Cardinal;
 begin
   xT := GetTickCount;
 
   Screen.Cursor := crHourGlass;
+  XMLWriter := TXMLWriter.Create;
   try
-    XMLWriter := TOXMLWriter.CreateFromFile(eFileName.Text,
-      GetCreateCodePage(cobCodePage.Items[cobCodePage.ItemIndex]));
+    XMLWriter.InitFile(eFileName.Text);
+    XMLWriter.Encoding := GetCreateCodePage(cobCodePage.Items[cobCodePage.ItemIndex]);
     try
-      XMLWriter.IndentType := TXmlIndentType(rgOutputFormat.ItemIndex);
+      XMLWriter.WriterSettings.IndentType := TXmlIndentType(rgOutputFormat.ItemIndex);
       XMLWriter.XMLDeclaration;
 
       // create root element
@@ -284,11 +287,11 @@ begin
 end;
 
 procedure TfMain.StartDirect(const Dir: string;
-  const Element: POXmlWriterElement; const MaxLevel: Integer);
+  const Element: PXMLWriterElement; const MaxLevel: Integer);
 var
   sr: TSearchRec;
   SingleFile,
-  SubDirectory: TOXmlWriterElement;
+  SubDirectory: TXMLWriterElement;
   Attributes: string;
 begin
   if MaxLevel < 0 then

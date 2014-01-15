@@ -14,7 +14,7 @@ FileList
   - a "real world" demo converted from OmniXML.
   - showcase how to use:
     - TOXmlWriter (unit OXmlReadWrite)
-    - IXmlDocument (unit OXmlPDOM)
+    - IXMLDocument (unit OXmlPDOM)
     - TXMLSeqParser (unit OXmlSeq)
 
 

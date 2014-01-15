@@ -20,7 +20,7 @@ unit OXmlXPath;
     - only for internal use. should not be used manually.
 
   Supported XPath syntax elements:
-    nodename	  - select all child nodes of the node
+    nodename    - select all child nodes of the node
     .           - select current node
     ..          - select parent node
     /           - select root node
@@ -117,9 +117,9 @@ type
     function GetNodeName(const aNode: TXMLXPathNode): OWideString; virtual; abstract;
     function GetNodeValue(const aNode: TXMLXPathNode): OWideString; virtual; abstract;
     function GetNodeType(const aNode: TXMLXPathNode): TXmlNodeType; virtual; abstract;
-    procedure GetNodeInfo(const aNode: TXMLXPathNode; var aNodeInfo: TXMLXPathNodeInfo); virtual; abstract;
+    procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); virtual; abstract;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; virtual; abstract;
-    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrName: OWideString): TXMLXPathNode; overload; virtual; abstract;
+    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrName: OWideString): TXMLXPathNode; virtual; abstract;
     procedure GetNodeAttributes(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); virtual; abstract;
     function GetNodeParent(const aNode: TXMLXPathNode): TXMLXPathNode; virtual; abstract;
     function GetNodeDOMDocument(const aNode: TXMLXPathNode): TXMLXPathNode; virtual; abstract;
@@ -208,7 +208,7 @@ type
 
     procedure GetNodeRangeToBuildIdTree(
       const aReferenceLevel: Integer;
-      var aStartLevel, aEndLevel: Integer);
+      var outStartLevel, outEndLevel: Integer);
   public
     destructor Destroy; override;
   public
@@ -232,7 +232,7 @@ type
     function GetCount: Integer;
 
     procedure GetNodeToBuildIdTreeFrom(const aReferenceNode: TXMLXPathNode;
-      var aStartNode: TXMLXPathNode; var aLevelsDeep: Integer);
+      var outStartNode: TXMLXPathNode; var outLevelsDeep: Integer);
   public
     constructor Create;
     destructor Destroy; override;
@@ -244,7 +244,7 @@ type
 
     function SelectNodes(
       const aParentNode: TXMLXPathNode;
-      var aList: TXMLXPathNodeList;
+      var outList: TXMLXPathNodeList;
       const aAdapterClass: TXMLXPathAdapterClass;
       const aMaxNodeCount: Integer): Boolean;
   end;
@@ -252,18 +252,18 @@ type
   EXmlXPathInvalidString = class(Exception);
 
 function XPathIsSimpleNode(const aXPath: OWideString;
-  var aNodeName: OWideString; var aChildType: TXmlChildType): Boolean;
+  var outNodeName: OWideString; var outChildType: TXmlChildType): Boolean;
 
 implementation
 
 uses OXmlLng;
 
 function XPathIsSimpleNode(const aXPath: OWideString;
-  var aNodeName: OWideString; var aChildType: TXmlChildType): Boolean;
+  var outNodeName: OWideString; var outChildType: TXmlChildType): Boolean;
 var
   I, xL: Integer;
 begin
-  aNodeName := '';
+  outNodeName := '';
   xL := Length(aXPath);
   if xL = 0 then begin
     Result := True;
@@ -271,10 +271,10 @@ begin
   end;
 
   if aXPath[1] = '@' then begin
-    aChildType := ctAttribute;
+    outChildType := ctAttribute;
     I := 2;
   end else begin
-    aChildType := ctChild;
+    outChildType := ctChild;
     I := 1;
   end;
 
@@ -288,10 +288,10 @@ begin
   end;
 
   Result := True;
-  if aChildType = ctAttribute then
-    aNodeName := Copy(aXPath, 2, xL-1)
+  if outChildType = ctAttribute then
+    outNodeName := Copy(aXPath, 2, xL-1)
   else
-    aNodeName := aXPath;
+    outNodeName := aXPath;
 end;
 
 { TXMLXPath }
@@ -318,7 +318,7 @@ end;
 
 procedure TXMLXPath.GetNodeRangeToBuildIdTree(
   const aReferenceLevel: Integer;
-  var aStartLevel, aEndLevel: Integer);
+  var outStartLevel, outEndLevel: Integer);
 var
   xItem: TXMLXPathSelector;
   xCurrentLevel: Integer;
@@ -326,37 +326,37 @@ begin
   //gets the deepest level we need to build the id tree for
 
   xCurrentLevel := aReferenceLevel;
-  aStartLevel := aReferenceLevel;
-  aEndLevel := aReferenceLevel;
+  outStartLevel := aReferenceLevel;
+  outEndLevel := aReferenceLevel;
   xItem := fFirst;
   while Assigned(xItem) do begin
     case xItem.NodeType of
       xntRootElement: begin
         //root -> go to start
-        aStartLevel := 0;
-        aEndLevel := 0;
+        outStartLevel := 0;
+        outEndLevel := 0;
         xCurrentLevel := 0;
       end;
       xntParentElement: begin
         //parent node selector -> decrease level
         Dec(xCurrentLevel);
-        if xCurrentLevel < aStartLevel then
-          aStartLevel := xCurrentLevel;
+        if xCurrentLevel < outStartLevel then
+          outStartLevel := xCurrentLevel;
       end;
       xntCurrentElement: begin
         //current node selector -> don't do anything
       end;
       xntAllLevelsElement: begin
         //search through all nodes
-        aEndLevel := High(aEndLevel);
+        outEndLevel := High(outEndLevel);
         Exit;
       end;
     else
       //normal level -> increase level
       if Assigned(xItem.fNext) then begin//only for not-last element
         Inc(xCurrentLevel);
-        if xCurrentLevel > aEndLevel then
-          aEndLevel := xCurrentLevel;
+        if xCurrentLevel > outEndLevel then
+          outEndLevel := xCurrentLevel;
       end;
     end;
 
@@ -426,7 +426,7 @@ begin
 end;
 
 procedure TXMLXPathList.GetNodeToBuildIdTreeFrom(const aReferenceNode: TXMLXPathNode;
-  var aStartNode: TXMLXPathNode; var aLevelsDeep: Integer);
+  var outStartNode: TXMLXPathNode; var outLevelsDeep: Integer);
 var
   I, xReferenceNodeLevel, xStartLevel, xEndLevel, xStartLevelI, xEndLevelI: Integer;
   xNode, xDocumentElement: TXMLXPathNode;
@@ -454,27 +454,27 @@ begin
   end;
 
   if xStartLevel = 0 then begin
-    aStartNode := xDocumentElement;
+    outStartNode := xDocumentElement;
   end else begin
-    aStartNode := aReferenceNode;
+    outStartNode := aReferenceNode;
     for I := xReferenceNodeLevel-1 downto xStartLevel do begin
-      if Assigned(aStartNode) then
-        aStartNode := fAdapter.GetNodeParent(aStartNode)
+      if Assigned(outStartNode) then
+        outStartNode := fAdapter.GetNodeParent(outStartNode)
       else
         Break;
     end;
   end;
 
-  if not Assigned(aStartNode) then
-    aStartNode := aReferenceNode;
+  if not Assigned(outStartNode) then
+    outStartNode := aReferenceNode;
 
   if xStartLevel < 0 then
     xStartLevel := 0;
 
   if xEndLevel > xStartLevel then
-    aLevelsDeep := xEndLevel-xStartLevel
+    outLevelsDeep := xEndLevel-xStartLevel
   else
-    aLevelsDeep := 0;
+    outLevelsDeep := 0;
 end;
 
 procedure TXMLXPathList.LoadFromString(const aString: OWideString);
@@ -483,6 +483,9 @@ var
   I: Integer;
   xNewXPath: TXMLXPath;
 begin
+  if aString = '' then
+    raise EXmlXPathInvalidString.Create(OXmlLng_XPathCannotBeEmpty);
+
   fList.Clear;
 
   xStrL := TOWideStringList.Create;
@@ -501,7 +504,7 @@ end;
 
 function TXMLXPathList.SelectNodes(
   const aParentNode: TXMLXPathNode;
-  var aList: TXMLXPathNodeList;
+  var outList: TXMLXPathNodeList;
   const aAdapterClass: TXMLXPathAdapterClass;
   const aMaxNodeCount: Integer): Boolean;
 var
@@ -539,7 +542,7 @@ begin
 
     Result := xAddedElements.Count > 0;
     if Result then begin
-      aList := fAdapter.CreateResNodeList;
+      outList := fAdapter.CreateResNodeList;
 
       xResNodeCount := xAddedElements.Count-1;
       if (aMaxNodeCount > 0) and (aMaxNodeCount < xResNodeCount) then
@@ -561,6 +564,8 @@ begin
         fAdapter.AddNodeToResList(TXMLXPathNode(xAddedElements.Pointers[I]));
       end;
       {$ENDIF}
+    end else begin
+      outList := nil;
     end;
   finally
     xCheckedParents.Free;

@@ -1,27 +1,42 @@
-program FileList;
+program OXmlUTest_D6;
+
+{$APPTYPE CONSOLE}
+
+{$R *.res}
 
 uses
-  Forms,
-  main in 'main.pas' {fMain},
+  SysUtils,
+  Classes,
+  OXmlUnitTests in '..\OXmlUnitTests.pas',
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   ODictionary in '..\..\units\ODictionary.pas',
   OEncoding in '..\..\units\OEncoding.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
   OXmlLng in '..\..\units\OXmlLng.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
-  OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlXPath in '..\..\units\OXmlXPath.pas';
 
-{$R *.RES}
-
+var
+  xTest: TOXmlUnitTest;
+  xStrL: TStringList;
+  I: Integer;
 begin
-  Application.Initialize;
-  Application.CreateForm(TfMain, fMain);
-  Application.Run;
-end.
+  xTest := TOXmlUnitTest.Create;
+  xStrL := TStringList.Create;
+  try
+    xTest.OXmlTestAll(xStrL);
+    for I := 0 to xStrL.Count-1 do
+      Writeln(xStrL[I]);
+  finally
+    xStrL.Free;
+    xTest.Free;
+  end;
 
+  Readln;
+end.

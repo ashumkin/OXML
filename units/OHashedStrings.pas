@@ -73,8 +73,9 @@ type
     function IndexOf(const aText: OWideString): OHashedStringsIndex;
     function IndexOfFast(const aText: OFastString): OHashedStringsIndex;
     function Add(const aText: OWideString): OHashedStringsIndex; overload;
-    function Add(const aText: OWideString; var aNewEntry: Boolean): OHashedStringsIndex; overload;
-    function Get(const aIndex: OHashedStringsIndex): OWideString;
+    function Add(const aText: OWideString; var outNewEntry: Boolean): OHashedStringsIndex; overload;
+    function Get(const aIndex: OHashedStringsIndex): OWideString; overload;
+    procedure Get(const aIndex: OHashedStringsIndex; var outString: OWideString); overload;
     procedure SetObject(const aIndex: OHashedStringsIndex; const aObject: TObject);
     function GetObject(const aIndex: OHashedStringsIndex): TObject;
     {$IFNDEF NEXTGEN}
@@ -88,9 +89,9 @@ type
 
   TOHashedStringDictionaryEnum = class;
   {$IFDEF O_GENERICS}
-  TOHashedStringDictionaryEnumPair = TPair<OWideString,OWideString>;
+  TOHashedStringDictionaryPair = TPair<OWideString,OWideString>;
   {$ELSE}
-  TOHashedStringDictionaryEnumPair = record
+  TOHashedStringDictionaryPair = record
     Key: OWideString;
     Value: OWideString;
   end;
@@ -105,7 +106,7 @@ type
     procedure SetValue(const aIndex: OHashedStringsIndex; aValue: OWideString);
     function GetValueOfKey(const aKey: OWideString): OWideString;
     procedure SetValueOfKey(const aKey, aValue: OWideString);
-    function GetPair(const aIndex: OHashedStringsIndex): TOHashedStringDictionaryEnumPair;
+    function GetPair(const aIndex: OHashedStringsIndex): TOHashedStringDictionaryPair;
   protected
     procedure AssignTo(Dest: TPersistent); override;
   public
@@ -115,7 +116,7 @@ type
     function IndexOf(const aKey: OWideString): OHashedStringsIndex;
     function IndexOfFast(const aKey: OFastString): OHashedStringsIndex;
     function Add(const aKey, aValue: OWideString): OHashedStringsIndex;
-    function TryGetValue(const aKey: OWideString; var aValue: OWideString): Boolean;
+    function TryGetValue(const aKey: OWideString; var outValue: OWideString): Boolean;
     function Count: OHashedStringsIndex;
     procedure Clear;
     procedure Delete(const aIndex: OHashedStringsIndex);
@@ -124,7 +125,7 @@ type
     property Keys[const aIndex: OHashedStringsIndex]: OWideString read GetKey;
     property Values[const aIndex: OHashedStringsIndex]: OWideString read GetValue write SetValue;
     property Items[const aKey: OWideString]: OWideString read GetValueOfKey write SetValueOfKey; default;
-    property Pairs[const aIndex: OHashedStringsIndex]: TOHashedStringDictionaryEnumPair read GetPair;
+    property Pairs[const aIndex: OHashedStringsIndex]: TOHashedStringDictionaryPair read GetPair;
 
     {$IFDEF O_ENUMERATORS}
     function GetEnumerator: TOHashedStringDictionaryEnum;
@@ -137,10 +138,10 @@ type
     fDictionary: TOHashedStringDictionary;
   public
     constructor Create(aDictionary: TOHashedStringDictionary);
-    function GetCurrent: TOHashedStringDictionaryEnumPair;
+    function GetCurrent: TOHashedStringDictionaryPair;
     function MoveNext: Boolean;
   public
-    property Current: TOHashedStringDictionaryEnumPair read GetCurrent;
+    property Current: TOHashedStringDictionaryPair read GetCurrent;
   end;
 
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
@@ -158,24 +159,30 @@ end;
 { TOHashedStrings }
 
 function TOHashedStrings.Add(const aText: OWideString;
-  var aNewEntry: Boolean): OHashedStringsIndex;
+  var outNewEntry: Boolean): OHashedStringsIndex;
 var
+  {$IFNDEF O_UNICODE}
   xStorageText: OFastString;
+  {$ENDIF}
   {$IFDEF FPC}
   xValue: ONativeInt;
   {$ELSE}
   xValue: OHashedStringsIndex;
   {$ENDIF}
 begin
+  {$IFNDEF O_UNICODE}
   xStorageText := OWideToFast(aText);
-  xValue := IndexOfFast(xStorageText);
+  {$ENDIF}
+  xValue := IndexOfFast({$IFDEF O_UNICODE}aText{$ELSE}xStorageText{$ENDIF});
 
-  aNewEntry := (xValue < 0);
-  if aNewEntry then begin
-    xValue := fTextList.Add(xStorageText);
+  outNewEntry := (xValue < 0);
+  if outNewEntry then begin
+    xValue := fTextList.Add({$IFDEF O_UNICODE}aText{$ELSE}xStorageText{$ENDIF});
 
     if fTextList.Count < fMaxItemsBeforeGrow then begin
-      fHashTable.Add(xStorageText, {$IFDEF FPC}{%H-}Pointer(xValue){$ELSE}xValue{$ENDIF});
+      fHashTable.Add(
+        {$IFDEF O_UNICODE}aText{$ELSE}xStorageText{$ENDIF},
+        {$IFDEF FPC}{%H-}Pointer(xValue){$ELSE}xValue{$ENDIF});
     end else begin
       Grow;
     end;
@@ -200,8 +207,10 @@ end;
 
 procedure TOHashedStrings.Clear;
 begin
-  fHashTable.Clear;
-  fTextList.Clear;
+  if fTextList.Count > 0 then begin
+    fHashTable.Clear;
+    fTextList.Clear;
+  end;
 end;
 
 function TOHashedStrings.Count: OHashedStringsIndex;
@@ -241,7 +250,17 @@ end;
 
 function TOHashedStrings.Get(const aIndex: OHashedStringsIndex): OWideString;
 begin
-  Result := OFastToWide(fTextList[aIndex]);
+  Result := {$IFNDEF O_UNICODE}OFastToWide{$ENDIF}(fTextList[aIndex]);
+end;
+
+procedure TOHashedStrings.Get(const aIndex: OHashedStringsIndex;
+  var outString: OWideString);
+begin
+  {$IFDEF O_UNICODE}
+  outString := fTextList[aIndex];
+  {$ELSE}
+  outString := OFastToWide(fTextList[aIndex]);
+  {$ENDIF}
 end;
 
 function TOHashedStrings.GetObject(const aIndex: OHashedStringsIndex): TObject;
@@ -258,7 +277,7 @@ end;
 
 function TOHashedStrings.IndexOf(const aText: OWideString): OHashedStringsIndex;
 begin
-  Result := IndexOfFast(OWideToFast(aText));
+  Result := IndexOfFast({$IFNDEF O_UNICODE}OWideToFast{$ENDIF}(aText));
 end;
 
 function TOHashedStrings.IndexOfFast(
@@ -337,11 +356,11 @@ end;
 
 function TOHashedStringDictionary.GetKey(const aIndex: OHashedStringsIndex): OWideString;
 begin
-  Result := fKeys.Get(aIndex);
+  fKeys.Get(aIndex, {%H-}Result);
 end;
 
 function TOHashedStringDictionary.GetPair(
-  const aIndex: OHashedStringsIndex): TOHashedStringDictionaryEnumPair;
+  const aIndex: OHashedStringsIndex): TOHashedStringDictionaryPair;
 begin
   Result.Key := Keys[aIndex];
   Result.Value := Values[aIndex];
@@ -425,14 +444,16 @@ begin
 end;
 
 function TOHashedStringDictionary.TryGetValue(const aKey: OWideString;
-  var aValue: OWideString): Boolean;
+  var outValue: OWideString): Boolean;
 var
   xIndex: OHashedStringsIndex;
 begin
   xIndex := fKeys.IndexOf(aKey);
   Result := (xIndex >= 0);
   if Result then
-    aValue := fValues[xIndex];
+    outValue := fValues[xIndex]
+  else
+    outValue := '';
 end;
 
 function TOHashedStringDictionary.Count: OHashedStringsIndex;
@@ -455,8 +476,10 @@ end;
 
 procedure TOHashedStringDictionary.Clear;
 begin
-  fValues.Clear;
-  fKeys.Clear;
+  if fKeys.Count > 0 then begin
+    fValues.Clear;
+    fKeys.Clear;
+  end;
 end;
 
 { TOHashedStringDictionaryEnum }
@@ -470,7 +493,7 @@ begin
   fDictionary := aDictionary;
 end;
 
-function TOHashedStringDictionaryEnum.GetCurrent: TOHashedStringDictionaryEnumPair;
+function TOHashedStringDictionaryEnum.GetCurrent: TOHashedStringDictionaryPair;
 begin
   Result := fDictionary.Pairs[fIndex];
 end;

@@ -49,6 +49,9 @@ type
 
   TXMLIndentType = (itNone, itFlat, itIndent);
   TXMLWhiteSpaceHandling = (wsTrim, wsPreserveAll, wsPreserveInTextOnly, wsAutoTag);
+  //brNone...read through all nodes
+  //brAfterDocumentElement...stop after first root node
+  //brAfterDocumentElementReleaseDocument...brAfterDocumentElement + release document
   TXMLBreakReading = (brNone, brAfterDocumentElement);
   TXMLLineBreak = (lbLF, lbCR, lbCRLF, lbDoNotProcess);
   TXMLChildType = (ctChild, ctAttribute);
@@ -63,9 +66,9 @@ const
 type
 
   {$IFDEF O_GENERICS}
-  TOXmlReaderEntityList = TDictionary<OWideString,OWideString>;
+  TXMLReaderEntityList = TDictionary<OWideString,OWideString>;
   {$ELSE}
-  TOXmlReaderEntityList = TOHashedStringDictionary;
+  TXMLReaderEntityList = TOHashedStringDictionary;
   {$ENDIF}
 
   //virtual MS above some custom buffer (may be string, array of byte etc.)
@@ -76,26 +79,26 @@ type
     function Write(const {%H-}Buffer; {%H-}Count: Longint): Longint; override;
   end;
 
-function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;
-function OXmlIsNameChar(const aChar: OWideChar): Boolean;
-function OXmlIsWhiteSpaceChar(const aChar: OWideChar): Boolean;
-function OXmlIsDecimalChar(const aChar: OWideChar): Boolean;
-function OXmlIsHexadecimalChar(const aChar: OWideChar): Boolean;
-function OXmlIsSignChar(const aChar: OWideChar): Boolean;
-function OXmlIsBreakChar(const aChar: OWideChar): Boolean;
+function OXmlIsNameStartChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsNameChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsWhiteSpaceChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsDecimalChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsHexadecimalChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsSignChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsBreakChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
-function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean;
-function OXmlIsWhiteSpace(const aText: OWideString): Boolean;
-function OXmlIsNumber(const aText: OWideString): Boolean;
+function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsWhiteSpace(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsNumber(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
-function OXmlValidCData(const aText: OWideString): Boolean;
-function OXmlValidComment(const aText: OWideString): Boolean;
-function OXmlValidPIContent(const aText: OWideString): Boolean;
+function OXmlValidCData(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlValidComment(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlValidPIContent(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
-function OXmlValidName(const aText: OWideString): Boolean;
+function OXmlValidName(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
-function OXmlPreserveToStr(const aPreserveWhiteSpace: Boolean): OWideString;
-function OXmlStrToPreserve(const aStr: OWideString): Boolean;
+function OXmlPreserveToStr(const aPreserveWhiteSpace: Boolean): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlStrToPreserve(const aStr: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 implementation
 
@@ -218,8 +221,8 @@ end;
 
 function OXmlIsDecimalChar(const aChar: OWideChar): Boolean;
 begin
-  case Ord(aChar) of
-    Ord('0')..Ord('9'): Result := True;
+  case aChar of
+    '0'..'9': Result := True;
   else
     Result := False;
   end;
@@ -227,10 +230,10 @@ end;
 
 function OXmlIsHexadecimalChar(const aChar: OWideChar): Boolean;
 begin
-  case Ord(aChar) of
-    Ord('a')..Ord('f'),
-    Ord('A')..Ord('F'),
-    Ord('0')..Ord('9'): Result := True;
+  case aChar of
+    'a'..'f',
+    'A'..'F',
+    '0'..'9': Result := True;
   else
     Result := False;
   end;
@@ -238,8 +241,8 @@ end;
 
 function OXmlIsSignChar(const aChar: OWideChar): Boolean;
 begin
-  case Ord(aChar) of
-    Ord('-'), Ord('+'): Result := True;
+  case aChar of
+    '-', '+': Result := True;
   else
     Result := False;
   end;
@@ -247,15 +250,15 @@ end;
 
 function OXmlIsBreakChar(const aChar: OWideChar): Boolean;
 begin
-  case Ord(aChar) of
-    $00..$20,//0..space
-    Ord('"'),
-    Ord(''''),
-    Ord('/'),
-    Ord('?'),
-    Ord('<'),
-    Ord('='),
-    Ord('>'): Result := True;
+  case aChar of
+    #$00..#$20,//0..space
+    '"',
+    '''',
+    '/',
+    '?',
+    '<',
+    '=',
+    '>': Result := True;
   else
     Result := False;
   end;
@@ -265,35 +268,35 @@ function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;
 begin
 {$IF DEFINED(FPC)}
   //UTF-8 characters!
-  case Ord(aChar) of
-    Ord('A')..Ord('Z'),
-    Ord('a')..Ord('z'),
-    Ord(':'),
-    Ord('_'),
-    $C0..$D6,
-    $D8..$F6,
-    $F8..$FF: Result := True;
+  case aChar of
+    'A'..'Z',
+    'a'..'z',
+    ':',
+    '_',
+    #$C0..#$D6,
+    #$D8..#$F6,
+    #$F8..#$FF: Result := True;
   else
     Result := False;
   end;
 {$ELSE}
-  case Ord(aChar) of
-    Ord('A')..Ord('Z'),
-    Ord('a')..Ord('z'),
-    Ord(':'),
-    Ord('_'),
-    $C0..$D6,
-    $D8..$F6,
-    $F8..$FF,
-    $100..$2FF,
-    $370..$37D,
-    $37F..$1FFF,
-    $200C..$200D,
-    $2070..$218F,
-    $2C00..$2FEF,
-    $3001..$D7FF,
-    $F900..$FDCF,
-    $FDF0..$FFFD: Result := True;
+  case aChar of
+    'A'..'Z',
+    'a'..'z',
+    ':',
+    '_',
+    #$C0..#$D6,
+    #$D8..#$F6,
+    #$F8..#$FF,
+    #$100..#$2FF,
+    #$370..#$37D,
+    #$37F..#$1FFF,
+    #$200C..#$200D,
+    #$2070..#$218F,
+    #$2C00..#$2FEF,
+    #$3001..#$D7FF,
+    #$F900..#$FDCF,
+    #$FDF0..#$FFFD: Result := True;
   else
     Result := False;
   end;
@@ -302,8 +305,8 @@ end;
 
 function OXmlIsWhiteSpaceChar(const aChar: OWideChar): Boolean;
 begin
-  case Ord(aChar) of
-    $09, $0A, $0D, $20: Result := True;
+  case aChar of
+    #$09, #$0A, #$0D, #$20: Result := True;
   else
     Result := False;
   end;
@@ -313,45 +316,45 @@ function OXmlIsNameChar(const aChar: OWideChar): Boolean;
 begin
 {$IF DEFINED(FPC)}
   //UTF-8 characters!
-  case Ord(aChar) of
-    Ord('A')..Ord('Z'),
-    Ord('a')..Ord('z'),
-    Ord('0')..Ord('9'),
-    Ord(':'),
-    Ord('_'),
-    Ord('-'),
-    Ord('.'),
-    $B7,
-    $C0..$D6,
-    $D8..$F6,
-    $F8..$FF: Result := True;
+  case aChar of
+    'A'..'Z',
+    'a'..'z',
+    '0'..'9',
+    ':',
+    '_',
+    '-',
+    '.',
+    #$B7,
+    #$C0..#$D6,
+    #$D8..#$F6,
+    #$F8..#$FF: Result := True;
   else
     Result := False;
   end;
 {$ELSE}
-  case Ord(aChar) of
-    Ord('A')..Ord('Z'),
-    Ord('a')..Ord('z'),
-    Ord('0')..Ord('9'),
-    Ord(':'),
-    Ord('_'),
-    Ord('-'),
-    Ord('.'),
-    $B7,
-    $C0..$D6,
-    $D8..$F6,
-    $F8..$FF,
-    $100..$2FF,
-    $370..$37D,
-    $37F..$1FFF,
-    $200C..$200D,
-    $2070..$218F,
-    $2C00..$2FEF,
-    $3001..$D7FF,
-    $F900..$FDCF,
-    $FDF0..$FFFD,
-    $0300..$036F,
-    $203F..$2040: Result := True;
+  case aChar of
+    'A'..'Z',
+    'a'..'z',
+    '0'..'9',
+    ':',
+    '_',
+    '-',
+    '.',
+    #$B7,
+    #$C0..#$D6,
+    #$D8..#$F6,
+    #$F8..#$FF,
+    #$100..#$2FF,
+    #$370..#$37D,
+    #$37F..#$1FFF,
+    #$200C..#$200D,
+    #$2070..#$218F,
+    #$2C00..#$2FEF,
+    #$3001..#$D7FF,
+    #$F900..#$FDCF,
+    #$FDF0..#$FFFD,
+    #$0300..#$036F,
+    #$203F..#$2040: Result := True;
   else
     Result := False;
   end;

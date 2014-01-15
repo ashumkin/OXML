@@ -1,6 +1,63 @@
 OXml Change Log
 ---------------
 
+Version 0.5 [SVN commit: 6, https://sourceforge.net/p/oxml/code/6/]
+  Comment in the beginning:
+  This is a commit with big changes to make OXml simpler and easier to use. I renamed
+  some units/classes/properties in order to reduce confusion and make things more straightforward.
+  I hope this is the last commit with big interface changes before the production state.
+  Sorry for the big changes, but you know, beta version... :)
+
+
+  - Renamed OXmlDOM.pas back to OXmlPDOM.pas - sorry for the confusion, I like the "OXmlDOM.pas" much more
+    but I wasn't aware that a unit of the same name ("oxmldom.pas") is already present in Delphi 6 and
+    thus OXml fails to compile there.
+  - Renamed etXMLDeclarationFinishClose to etFinishXMLDeclarationClose.
+  - Renamed TOXmlReader to TXMLReader.
+  - Renamed TOXmlWriter to TXMLWriter.
+  - Renamed all TOXml* classes to TXML*.
+  - Deleted TOXmlReader.CreateFrom* constructors:
+      Now a more "standardized" approach is used:
+      1. Create a XML reader with TOXmlReader.Create;
+      2. Open a file for parsing with TOXmlReader.Init*
+      3. Use TOXmlReader like in Version 0.4.
+      + You can call Init* on the same TOXmlReader multiple times and so
+        parse more files with the same reader.
+  - Deleted TOXmlWriter.CreateFrom* constructors:
+      Now a more "standardized" approach is used:
+      1. Create a XML writer with TOXmlWriter.Create;
+      2. Open a file for writing with TOXmlWriter.Init*
+      3. Use TOXmlWriter like in Version 0.4.
+      + You can call Init* on the same TOXmlWriter multiple times and so
+        write more files with the same reader.
+  - Deleted TXMLSeqParser.CreateFrom* constructors:
+      Now a more "standardized" approach is used:
+      1. Create a sequential parser with TXMLSeqParser.Create;
+      2. Open a file for parsing with TXMLSeqParser.Init*
+      3. Use TXMLSeqParser like in Version 0.4.
+      + You can call Init* on the same TXMLSeqParser multiple times and so
+        parse more files with the same parser.
+  - Deleted TSAXParser.CreateFrom* constructors:
+      Now a more "standardized" approach is used:
+      1. Create SAX parser with TSAXParser.Create;
+      2. Open a file and start parsing with TSAXParser.Parse* (run where you used TSAXParser.Parse).
+      3. If you stopped parsing continue with TSAXParser.ContinueParsing.
+      + You can call Parse* on the same TSAXParser multiple times and so
+        parse more files with the same parser.
+  - Removed aStop parameter from all TSAXParser events/anonymous methods. Use the StopParsing procedure instead.
+  - Added to all TSAXParser anonymous methods: the aSaxParser (= Sender) parameter.
+  - Fixed bug: TOXmlReader.ReadNextNode for NodeType=etFinishOpenElementClose the NodeName was empty.
+  - Added unit testing project for D6, D2009, FPC/Lazarus, see "unittest" directory.
+  - Changed function parameter prefixes:
+      - "a"..... constant parameter/attribute (in)
+      - "out"... variable parameter/attribute (out)
+      - "io".... variable parameter/attribute (in/out)
+      + I don't use the "out" keyword - e.g. like "SomeMethod(out outVariable: Integer) 
+        due to C++Builder compatibility.
+        Such procedures are declared as "SomeMethod(var outVariable: Integer)".
+  - More performance optimizations. In Delphi 2009+ OXmlPDOM is even faster than pure MS XML.
+    Furthermore OXmlPDOM is in D2009+ as fast as SimpleXML - maybe a little bit faster :)!
+
 Version 0.4 [SVN commit: 5, https://sourceforge.net/p/oxml/code/5/]
   - Deleted OXmlIntfDOM.pas
   - Renamed OXmlPDOM.pas to OXmlDOM.pas

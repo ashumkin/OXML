@@ -21,7 +21,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, StdCtrls, ExtCtrls,
-  OXmlDOM, OXmlUtils;
+  OXmlPDOM, OXmlUtils;
 
 type
   TfrmXPathDemo = class(TForm)

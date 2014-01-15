@@ -1721,7 +1721,8 @@ begin
   FStreamMode := Mode;
   if FStreamMode = smRead then
   begin
-    FReader := TOTextReader.Create(Stream, fBOMFound, Encoding);
+    FReader := TOTextReader.Create(Stream, Encoding);
+    fBOMFound := FReader.BOMFound;
     FLineStartPosition := FReader.ApproxStreamPosition;
   end
   else

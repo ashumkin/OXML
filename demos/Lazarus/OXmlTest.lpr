@@ -7,9 +7,9 @@ uses
   cthreads,
   {$ENDIF}{$ENDIF}
   Interfaces, // this includes the LCL widgetset
-  Forms, uXmlTest, OBufferedStreams, ODictionary, OEncoding, OHashedStrings,
-  OTextReadWrite, OWideSupp, OXmlLng, OXmlReadWrite, OXmlSAX,
-  OXmlSeq, OXmlUtils, OXmlXPath, OXmlPDOM;
+  Forms, uXmlTest, OBufferedStreams, ODictionary,
+  OEncoding, OHashedStrings, OTextReadWrite, OWideSupp, OXmlLng, OXmlReadWrite,
+  OXmlSAX, OXmlSeq, OXmlUtils, OXmlXPath, OXmlPDOM;
 
 {$R *.res}
 

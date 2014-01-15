@@ -20,8 +20,8 @@ unit OXmlSAX;
   Event-based XML parser.
     -> Events in FPC or older Delphi versions.
     -> Events + anonymous methods in D2009+.
-    -> use the aStop parameter to pause the parsing
-       parsing can be continued by calling TSAXParser.Parse() again.
+    -> Use the StopParsing() procedure to pause the parsing.
+       Parsing can be continued by calling TSAXParser.ContinueParsing() again.
 
 }
 
@@ -45,31 +45,57 @@ uses
 
 type
   TSAXParser = class;
-  TSAXAttribute = TOHashedStringDictionaryEnumPair;//Key = NodeName, Value = NodeValue
-  TSAXAttributes = TOHashedStringDictionary;
+  TSAXAttribute = record
+    AttrName: OWideString;
+    AttrValue: OWideString;
+  end;
+  TSAXAttributeEnum = class;
+  TSAXAttributes = class(TOHashedStringDictionary)
+  private
+    function GetAttribute(const aIndex: OHashedStringsIndex): TSAXAttribute;
+  public
+    property Attributes[const aIndex: OHashedStringsIndex]: TSAXAttribute read GetAttribute;
+
+    {$IFDEF O_ENUMERATORS}
+    function GetEnumerator: TSAXAttributeEnum;
+    {$ENDIF}
+  end;
+  TSAXAttributeEnum = class(TObject)
+  private
+    fIndex: OHashedStringsIndex;
+    fSAXAttributes: TSAXAttributes;
+  public
+    constructor Create(aSAXAttributes: TSAXAttributes);
+    function GetCurrent: TSAXAttribute;
+    function MoveNext: Boolean;
+  public
+    property Current: TSAXAttribute read GetCurrent;
+  end;
 
   TSAXNotifyEvent = procedure(Sender: TSAXParser) of Object;
-  TSAXTextEvent = procedure(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean) of Object;
+  TSAXTextEvent = procedure(Sender: TSAXParser; const aText: OWideString) of Object;
   TSAXStartElementEvent = procedure(Sender: TSAXParser; const aName: OWideString;
-    const aAttributes: TSAXAttributes; var aStop: Boolean) of Object;
-  TSAXEndElementEvent = procedure(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean) of Object;
-  TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString; var aStop: Boolean) of Object;
+    const aAttributes: TSAXAttributes) of Object;
+  TSAXEndElementEvent = procedure(Sender: TSAXParser; const aName: OWideString) of Object;
+  TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString) of Object;
 
-  {$IFDEF O_DELPHI_2009_UP}
-  TSAXNotifyProc = reference to procedure;
-  TSAXTextProc = reference to procedure(const aText: OWideString; var aStop: Boolean);
-  TSAXStartElementProc = reference to procedure(const aName: OWideString;
-    const aAttributes: TSAXAttributes; var aStop: Boolean);
-  TSAXElementProc = reference to procedure(const aName: OWideString; var aStop: Boolean);
-  TSAXProcessingInstructionProc = reference to procedure(const aTarget, aContent: OWideString; var aStop: Boolean);
+  {$IFDEF O_ANONYMOUS_METHODS}
+  TSAXNotifyProc = reference to procedure(aSaxParser: TSAXParser);
+  TSAXTextProc = reference to procedure(aSaxParser: TSAXParser;
+    const aText: OWideString);
+  TSAXStartElementProc = reference to procedure(aSaxParser: TSAXParser;
+    const aName: OWideString; const aAttributes: TSAXAttributes);
+  TSAXElementProc = reference to procedure(aSaxParser: TSAXParser;
+    const aName: OWideString);
+  TSAXProcessingInstructionProc = reference to procedure(aSaxParser: TSAXParser;
+    const aTarget, aContent: OWideString);
   {$ENDIF}
 
   TSAXParser = class(TObject)
   private
-    fReader: TOXmlReader;
-    fStream: TStream;
-    fOwnsStream: Boolean;
+    fReader: TXMLReader;
     fDataRead: Boolean;
+    fStopParsing: Boolean;
 
     fOnStartDocument: TSAXNotifyEvent;
     fOnEndDocument: TSAXNotifyEvent;
@@ -79,7 +105,7 @@ type
     fOnStartElement: TSAXStartElementEvent;
     fOnEndElement: TSAXEndElementEvent;
 
-    {$IFDEF O_DELPHI_2009_UP}
+    {$IFDEF O_ANONYMOUS_METHODS}
     fStartDocumentProc: TSAXNotifyProc;
     fEndDocumentProc: TSAXNotifyProc;
     fCharactersProc: TSAXTextProc;
@@ -91,26 +117,62 @@ type
 
     procedure DoOnStartDocument;
     procedure DoOnEndDocument;
-    procedure DoOnCharacters(const aText: OWideString; var aStop: Boolean);
-    procedure DoOnComment(const aText: OWideString; var aStop: Boolean);
-    procedure DoOnProcessingInstruction(const aTarget, aContent: OWideString; var aStop: Boolean);
+    procedure DoOnCharacters(const aText: OWideString);
+    procedure DoOnComment(const aText: OWideString);
+    procedure DoOnProcessingInstruction(const aTarget, aContent: OWideString);
     procedure DoOnStartElement(const aName: OWideString;
-      const aAttributes: TSAXAttributes; var aStop: Boolean);
-    procedure DoOnEndElement(const aName: OWideString; var aStop: Boolean);
+      const aAttributes: TSAXAttributes);
+    procedure DoOnEndElement(const aName: OWideString);
 
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
-    function GetReaderSettings: TOXmlReaderSettings;
+    function GetReaderSettings: TXMLReaderSettings;
     function GetApproxStreamPosition: ONativeInt;
     function GetStreamSize: ONativeInt;
   protected
-    procedure DoCreate(const aForceEncoding: TEncoding); virtual;
-    procedure DoDestroy; virtual;
+    procedure DoInit; virtual;
   public
-    //Parse the document
-    //  returns true if parsing was stopped before the end of the file
-    function Parse: Boolean;
+    constructor Create;
+    destructor Destroy; override;
+  public
+    //The Parse* functions open an XML document and start parsing it
+    //  they return "True" if the document was sucessfully parsed to the end
+    //  (they return "False" if the parsing has been stopped with aStop parameter)
+    // Please note that the file/stream/... is locked until the end of the
+    // document is reached or you call ReleaseDocument!
 
+    //parse document from file
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    function ParseFile(const aFileName: String; const aForceEncoding: TEncoding = nil): Boolean;
+    //parse document from file
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    function ParseStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
+    //parse XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
+    function ParseXML(const aXML: OWideString): Boolean;
+    {$IFDEF O_RAWBYTESTRING}
+    function ParseXML_UTF8(const aXML: ORawByteString): Boolean;
+    {$ENDIF}
+    {$IFDEF O_GENERICBYTES}
+    //parse document from TBytes buffer
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    function ParseBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
+    {$ENDIF}
+
+    //Release the current document (that was loaded with Parse*)
+    procedure ReleaseDocument;
+  public
+    //call StopParsing from an event or anonymous method to stop/pause parsing
+    //  parsing can be continued with ContinueParsing() again.
+    procedure StopParsing;
+
+    //Continue parsing the document
+    //  returns "True" if the document was sucessfully parsed to the end
+    //  (returns "False" if the parsing has been stopped with aStop parameter)
+    function ContinueParsing: Boolean;
+  public
     //following are functions to work with the current path in the XML document
     function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
     function NodePathMatch(const aNodePath: TOWideStringList): Boolean; overload;
@@ -121,19 +183,6 @@ type
     function RefIsParentOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
     procedure NodePathAssignTo(const aNodePath: TOWideStringList);
     function NodePathAsString: OWideString;
-  public
-    //aForceEncoding - if set, parser will ignore <?xml encoding="???" ?>
-    constructor Create(const aStream: TStream;
-      const aForceEncoding: TEncoding = nil);
-    constructor CreateFromFile(const aFileName: String;
-      const aForceEncoding: TEncoding = nil);
-    {$IFDEF O_DELPHI_2009_UP}
-    constructor CreateFromBuffer(const aBuffer: TBytes;
-      const aForceEncoding: TEncoding = nil);
-    {$ENDIF}
-    constructor CreateFromXML(const aXML: OWideString);
-
-    destructor Destroy; override;
   public
     //root element was found -> it's not possible to stop here!
     property OnStartDocument: TSAXNotifyEvent read fOnStartDocument write fOnStartDocument;
@@ -150,7 +199,7 @@ type
     //end of an element
     property OnEndElement: TSAXEndElementEvent read fOnEndElement write fOnEndElement;//element end </a> or <a />
 
-    {$IFDEF O_DELPHI_2009_UP}
+    {$IFDEF O_ANONYMOUS_METHODS}
     //root element was found -> it's not possible to stop here!
     property StartDocumentProc: TSAXNotifyProc read fStartDocumentProc write fStartDocumentProc;
     //reached the end of the document
@@ -173,7 +222,7 @@ type
     property NodePathCount: Integer read GetNodePathCount;
 
     //XML reader settings
-    property ReaderSettings: TOXmlReaderSettings read GetReaderSettings;
+    property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
   public
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
@@ -182,108 +231,52 @@ type
     property StreamSize: ONativeInt read GetStreamSize;
   end;
 
+  ESAXParserException = class(Exception);
+
 implementation
 
 { TSAXParser }
 
-constructor TSAXParser.Create(const aStream: TStream;
-  const aForceEncoding: TEncoding);
+constructor TSAXParser.Create;
 begin
   inherited Create;
 
-  fStream := aStream;
-  fOwnsStream := False;
-
-  DoCreate(aForceEncoding);
+  fReader := TXMLReader.Create;
+  fReader.ReaderSettings.NodePathHandling := npFull;
 end;
-
-constructor TSAXParser.CreateFromFile(const aFileName: String;
-  const aForceEncoding: TEncoding);
-begin
-  inherited Create;
-
-  fStream := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
-  fOwnsStream := True;
-
-  DoCreate(aForceEncoding);
-end;
-
-constructor TSAXParser.CreateFromXML(const aXML: OWideString);
-var
-  xLength: Integer;
-begin
-  inherited Create;
-
-  fStream := TMemoryStream.Create;
-  fOwnsStream := True;
-
-  xLength := Length(aXML);
-  if xLength > 0 then
-    fStream.WriteBuffer(aXML[1], xLength * SizeOf(OWideChar));
-  fStream.Position := 0;
-
-  DoCreate(TEncoding.OWideStringEncoding);
-end;
-
-{$IFDEF O_DELPHI_2009_UP}
-constructor TSAXParser.CreateFromBuffer(const aBuffer: TBytes;
-  const aForceEncoding: TEncoding);
-var
-  xLength: Integer;
-begin
-  inherited Create;
-
-  fStream := TMemoryStream.Create;
-  fOwnsStream := True;
-
-  xLength := Length(aBuffer);
-  if xLength > 0 then
-    fStream.WriteBuffer(aBuffer[0], xLength);
-  fStream.Position := 0;
-
-  DoCreate(aForceEncoding);
-end;
-{$ENDIF}
 
 destructor TSAXParser.Destroy;
 begin
-  DoDestroy;
+  fReader.Free;
 
   inherited;
 end;
 
-procedure TSAXParser.DoCreate(const aForceEncoding: TEncoding);
+procedure TSAXParser.DoInit;
 begin
-  fReader := TOXmlReader.Create(fStream, aForceEncoding);
-  fReader.BreakReading := brNone;
+  fDataRead := False;
+  fStopParsing := False;
 end;
 
-procedure TSAXParser.DoDestroy;
-begin
-  fReader.Free;
-  if fOwnsStream then
-    fStream.Free;
-end;
-
-procedure TSAXParser.DoOnCharacters(const aText: OWideString; var aStop: Boolean);
+procedure TSAXParser.DoOnCharacters(const aText: OWideString);
 begin
   if Assigned(fOnCharacters) then
-    fOnCharacters(Self, aText, aStop);
+    fOnCharacters(Self, aText);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fCharactersProc) then
-    fCharactersProc(aText, aStop);
+    fCharactersProc(Self, aText);
   {$ENDIF}
 end;
 
-procedure TSAXParser.DoOnComment(const aText: OWideString; var aStop: Boolean);
+procedure TSAXParser.DoOnComment(const aText: OWideString);
 begin
   if Assigned(fOnComment) then
-    fOnComment(Self, aText, aStop);
+    fOnComment(Self, aText);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fCommentProc) then
-    fCommentProc(aText, aStop);
+    fCommentProc(Self, aText);
   {$ENDIF}
 end;
 
@@ -292,32 +285,32 @@ begin
   if Assigned(fOnEndDocument) then
     fOnEndDocument(Self);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fEndDocumentProc) then
-    fEndDocumentProc;
+    fEndDocumentProc(Self);
   {$ENDIF}
 end;
 
-procedure TSAXParser.DoOnEndElement(const aName: OWideString; var aStop: Boolean);
+procedure TSAXParser.DoOnEndElement(const aName: OWideString);
 begin
   if Assigned(fOnEndElement) then
-    fOnEndElement(Self, aName, aStop);
+    fOnEndElement(Self, aName);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fEndElementProc) then
-    fEndElementProc(aName, aStop);
+    fEndElementProc(Self, aName);
   {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnProcessingInstruction(const aTarget,
-  aContent: OWideString; var aStop: Boolean);
+  aContent: OWideString);
 begin
   if Assigned(fOnProcessingInstruction) then
-    fOnProcessingInstruction(Self, aTarget, aContent, aStop);
+    fOnProcessingInstruction(Self, aTarget, aContent);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fProcessingInstructionProc) then
-    fProcessingInstructionProc(aTarget, aContent, aStop);
+    fProcessingInstructionProc(Self, aTarget, aContent);
   {$ENDIF}
 end;
 
@@ -326,21 +319,21 @@ begin
   if Assigned(fOnStartDocument) then
     fOnStartDocument(Self);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fStartDocumentProc) then
-    fStartDocumentProc;
+    fStartDocumentProc(Self);
   {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnStartElement(const aName: OWideString;
-  const aAttributes: TSAXAttributes; var aStop: Boolean);
+  const aAttributes: TSAXAttributes);
 begin
   if Assigned(fOnStartElement) then
-    fOnStartElement(Self, aName, aAttributes, aStop);
+    fOnStartElement(Self, aName, aAttributes);
 
-  {$IFDEF O_DELPHI_2009_UP}
+  {$IFDEF O_ANONYMOUS_METHODS}
   if Assigned(fStartElementProc) then
-    fStartElementProc(aName, aAttributes, aStop);
+    fStartElementProc(Self, aName, aAttributes);
   {$ENDIF}
 end;
 
@@ -359,15 +352,62 @@ begin
   Result := fReader.NodePathCount;
 end;
 
-function TSAXParser.GetReaderSettings: TOXmlReaderSettings;
+function TSAXParser.GetReaderSettings: TXMLReaderSettings;
 begin
-  Result := fReader;//direct access to reader settings
+  Result := fReader.ReaderSettings;//direct access to reader settings
 end;
 
 function TSAXParser.GetStreamSize: ONativeInt;
 begin
   Result := fReader.StreamSize;
 end;
+
+{$IFDEF O_GENERICBYTES}
+function TSAXParser.ParseBuffer(const aBuffer: TBytes;
+  const aForceEncoding: TEncoding): Boolean;
+begin
+  fReader.InitBuffer(aBuffer, aForceEncoding);
+  DoInit;
+
+  Result := ContinueParsing;
+end;
+{$ENDIF}
+
+function TSAXParser.ParseFile(const aFileName: String;
+  const aForceEncoding: TEncoding): Boolean;
+begin
+  fReader.InitFile(aFileName, aForceEncoding);
+  DoInit;
+
+  Result := ContinueParsing;
+end;
+
+function TSAXParser.ParseStream(const aStream: TStream;
+  const aForceEncoding: TEncoding): Boolean;
+begin
+  fReader.InitStream(aStream, aForceEncoding);
+  DoInit;
+
+  Result := ContinueParsing;
+end;
+
+function TSAXParser.ParseXML(const aXML: OWideString): Boolean;
+begin
+  fReader.InitXML(aXML);
+  DoInit;
+
+  Result := ContinueParsing;
+end;
+
+{$IFDEF O_RAWBYTESTRING}
+function TSAXParser.ParseXML_UTF8(const aXML: ORawByteString): Boolean;
+begin
+  fReader.InitXML_UTF8(aXML);
+  DoInit;
+
+  Result := ContinueParsing;
+end;
+{$ENDIF}
 
 procedure TSAXParser.NodePathAssignTo(const aNodePath: TOWideStringList);
 begin
@@ -395,51 +435,51 @@ begin
   Result := fReader.NodePathMatch(aNodePath);
 end;
 
-function TSAXParser.Parse: Boolean;
+function TSAXParser.ContinueParsing: Boolean;
 var
-  xReaderNode: TOXmlReaderNode;
   xAttributes: TSAXAttributes;
-  xStop: Boolean;
 begin
-  xStop := False;
-  xReaderNode.NodeType := etDocumentStart;
-  xReaderNode.NodeName := '';
-  xReaderNode.NodeValue := '';
+  if ReaderSettings.NodePathHandling = npNo then//you cannot use npNo with SAXParser -> node names wouldn't be read
+    ReaderSettings.NodePathHandling := npLastPath;
+
+  fStopParsing := False;
 
   xAttributes := TSAXAttributes.Create;
   try
-    while (not xStop) and fReader.ReadNextNode(xReaderNode) do begin
-      xStop := False;
-      case xReaderNode.NodeType of
-        etOpenElement: begin
+    while (not fStopParsing) and fReader.ReadNextToken do begin
+      case fReader.ReaderToken.TokenType of
+        rtOpenElement: begin
           xAttributes.Clear;
           if not fDataRead then begin
             DoOnStartDocument;
             fDataRead := True;
           end;
         end;
-        etAttribute: xAttributes.Add(xReaderNode.NodeName, xReaderNode.NodeValue);
-        etFinishOpenElementClose: begin
-          DoOnStartElement(xReaderNode.NodeName, xAttributes, xStop);
-          DoOnEndElement(xReaderNode.NodeName, xStop);
+        rtAttribute: begin
+          xAttributes.Add(fReader.ReaderToken.TokenName, fReader.ReaderToken.TokenValue);
         end;
-        etFinishOpenElement: DoOnStartElement(xReaderNode.NodeName, xAttributes, xStop);
-        etCloseElement: DoOnEndElement(xReaderNode.NodeName, xStop);
-        etText, etCData:
-          if fDataRead then//omit whitespace at the beginning of document
-            DoOnCharacters(xReaderNode.NodeValue, xStop);
-        etComment: DoOnComment(xReaderNode.NodeValue, xStop);
-        etProcessingInstruction: DoOnProcessingInstruction(xReaderNode.NodeName, xReaderNode.NodeValue, xStop);
+        rtFinishOpenElementClose: begin
+          DoOnStartElement(fReader.ReaderToken.TokenName, xAttributes);
+          DoOnEndElement(fReader.ReaderToken.TokenName);
+        end;
+        rtFinishOpenElement: DoOnStartElement(fReader.ReaderToken.TokenName, xAttributes);
+        rtCloseElement: DoOnEndElement(fReader.ReaderToken.TokenName);
+        rtText, rtCData:
+          if fDataRead or not OXmlIsWhiteSpace(fReader.ReaderToken.TokenValue)
+          then//omit empty text before root node
+            DoOnCharacters(fReader.ReaderToken.TokenValue);
+        rtComment: DoOnComment(fReader.ReaderToken.TokenValue);
+        rtProcessingInstruction: DoOnProcessingInstruction(fReader.ReaderToken.TokenName, fReader.ReaderToken.TokenValue);
       end;
     end;
 
-    if fDataRead and not xStop then
+    if fDataRead and not fStopParsing then
       DoOnEndDocument;
   finally
     xAttributes.Free;
   end;
 
-  Result := xStop;
+  Result := not fStopParsing;
 end;
 
 function TSAXParser.RefIsChildOfNodePath(
@@ -464,6 +504,54 @@ function TSAXParser.RefIsParentOfNodePath(
   const aRefNodePath: array of OWideString): Boolean;
 begin
   Result := fReader.RefIsParentOfNodePath(aRefNodePath);
+end;
+
+procedure TSAXParser.ReleaseDocument;
+begin
+  fReader.ReleaseDocument;
+end;
+
+procedure TSAXParser.StopParsing;
+begin
+  fStopParsing := True;
+end;
+
+{ TSAXAttributes }
+
+function TSAXAttributes.GetAttribute(
+  const aIndex: OHashedStringsIndex): TSAXAttribute;
+begin
+  Result.AttrName := Keys[aIndex];
+  Result.AttrValue := Values[aIndex];
+end;
+
+{$IFDEF O_ENUMERATORS}
+function TSAXAttributes.GetEnumerator: TSAXAttributeEnum;
+begin
+  Result := TSAXAttributeEnum.Create(Self);
+end;
+{$ENDIF}
+
+{ TSAXAttributeEnum }
+
+constructor TSAXAttributeEnum.Create(aSAXAttributes: TSAXAttributes);
+begin
+  inherited Create;
+
+  fIndex := -1;
+  fSAXAttributes := aSAXAttributes;
+end;
+
+function TSAXAttributeEnum.GetCurrent: TSAXAttribute;
+begin
+  Result := fSAXAttributes.Attributes[fIndex];
+end;
+
+function TSAXAttributeEnum.MoveNext: Boolean;
+begin
+  Result := (fIndex < fSAXAttributes.Count - 1);
+  if Result then
+    Inc(fIndex);
 end;
 
 end.

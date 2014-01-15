@@ -45,6 +45,6 @@ contains
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   OEncoding in '..\..\units\OEncoding.pas',
-  OXmlDOM in '..\..\units\OXmlDOM.pas';
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
 
 end.

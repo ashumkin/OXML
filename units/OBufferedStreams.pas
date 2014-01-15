@@ -48,7 +48,7 @@ type
     fStreamPosition: ONativeInt;
     fStreamSize: ONativeInt;
 
-    {$IFDEF O_DELPHI_2009_UP}
+    {$IFDEF O_GENERICBYTES}
     fTempBuffer: TBytes;
     {$ELSE}
     fTempBuffer: Array of Byte;
@@ -82,7 +82,7 @@ type
     fStream: TStream;
     fStreamPosition: ONativeInt;
     fStreamSize: ONativeInt;
-    {$IFDEF O_DELPHI_2009_UP}
+    {$IFDEF O_GENERICBYTES}
     fTempBuffer: TBytes;
     {$ELSE}
     fTempBuffer: Array of Byte;

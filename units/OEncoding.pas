@@ -94,8 +94,8 @@ type
 
   TEncoding = class(TObject)
   public
-    class function GetBufferEncoding(const aBuffer: TEncodingBuffer; var aEncoding: TEncoding): Integer; overload;
-    class function GetBufferEncoding(const aBuffer: TEncodingBuffer; var aEncoding: TEncoding;
+    class function GetBufferEncoding(const aBuffer: TEncodingBuffer; var outEncoding: TEncoding): Integer; overload;
+    class function GetBufferEncoding(const aBuffer: TEncodingBuffer; var outEncoding: TEncoding;
       aDefaultEncoding: TEncoding): Integer; overload;
     function GetPreamble: TEncodingBuffer; virtual; abstract;
 
@@ -180,7 +180,7 @@ type
 //get or create code page from identifier
 function GetCreateCodePage(const aCodePage: Cardinal): TEncoding; overload;
 //get or create code page from alias, returns true if found
-function GetCreateCodePage(const aAlias: OWideString; var aEncoding: TEncoding): Boolean; overload;
+function GetCreateCodePage(const aAlias: OWideString; var outEncoding: TEncoding): Boolean; overload;
 //get or create code page from alias, returns nil if not found
 function GetCreateCodePage(const aAlias: OWideString): TEncoding; overload;
 function AliasToCodePage(const aAlias: OWideString): Cardinal;
@@ -363,30 +363,30 @@ begin
 end;
 
 class function TEncoding.GetBufferEncoding(const aBuffer: TEncodingBuffer;
-  var aEncoding: TEncoding): Integer;
+  var outEncoding: TEncoding): Integer;
 begin
-  Result := GetBufferEncoding(aBuffer, aEncoding, Default);
+  Result := GetBufferEncoding(aBuffer, outEncoding, Default);
 end;
 
 class function TEncoding.GetBufferEncoding(const aBuffer: TEncodingBuffer;
-  var aEncoding: TEncoding; aDefaultEncoding: TEncoding): Integer;
+  var outEncoding: TEncoding; aDefaultEncoding: TEncoding): Integer;
 begin
   if (Length(aBuffer) >= 3) and
      (aBuffer[TEncodingBuffer_FirstElement+0] = #$EF) and
      (aBuffer[TEncodingBuffer_FirstElement+1] = #$BB) and
      (aBuffer[TEncodingBuffer_FirstElement+2] = #$BF)
   then begin
-    aEncoding := UTF8;
+    outEncoding := UTF8;
     Result := 3;
   end else
   if (Length(aBuffer) >= 2) and
      (aBuffer[TEncodingBuffer_FirstElement+0] = #$FF) and
      (aBuffer[TEncodingBuffer_FirstElement+1] = #$FE)
   then begin
-    aEncoding := Unicode;
+    outEncoding := Unicode;
     Result := 2;
   end else begin
-    aEncoding := ADefaultEncoding;
+    outEncoding := ADefaultEncoding;
     Result := 0;
   end;
 end;
@@ -793,16 +793,16 @@ begin
   end;
 end;
 
-function GetCreateCodePage(const aAlias: OWideString; var aEncoding: TEncoding): Boolean;
+function GetCreateCodePage(const aAlias: OWideString; var outEncoding: TEncoding): Boolean;
 var
   xCP: Cardinal;
 begin
   xCP := AliasToCodePage(aAlias);
   Result := (xCP <> 0);
   if Result then
-    aEncoding := GetCreateCodePage(xCP)
+    outEncoding := GetCreateCodePage(xCP)
   else
-    aEncoding := nil;
+    outEncoding := nil;
 end;
 
 function GetCreateCodePage(const aAlias: OWideString): TEncoding;

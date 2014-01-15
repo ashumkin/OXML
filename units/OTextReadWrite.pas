@@ -46,18 +46,12 @@ uses
 
 type
 
-  TOTextReaderCustomBuffer = record
-    Buffer: OWideString;
-    Position: Integer;
-    Length: Integer;
-  end;
-  POTextReaderCustomBuffer = ^TOTextReaderCustomBuffer;
-
   TOTextReader = class(TObject)
   private
     fTempString: OWideString;
     fTempStringPosition: Integer;
     fTempStringLength: Integer;
+    fTempStringRemain: Integer;
     fBufferSize: Integer;
 
     fStream: TStream;
@@ -68,35 +62,64 @@ type
 
     fEncoding: TEncoding;
     fOwnsEncoding: Boolean;
+    fBOMFound: Boolean;
+    fEOF: Boolean;
 
     //undo support
     fPreviousChar: OWideChar;
     fReadFromUndo: Boolean;
 
     //custom buffer support
-    fCustomBuffer: Array[0..1] of TOTextReaderCustomBuffer;
+    fCustomBuffer: Array[0..1] of TOTextBuffer;
 
     procedure SetEncoding(const Value: TEncoding);
 
-    function GetPreviousChar: OWideChar;
     function GetApproxStreamPosition: ONativeInt;
 
-    procedure DoCreate(aStream: TStream;
-      var aBOMFound: Boolean;
-      const aDefaultSingleByteEncoding: TEncoding;
-      const aBufferSize: Integer); virtual;
+    procedure LoadStringFromStream;
+
+  protected
+    procedure DoCreate(const aBufferSize: Integer); virtual;
+    procedure DoInit(const aNewStream: TStream; const aNewOwnsStream: Boolean;
+      const aDefaultSingleByteEncoding: TEncoding); virtual;
   public
-    //create reader with original stream
+    //create
+    constructor Create(const aBufferSize: Integer = 10*1024 {10 KB}); overload;
+    //create and init
+    constructor Create(const aStream: TStream;
+      const aDefaultSingleByteEncoding: TEncoding = nil;
+      const aBufferSize: Integer = 10*1024 {10 KB}); overload;
+
+    destructor Destroy; override;
+  public
+    //The Init* procedures initialize a document for reading.
+    // Please note that the file/stream/... is locked until the end of the
+    // document is reached or you call ReleaseDocument!
+
     //aDefaultSingleByteEncoding - if no BOM is found, use this encoding,
     //  if BOM is found, always correct encoding from the BOM is used
-    constructor Create(aStream: TStream;
-      const aDefaultSingleByteEncoding: TEncoding = nil;
-      const aBufferSize: Integer = 10*1024 {10 KB}); overload;
-    constructor Create(aStream: TStream;
-      var aBOMFound: Boolean;
-      const aDefaultSingleByteEncoding: TEncoding = nil;
-      const aBufferSize: Integer = 10*1024 {10 KB}); overload;
-    destructor Destroy; override;
+
+    //load document from file
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    procedure InitFile(const aFileName: String; const aDefaultSingleByteEncoding: TEncoding = nil);
+    //load document from file
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    procedure InitStream(const aStream: TStream; const aDefaultSingleByteEncoding: TEncoding = nil);
+    //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
+    procedure InitString(const aString: OWideString);
+    {$IFDEF O_RAWBYTESTRING}
+    procedure InitString_UTF8(const aString: ORawByteString);
+    {$ENDIF}
+    {$IFDEF O_GENERICBYTES}
+    //load document from TBytes buffer
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    procedure InitBuffer(const aBuffer: TBytes; const aDefaultSingleByteEncoding: TEncoding = nil);
+    {$ENDIF}
+
+    //Release the current document (that was loaded with Init*)
+    procedure ReleaseDocument;
   public
     //read char-by-char, returns false if EOF is reached
     function ReadNextChar(var outChar: OWideChar): Boolean;
@@ -137,6 +160,10 @@ type
     //  and the stream has to be read again
     property Encoding: TEncoding read fEncoding write SetEncoding;
     property OwnsEncoding: Boolean read fOwnsEncoding write fOwnsEncoding;
+    //Returns true if BOM was found in the document
+    property BOMFound: Boolean read fBOMFound;
+    //Returns true if end-of-file is reached
+    property EOF: Boolean read fEOF;
 
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
@@ -152,6 +179,7 @@ type
     fTempStringLength: Integer;
 
     fStream: TStream;
+    fOwnsStream: Boolean;
 
     fEncoding: TEncoding;
     fOwnsEncoding: Boolean;
@@ -162,13 +190,30 @@ type
     procedure WriteStringToStream(const aString: OWideString; const aMaxLength: Integer);
     procedure SetEncoding(const Value: TEncoding);
   protected
-    procedure DoCreate(aStream: TStream; aEncoding: TEncoding; aWriteBOM: Boolean;
-      aBufferSize: Integer);
+    procedure DoCreate(const aBufferSize: Integer);
+    procedure DoInit(const aNewStream: TStream; const aNewOwnsStream: Boolean;
+      const aEncoding: TEncoding; const aWriteBOM: Boolean);
   public
-    constructor Create(aStream: TStream; aBufferSize: Integer = 10*1024 {10*1024 Chars = 20 KB}); overload;
-    constructor Create(aStream: TStream; aEncoding: TEncoding; aWriteBOM: Boolean = True;
-      aBufferSize: Integer = 10*1024 {10*1024 Chars = 20 KB}); overload;
+    //create
+    constructor Create(const aBufferSize: Integer = 10*1024 {10*1024 Chars = 20 KB}); overload;
+    //create and init
+    constructor Create(const aStream: TStream;
+      const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True;
+      const aBufferSize: Integer = 10*1024 {10*1024 Chars = 20 KB}); overload;
+
     destructor Destroy; override;
+  public
+    //The Init* procedures initialize a document for writing.
+    // Please note that the file/stream/... is locked until you destroy
+    // TOTextWriter or call ReleaseDocument!
+
+    procedure InitFile(const aFileName: String;
+      const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
+    procedure InitStream(const aStream: TStream;
+      const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
+
+    //Release the current document (that was loaded with Init*)
+    procedure ReleaseDocument;
   public
     //write string
     procedure WriteString(const aString: OWideString);
@@ -189,7 +234,7 @@ type
 //decide what encoding is used in a stream (BOM markers are searched for)
 //  only UTF-8, UTF-16, UTF-16BE can be recognized
 function GetEncodingFromStream(const aStream: TStream;
-  var {%H-}aTempStringPosition: ONativeInt;
+  var {%H-}ioTempStringPosition: ONativeInt;
   const aLastPosition: ONativeInt;
   const {%H-}aDefaultSingleByteEncoding: TEncoding): TEncoding;
 
@@ -203,7 +248,7 @@ resourcestring
   OTextReadWrite_Undo2Times = 'The aStream parameter must be assigned when creating a buffered stream.';
 
 function GetEncodingFromStream(const aStream: TStream;
-  var aTempStringPosition: ONativeInt;
+  var ioTempStringPosition: ONativeInt;
   const aLastPosition: ONativeInt;
   const aDefaultSingleByteEncoding: TEncoding): TEncoding;
 var
@@ -221,13 +266,13 @@ begin
   if xSize < 2 then
     Exit;//BOM must be at least 2 characters
 
-  if xSize > 3 then
-    xSize := 3;//BOM may be up to 3 characters
+  if xSize > 4 then
+    xSize := 4;//BOM may be up to 4 characters
 
   SetLength(xBuffer, xSize);
   aStream.ReadBuffer(xBuffer[TEncodingBuffer_FirstElement], xSize);
   xEncoding := nil;
-  aTempStringPosition := aTempStringPosition +
+  ioTempStringPosition := ioTempStringPosition +
     TEncoding.GetBufferEncoding(xBuffer, xEncoding {$IFDEF O_DELPHI_XE_UP}, Result{$ENDIF});
 
   if Assigned(xEncoding) then
@@ -235,118 +280,7 @@ begin
   if not Assigned(Result) then
     Result := TEncoding.{$IFDEF O_DELPHI_XE2_UP}ANSI{$ELSE}ASCII{$ENDIF};
 
-  aStream.Position := aTempStringPosition;
-end;
-
-function LoadString(
-  const aReadStream: TStream;
-  const aByteCount: ONativeInt;
-  var aTempString: OWideString;
-  const aEncoding: TEncoding): ONativeInt;
-var
-  xBuffer: TEncodingBuffer;
-  xUTF8Inc: Integer;
-const
-  BS = TEncodingBuffer_FirstElement;
-begin
-  if aByteCount = 0 then begin
-    Result := 0;
-    Exit;
-  end;
-  SetLength(xBuffer, aByteCount);
-  aReadStream.ReadBuffer(xBuffer[BS], aByteCount);
-  Result := aByteCount;
-  if aEncoding is TUTF8Encoding then begin
-    //check if we did not reach an utf-8 character in the middle
-    if
-     ((Ord(xBuffer[BS+aByteCount-1]) and $80) = $00)
-    then//last byte is 0.......
-      xUTF8Inc := 0
-    else if
-     ((aByteCount > 1) and ((Ord(xBuffer[BS+aByteCount-1]) and $E0) = $C0)) or//110..... -> double char
-     ((aByteCount > 2) and ((Ord(xBuffer[BS+aByteCount-2]) and $F0) = $E0)) or//1110.... -> triple char
-     ((aByteCount > 3) and ((Ord(xBuffer[BS+aByteCount-3]) and $F8) = $F0)) or//11110... -> 4 char
-     ((aByteCount > 4) and ((Ord(xBuffer[BS+aByteCount-4]) and $FC) = $F8)) or//111110.. -> 5 char
-     ((aByteCount > 5) and ((Ord(xBuffer[BS+aByteCount-5]) and $FE) = $FC))   //1111110. -> 6 char
-    then
-      xUTF8Inc := 1
-    else if
-     ((aByteCount > 1) and ((Ord(xBuffer[BS+aByteCount-1]) and $F0) = $E0)) or//1110.... -> triple char
-     ((aByteCount > 2) and ((Ord(xBuffer[BS+aByteCount-2]) and $F8) = $F0)) or//11110... -> 4 char
-     ((aByteCount > 3) and ((Ord(xBuffer[BS+aByteCount-3]) and $FC) = $F8)) or//111110.. -> 5 char
-     ((aByteCount > 4) and ((Ord(xBuffer[BS+aByteCount-4]) and $FE) = $FC))   //1111110. -> 6 char
-    then
-      xUTF8Inc := 2
-    else if
-     ((aByteCount > 1) and ((Ord(xBuffer[BS+aByteCount-1]) and $F8) = $F0)) or//11110... -> 4 char
-     ((aByteCount > 2) and ((Ord(xBuffer[BS+aByteCount-2]) and $FC) = $F8)) or//111110.. -> 5 char
-     ((aByteCount > 3) and ((Ord(xBuffer[BS+aByteCount-3]) and $FE) = $FC))   //1111110. -> 6 char
-    then
-      xUTF8Inc := 3
-    else if
-     ((aByteCount > 1) and ((Ord(xBuffer[BS+aByteCount-1]) and $FC) = $F8)) or//111110.. -> 5 char
-     ((aByteCount > 2) and ((Ord(xBuffer[BS+aByteCount-2]) and $FE) = $FC))   //1111110. -> 6 char
-    then
-      xUTF8Inc := 4
-    else if
-     ((aByteCount > 1) and ((Ord(xBuffer[BS+aByteCount-1]) and $FE) = $FC))   //1111110. -> 6 char
-    then
-      xUTF8Inc := 5
-    else
-      xUTF8Inc := 0;//ERROR ?
-
-    if xUTF8Inc > 0 then begin
-      SetLength(xBuffer, aByteCount + xUTF8Inc);
-      aReadStream.ReadBuffer(xBuffer[BS+aByteCount], xUTF8Inc);
-      Result := Result + xUTF8Inc;
-    end;
-  end;
-  aTempString := aTempString + aEncoding.GetString(xBuffer);
-end;
-
-procedure ClearTempString(
-  var aTempString: OWideString;
-  var aTempStringPosition: Integer;
-  var aTempStringLength: Integer);
-begin
-  if aTempStringLength > aTempStringPosition then begin
-    aTempString := '';
-    aTempStringLength := 0;
-  end else begin
-    //LEAVE UNREAD TAIL
-    Delete(aTempString, 1, aTempStringPosition-1);
-    aTempStringLength := Length(aTempString);
-  end;
-  aTempStringPosition := 1;
-end;
-
-procedure CheckTempString(
-  const aReadStream: TStream;
-  var aReadStreamPosition: ONativeInt;
-  const aReadStreamSize: ONativeInt;
-  var aTempString: OWideString; var aTempStringPosition, aTempStringLength: Integer;
-  const aReadChars: Integer;
-  const aEncoding: TEncoding;
-  const aBufferSize: Integer);
-var
-  xReadBytes: ONativeInt;
-  xInc: ONativeInt;
-begin
-  if
-    (aTempStringPosition+aReadChars-1 > aTempStringLength)
-  then begin
-    //LOAD NEXT BUFFER INTO TEMP STREAM, LEAVE UNREAD TAIL
-    ClearTempString(aTempString, aTempStringPosition, aTempStringLength);
-
-    xReadBytes := aReadStreamSize-aReadStreamPosition;
-    if xReadBytes > aBufferSize then
-      xReadBytes := aBufferSize;
-    if xReadBytes > 0 then begin
-      xInc := LoadString(aReadStream, xReadBytes, aTempString, aEncoding);
-      aTempStringLength := Length(aTempString);
-      aReadStreamPosition := aReadStreamPosition + xInc;
-    end;
-  end;
+  aStream.Position := ioTempStringPosition;
 end;
 
 { TOTextReader }
@@ -359,36 +293,38 @@ end;
 
 procedure TOTextReader.ClearCustomBuffer(const aBufferIndex: Byte);
 begin
-  fCustomBuffer[aBufferIndex].Position := 1;
+  fCustomBuffer[aBufferIndex].Clear(False);
 end;
 
-constructor TOTextReader.Create(aStream: TStream; var aBOMFound: Boolean;
+constructor TOTextReader.Create(const aStream: TStream;
   const aDefaultSingleByteEncoding: TEncoding; const aBufferSize: Integer);
 begin
   inherited Create;
 
-  DoCreate(aStream, aBOMFound, aDefaultSingleByteEncoding, aBufferSize);
+  DoCreate(aBufferSize);
+
+  InitStream(aStream, aDefaultSingleByteEncoding);
 end;
 
-constructor TOTextReader.Create(aStream: TStream; const aDefaultSingleByteEncoding: TEncoding;
-  const aBufferSize: Integer);
-var
-  xBOMFound: Boolean;
+constructor TOTextReader.Create(const aBufferSize: Integer);
 begin
   inherited Create;
 
-  DoCreate(aStream, {%H-}xBOMFound, aDefaultSingleByteEncoding, aBufferSize);
+  DoCreate(aBufferSize);
 end;
 
 function TOTextReader.CustomBufferLength(const aBufferIndex: Byte): Integer;
 begin
-  Result := fCustomBuffer[aBufferIndex].Position - 1;
+  Result := fCustomBuffer[aBufferIndex].UsedLength;
 end;
 
 destructor TOTextReader.Destroy;
+var I: Integer;
 begin
-  if fOwnsStream then
-    fStream.Free;
+  for I := Low(fCustomBuffer) to High(fCustomBuffer) do
+    fCustomBuffer[I].Free;
+
+  ReleaseDocument;
 
   if fOwnsEncoding then
     fEncoding.Free;
@@ -396,59 +332,57 @@ begin
   inherited;
 end;
 
-procedure TOTextReader.DoCreate(aStream: TStream; var aBOMFound: Boolean;
-  const aDefaultSingleByteEncoding: TEncoding; const aBufferSize: Integer);
+procedure TOTextReader.DoCreate(const aBufferSize: Integer);
+var I: Integer;
+begin
+  fBufferSize := aBufferSize;
+
+  for I := Low(fCustomBuffer) to High(fCustomBuffer) do
+    fCustomBuffer[I] := TOTextBuffer.Create;
+end;
+
+procedure TOTextReader.DoInit(const aNewStream: TStream;
+  const aNewOwnsStream: Boolean; const aDefaultSingleByteEncoding: TEncoding);
 var
   I: Integer;
   xStreamPosition: Integer;
 begin
-  if (aStream is TCustomMemoryStream) or (aStream is TFileStream) then begin
-    //no need for buffering on memory stream or file stream
-    //  buffering is here just because some (custom) streams may not support seeking
-    //  which is needed when reading encoding from xml header
-    fStream := aStream;
-    fOwnsStream := False;
-  end else begin
-    //we need to buffer streams that do not support seeking (zip etc.)
-    fStream := TOBufferedReadStream.Create(aStream, aBufferSize);
-    fStreamPosition := fStream.Position;
-    fStreamStartPosition := fStreamPosition;
-    fOwnsStream := True;
-  end;
+  fEOF := False;
+  ReleaseDocument;
 
+  fStream := aNewStream;
+  fOwnsStream := aNewOwnsStream;
+  fStreamPosition := fStream.Position;
+  fStreamStartPosition := fStreamPosition;
   fStreamSize := fStream.Size;
-  fBufferSize := aBufferSize;
 
   BlockFlushTempBuffer;//block because GetEncodingFromStream seeks back in stream!
   try
     xStreamPosition := fStreamPosition;
     fEncoding := GetEncodingFromStream(fStream, fStreamPosition, fStreamSize, aDefaultSingleByteEncoding);
-    aBOMFound := (xStreamPosition < fStreamPosition);//if BOM was found, fStreamPosition increased
+    fBOMFound := (xStreamPosition < fStreamPosition);//if BOM was found, fStreamPosition increased
   finally
     UnblockFlushTempBuffer;
   end;
   fOwnsEncoding := not TEncoding.IsStandardEncoding(fEncoding);
 
-  fTempString := '';
   fTempStringPosition := 1;
+  fTempStringLength := 0;
+  fTempStringRemain := 0;
+  fPreviousChar := #0;
+  fReadFromUndo := False;
 
-  for I := Low(fCustomBuffer) to High(fCustomBuffer) do begin
-    fCustomBuffer[I].Length := 256;
-    fCustomBuffer[I].Position := 1;
-    SetLength(fCustomBuffer[I].Buffer, fCustomBuffer[I].Length);
-  end;
+  for I := Low(fCustomBuffer) to High(fCustomBuffer) do
+    fCustomBuffer[I].Clear;
 end;
 
 function TOTextReader.GetCustomBuffer(const aBufferIndex: Byte): OWideString;
 var
-  xCurrentBuffer: POTextReaderCustomBuffer;
+  xCurrentBuffer: TOTextBuffer;
 begin
-  xCurrentBuffer := @fCustomBuffer[aBufferIndex];
-  if xCurrentBuffer.Position > 1 then
-    Result := Copy(xCurrentBuffer.Buffer, 1, xCurrentBuffer.Position-1)
-  else
-    Result := '';
-  ClearCustomBuffer(aBufferIndex);
+  xCurrentBuffer := fCustomBuffer[aBufferIndex];
+  xCurrentBuffer.GetBuffer({%H-}Result);
+  xCurrentBuffer.Clear;
 end;
 
 function TOTextReader.GetApproxStreamPosition: ONativeInt;
@@ -458,37 +392,179 @@ begin
   Result := fStreamPosition - fStreamStartPosition + fTempStringPosition;
 end;
 
-function TOTextReader.GetPreviousChar: OWideChar;
+{$IFDEF O_GENERICBYTES}
+procedure TOTextReader.InitBuffer(const aBuffer: TBytes;
+  const aDefaultSingleByteEncoding: TEncoding);
+var
+  xLength: Integer;
+  xNewStream: TStream;
 begin
-  Result := fPreviousChar;
+  xNewStream := TMemoryStream.Create;
+
+  xLength := Length(aBuffer);
+  if xLength > 0 then
+    xNewStream.WriteBuffer(aBuffer[0], xLength);
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True, aDefaultSingleByteEncoding);
 end;
+{$ENDIF}
+
+procedure TOTextReader.InitFile(const aFileName: String;
+  const aDefaultSingleByteEncoding: TEncoding);
+begin
+  DoInit(
+    TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone),
+    True,
+    aDefaultSingleByteEncoding);
+end;
+
+procedure TOTextReader.InitStream(const aStream: TStream;
+  const aDefaultSingleByteEncoding: TEncoding);
+begin
+  if (aStream is TCustomMemoryStream) or (aStream is TFileStream)
+  then begin
+    //no need for buffering on memory stream or file stream
+    //  buffering is here just because some (custom) streams may not support seeking
+    //  which is needed when reading encoding from xml header
+    DoInit(aStream, False, aDefaultSingleByteEncoding);
+  end else begin
+    //we need to buffer streams that do not support seeking (zip etc.)
+    DoInit(
+      TOBufferedReadStream.Create(aStream, fBufferSize),
+      True,
+      aDefaultSingleByteEncoding);
+  end;
+end;
+
+procedure TOTextReader.InitString(const aString: OWideString);
+var
+  xLength: Integer;
+  xNewStream: TStream;
+begin
+  xNewStream := TMemoryStream.Create;
+
+  xLength := Length(aString);
+  if xLength > 0 then
+    xNewStream.WriteBuffer(aString[1], xLength * SizeOf(OWideChar));
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True, nil);
+  Encoding := TEncoding.OWideStringEncoding;
+end;
+
+procedure TOTextReader.LoadStringFromStream;
+var
+  xBuffer: TEncodingBuffer;
+  xUTF8Inc: Integer;
+  xReadBytes: ONativeInt;
+const
+  BS = TEncodingBuffer_FirstElement;
+begin
+  xReadBytes := fStreamSize-fStreamPosition;
+  if xReadBytes > fBufferSize then
+    xReadBytes := fBufferSize;
+  if xReadBytes = 0 then
+    Exit;
+
+  SetLength(xBuffer, xReadBytes+5);//5 is maximum UTF-8 increment
+  fStream.ReadBuffer(xBuffer[BS], xReadBytes);
+  if fEncoding is TUTF8Encoding then begin
+    //check if we did not reach an utf-8 character in the middle
+    if
+     ((Ord(xBuffer[BS+xReadBytes-1]) and $80) = $00)
+    then//last byte is 0.......
+      xUTF8Inc := 0
+    else if
+     ((xReadBytes > 1) and ((Ord(xBuffer[BS+xReadBytes-1]) and $E0) = $C0)) or//110..... -> double char
+     ((xReadBytes > 2) and ((Ord(xBuffer[BS+xReadBytes-2]) and $F0) = $E0)) or//1110.... -> triple char
+     ((xReadBytes > 3) and ((Ord(xBuffer[BS+xReadBytes-3]) and $F8) = $F0)) or//11110... -> 4 char
+     ((xReadBytes > 4) and ((Ord(xBuffer[BS+xReadBytes-4]) and $FC) = $F8)) or//111110.. -> 5 char
+     ((xReadBytes > 5) and ((Ord(xBuffer[BS+xReadBytes-5]) and $FE) = $FC))   //1111110. -> 6 char
+    then
+      xUTF8Inc := 1
+    else if
+     ((xReadBytes > 1) and ((Ord(xBuffer[BS+xReadBytes-1]) and $F0) = $E0)) or//1110.... -> triple char
+     ((xReadBytes > 2) and ((Ord(xBuffer[BS+xReadBytes-2]) and $F8) = $F0)) or//11110... -> 4 char
+     ((xReadBytes > 3) and ((Ord(xBuffer[BS+xReadBytes-3]) and $FC) = $F8)) or//111110.. -> 5 char
+     ((xReadBytes > 4) and ((Ord(xBuffer[BS+xReadBytes-4]) and $FE) = $FC))   //1111110. -> 6 char
+    then
+      xUTF8Inc := 2
+    else if
+     ((xReadBytes > 1) and ((Ord(xBuffer[BS+xReadBytes-1]) and $F8) = $F0)) or//11110... -> 4 char
+     ((xReadBytes > 2) and ((Ord(xBuffer[BS+xReadBytes-2]) and $FC) = $F8)) or//111110.. -> 5 char
+     ((xReadBytes > 3) and ((Ord(xBuffer[BS+xReadBytes-3]) and $FE) = $FC))   //1111110. -> 6 char
+    then
+      xUTF8Inc := 3
+    else if
+     ((xReadBytes > 1) and ((Ord(xBuffer[BS+xReadBytes-1]) and $FC) = $F8)) or//111110.. -> 5 char
+     ((xReadBytes > 2) and ((Ord(xBuffer[BS+xReadBytes-2]) and $FE) = $FC))   //1111110. -> 6 char
+    then
+      xUTF8Inc := 4
+    else if
+     ((xReadBytes > 1) and ((Ord(xBuffer[BS+xReadBytes-1]) and $FE) = $FC))   //1111110. -> 6 char
+    then
+      xUTF8Inc := 5
+    else
+      xUTF8Inc := 0;//ERROR ?
+
+    if xUTF8Inc > 0 then
+      fStream.ReadBuffer(xBuffer[BS+xReadBytes], xUTF8Inc);
+  end else
+    xUTF8Inc := 0;
+
+  Inc(fStreamPosition, xReadBytes+xUTF8Inc);
+  SetLength(xBuffer, xReadBytes+xUTF8Inc);
+  fTempString := fEncoding.GetString(xBuffer);
+  fTempStringLength := Length(fTempString);
+  fTempStringRemain := fTempStringLength;
+  fTempStringPosition := 1;
+end;
+
+{$IFDEF O_RAWBYTESTRING}
+procedure TOTextReader.InitString_UTF8(const aString: ORawByteString);
+var
+  xLength: Integer;
+  xNewStream: TStream;
+begin
+  xNewStream := TMemoryStream.Create;
+
+  xLength := Length(aString);
+  if xLength > 0 then
+    xNewStream.WriteBuffer(aString[1], xLength);
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True, nil);
+  Encoding := TEncoding.UTF8;
+end;
+{$ENDIF}
 
 function TOTextReader.ReadNextChar(var outChar: OWideChar): Boolean;
 begin
   if fReadFromUndo then begin
-    outChar := GetPreviousChar;
+    outChar := fPreviousChar;
     fReadFromUndo := False;
     Result := True;
     Exit;
   end;
 
-  Result := (fStreamPosition < fStreamSize) or
-    (fTempStringPosition <= fTempStringLength);
+  Result := fTempStringRemain > 0;
+  if not Result then
+  begin
+    LoadStringFromStream;
+    Result := fTempStringRemain > 0;
+  end;
 
-  if not Result then begin
-    outChar := #0;
+  if Result then begin
+    outChar := fTempString[fTempStringPosition];
+    fPreviousChar := outChar;
+    Inc(fTempStringPosition);
+    Dec(fTempStringRemain);
+    Result := True;
   end else begin
-    CheckTempString(fStream, fStreamPosition, fStreamSize, fTempString,
-      fTempStringPosition, fTempStringLength, 1, fEncoding, fBufferSize);
-
-    if fTempStringPosition <= fTempStringLength then begin
-      outChar := fTempString[fTempStringPosition];
-      fPreviousChar := outChar;
-      Inc(fTempStringPosition);
-    end else begin
-      Result := False;
-      outChar := #0;
-    end;
+    fEOF := True;
+    outChar := #0;
+    ReleaseDocument;
   end;
 end;
 
@@ -529,14 +605,17 @@ begin
     SetLength(Result, I);
 end;
 
-procedure TOTextReader.RemovePreviousCharFromBuffer(const aBufferIndex: Byte);
-var
-  xCurrentBuffer: POTextReaderCustomBuffer;
+procedure TOTextReader.ReleaseDocument;
 begin
-  xCurrentBuffer := @fCustomBuffer[aBufferIndex];
-  Dec(xCurrentBuffer.Position);
-  if xCurrentBuffer.Position < 0 then
-    xCurrentBuffer.Position := 0;
+  if fOwnsStream then
+    fStream.Free;
+
+  fStream := nil;
+end;
+
+procedure TOTextReader.RemovePreviousCharFromBuffer(const aBufferIndex: Byte);
+begin
+  fCustomBuffer[aBufferIndex].RemoveLastChar;
 end;
 
 procedure TOTextReader.SetEncoding(const Value: TEncoding);
@@ -551,9 +630,9 @@ begin
     fStream.Position := fStreamStartPosition;
     fStreamPosition := fStreamStartPosition;
 
-    fTempString := '';
     fTempStringLength := 0;
     fTempStringPosition := 1;
+    fTempStringRemain := 0;
   end;
 end;
 
@@ -572,17 +651,8 @@ begin
 end;
 
 procedure TOTextReader.WriteCharToBuffer(const aChar: OWideChar; const aBufferIndex: Byte);
-var
-  xCurrentBuffer: POTextReaderCustomBuffer;
 begin
-  xCurrentBuffer := @fCustomBuffer[aBufferIndex];
-  if xCurrentBuffer.Position-1 = xCurrentBuffer.Length then
-  begin
-    xCurrentBuffer.Length := 2 * xCurrentBuffer.Length;
-    SetLength(xCurrentBuffer.Buffer, xCurrentBuffer.Length);
-  end;
-  xCurrentBuffer.Buffer[xCurrentBuffer.Position] := aChar;
-  Inc(xCurrentBuffer.Position);
+  fCustomBuffer[aBufferIndex].WriteChar(aChar);
 end;
 
 procedure TOTextReader.WritePreviousCharToBuffer(const aBufferIndex: Byte);
@@ -602,24 +672,27 @@ end;
 
 { TOTextWriter }
 
-constructor TOTextWriter.Create(aStream: TStream; aBufferSize: Integer);
+constructor TOTextWriter.Create(const aBufferSize: Integer);
 begin
   inherited Create;
 
-  DoCreate(aStream, TEncoding.Default, True, aBufferSize);
+  DoCreate(aBufferSize)
 end;
 
-constructor TOTextWriter.Create(aStream: TStream; aEncoding: TEncoding;
-  aWriteBOM: Boolean; aBufferSize: Integer);
+constructor TOTextWriter.Create(const aStream: TStream;
+  const aEncoding: TEncoding; const aWriteBOM: Boolean;
+  const aBufferSize: Integer);
 begin
   inherited Create;
 
-  DoCreate(aStream, aEncoding, aWriteBOM, aBufferSize);
+  DoCreate(aBufferSize);
+
+  InitStream(aStream, aEncoding, aWriteBOM);
 end;
 
 destructor TOTextWriter.Destroy;
 begin
-  EnsureTempStringWritten;
+  ReleaseDocument;
 
   if fOwnsEncoding then
     fEncoding.Free;
@@ -627,20 +700,34 @@ begin
   inherited;
 end;
 
-procedure TOTextWriter.DoCreate(aStream: TStream; aEncoding: TEncoding;
-  aWriteBOM: Boolean; aBufferSize: Integer);
+procedure TOTextWriter.DoCreate(const aBufferSize: Integer);
 begin
-  fStream := aStream;
-
   fTempStringLength := aBufferSize;
+  SetLength(fTempString, fTempStringLength);
 
-  fEncoding := aEncoding;
+  fEncoding := TEncoding.Default;
   fOwnsEncoding := not TEncoding.IsStandardEncoding(fEncoding);
 
-  fWriteBOM := aWriteBOM;
+  fWriteBOM := True;
+end;
 
-  SetLength(fTempString, fTempStringLength);
+procedure TOTextWriter.DoInit(const aNewStream: TStream;
+  const aNewOwnsStream: Boolean; const aEncoding: TEncoding;
+  const aWriteBOM: Boolean);
+begin
+  ReleaseDocument;
+
+  fStream := aNewStream;
+  fOwnsStream := aNewOwnsStream;
+
   fTempStringPosition := 1;
+  fBOMWritten := False;
+
+  if Assigned(aEncoding) then
+  begin
+    Encoding := aEncoding;
+    WriteBOM := aWriteBOM;
+  end;
 end;
 
 procedure TOTextWriter.EnsureTempStringWritten;
@@ -653,6 +740,28 @@ begin
     end;
     fTempStringPosition := 1;
   end;
+end;
+
+procedure TOTextWriter.InitFile(const aFileName: String;
+  const aEncoding: TEncoding; const aWriteBOM: Boolean);
+begin
+  DoInit(TFileStream.Create(aFileName, fmCreate), True, aEncoding, aWriteBOM);
+end;
+
+procedure TOTextWriter.InitStream(const aStream: TStream;
+  const aEncoding: TEncoding; const aWriteBOM: Boolean);
+begin
+  DoInit(aStream, False, aEncoding, aWriteBOM);
+end;
+
+procedure TOTextWriter.ReleaseDocument;
+begin
+  if Assigned(fStream) then
+    EnsureTempStringWritten;
+
+  if fOwnsStream then
+    fStream.Free;
+  fStream := nil;
 end;
 
 procedure TOTextWriter.SetEncoding(const Value: TEncoding);

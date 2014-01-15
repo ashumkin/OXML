@@ -2,9 +2,12 @@ unit uXmlTest;
 
 {$mode delphi}{$H+}
 
+{.$DEFINE USE_DELPHIXML}//define/undefine to compare OXml with Delphi XML
+{.$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
 {.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
 {.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
 {.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML
+{.$DEFINE USE_SIMPLEXML}//define/undefine to compare OXml with SimpleXML: http://www.audio-data.de/simplexml.html
 
 {$IFDEF FPC}
   {$DEFINE USE_GENERICS}
@@ -18,6 +21,12 @@ interface
 
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  {$IFDEF USE_DELPHIXML}
+  XMLIntf, XMLDoc,
+  {$ENDIF}
+  {$IFDEF USE_MSXML}
+  msxmldom, msxml,
+  {$ENDIF}
   {$IFDEF USE_OMNIXML}
   OmniXML,
   {$ENDIF}
@@ -28,13 +37,11 @@ uses
   Xml.VerySimple,
   {$ENDIF}
   OXmlReadWrite, OXmlUtils, OEncoding, Windows, OXmlPDOM, OXmlSAX,
-  OWideSupp, OTextReadWrite, OXmlSeq, fgl;
+  OWideSupp, OTextReadWrite, OXmlSeq;
 
 type
 
   { TForm1 }
-
-  TMyList = TFPGList<String>;
 
   TForm1 = class(TForm)
     BtnDOMTest: TButton;
@@ -68,12 +75,12 @@ type
 
     procedure SAXStartDocument(Sender: TSAXParser);
     procedure SAXEndDocument(Sender: TSAXParser);
-    procedure SAXCharacters(Sender: TSAXParser; const aText: OWideString; var {%H-}aStop: Boolean);
-    procedure SAXComment(Sender: TSAXParser; const aText: OWideString; var {%H-}aStop: Boolean);
-    procedure SAXProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString; var {%H-}aStop: Boolean);
+    procedure SAXCharacters(Sender: TSAXParser; const aText: OWideString);
+    procedure SAXComment(Sender: TSAXParser; const aText: OWideString);
+    procedure SAXProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString);
     procedure SAXStartElement(Sender: TSAXParser; const aName: OWideString;
-      const aAttributes: TSAXAttributes; var {%H-}aStop: Boolean);
-    procedure SAXEndElement(Sender: TSAXParser; const aName: OWideString; var {%H-}aStop: Boolean);
+      const aAttributes: TSAXAttributes);
+    procedure SAXEndElement(Sender: TSAXParser; const aName: OWideString);
   protected
     procedure DoCreate; override;
   end;
@@ -88,6 +95,58 @@ implementation
 {$R *.lfm}
 
 procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
+  {$IFDEF USE_DELPHIXML}
+  procedure TestDelphiXmlDOM;
+  var
+    xXml: XMLIntf.IXMLDocument;
+    xT1, xT2: Cardinal;
+  begin
+    xT1 := GetTickCount;
+    xXml := XMLDoc.TXMLDocument.Create(nil);
+    xXml.LoadFromFile(DocDir+'sheet1.xml');
+    xXml.Active := True;
+    xT2 := GetTickCount;
+    xXml.SaveToFile(DocDir+'sheet1-resave.xml');
+
+    xXml := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'DELPHI XML DOM'+sLineBreak+
+      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      '(The very good results from this test are a fact that no Delphi nodes'+sLineBreak+
+      'are created from the MS XML DOM. '+sLineBreak+
+      'Basically, MS XML DOM is very fast but the Delphi implementation is'+sLineBreak+
+      'slow (and the Delphi implementation is not used in this demo.)'+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+  {$IFDEF USE_MSXML}
+  procedure TestMSXmlDOM;
+  var
+    xXml: msxml.IXMLDOMDocument;
+    xT1, xT2: Cardinal;
+  begin
+    xT1 := GetTickCount;
+    xXml := msxmldom.CreateDOMDocument;
+    xXml.load(DocDir+'sheet1.xml');
+    xT2 := GetTickCount;
+    xXml.save(DocDir+'sheet1-resave.xml');
+
+    xXml := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'MS XML DOM'+sLineBreak+
+      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
   {$IFDEF USE_OMNIXML}
   procedure TestOmniXmlDOM;
   var
@@ -96,8 +155,8 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   begin
     xT1 := GetTickCount;
     xXml := OmniXml.CreateXMLDoc;
-    xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
-    //xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
+    //xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
+    xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
     xXml.Load(DocDir+'sheet1.xml');
     xT2 := GetTickCount;
     xXml.Save(DocDir+'sheet1-resave.xml');
@@ -121,8 +180,8 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   begin
     xT1 := GetTickCount;
     xXml := OmniXml.CreateXMLDoc;
-    xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
-    //xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
+    //xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
+    xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
     xXml.Load(DocDir+'sheet1.xml');
     xT2 := GetTickCount;
     xMS := TMemoryStream.Create;
@@ -203,6 +262,31 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   end;
   {$ENDIF}
 
+  {$IFDEF USE_SIMPLEXML}
+  procedure TestSimpleXmlDOM;
+  var
+    xXml: SimpleXML.IXmlDocument;
+    xT1, xT2: Cardinal;
+  begin
+    xT1 := GetTickCount;
+    xXml := SimpleXML.CreateXmlDocument;
+    xXml.PreserveWhiteSpace := True;
+    xXml.Load(DocDir+'sheet1.xml');
+    xT2 := GetTickCount;
+    xXml.Save(DocDir+'sheet1-resave.xml');
+
+    xXml := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'SimpleXML DOM'+sLineBreak+
+      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
   procedure TestOXmlPDOM;
   var
     xXml: OXmlPDOM.IXMLDocument;
@@ -227,52 +311,56 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   end;
 
   procedure TestDirect;
-    procedure Nothing(const {%H-}aStr1, {%H-}aStr2: OWideString);
+    procedure _DoNothing(const {%H-}aStr1, {%H-}aStr2: OWideString);
     begin
     end;
   var
-    xFSReader, xFSWriter: TFileStream;
-    xE: TOXmlReaderNode;
-    xXmlReader: TOXmlReader;
-    xXmlWriter: TOXmlWriter;
+    xXmlReader: TXMLReader;
+    xXmlWriter: TXMLWriter;
     xT1, xT2: Cardinal;
+    xE: TXMLReaderToken;
   begin
-    xT1 := GetTickCount;
-    xFSReader := TFileStream.Create(DocDir+'sheet1.xml', fmOpenRead);
-    xXmlReader := TOXmlReader.Create(xFSReader);
-    xFSWriter := TFileStream.Create(DocDir+'sheet1-resave.xml', fmCreate);
-    xXmlWriter := TOXmlWriter.Create(xFSWriter, TEncoding.UTF8, False);
+    xXmlReader := nil;
+    xXmlWriter := nil;
     try
+      xXmlReader := TXMLReader.Create;
+      xXmlWriter := TXMLWriter.Create;
+
+      xXmlReader.InitFile(DocDir+'sheet1.xml');
+      xXmlReader.ReaderSettings.NodePathHandling := npNo;
+
+      xXmlWriter.InitFile(DocDir+'sheet1-resave.xml');
+      xXmlWriter.Encoding := TEncoding.UTF8;
+      xXmlWriter.WriterSettings.WriteBOM := False;
+
+      xE := xXmlReader.ReaderToken;
+
+      xT1 := GetTickCount;
       //simulate reading
-      while xXmlReader.ReadNextNode({%H-}xE) do begin
-        Nothing(xE.NodeName, xE.NodeValue);
+      while xXmlReader.ReadNextToken do begin
+        _DoNothing(xE.TokenName, xE.TokenValue);
       end;
-      xXmlReader.Free;
       xT2 := GetTickCount;
 
       //read+write
-      xFSReader.Position := 0;
-      xXmlReader := TOXmlReader.Create(xFSReader);
-
+      xXmlReader.InitFile(DocDir+'sheet1.xml');
       xXmlWriter.XmlDeclaration(True);
-      while xXmlReader.ReadNextNode(xE) do begin
-        case xE.NodeType of
-          etAttribute: xXmlWriter.Attribute(xE.NodeName, xE.NodeValue);
-          etOpenElement: xXmlWriter.OpenElement(xE.NodeName);
-          etFinishOpenElement: xXmlWriter.FinishOpenElement;
-          etFinishOpenElementClose: xXmlWriter.FinishOpenElementClose;
-          etCloseElement: xXmlWriter.CloseElement(xE.NodeName);
-          etText: xXmlWriter.Text(xE.NodeValue);
-          etCData: xXmlWriter.CData(xE.NodeValue);
-          etComment: xXmlWriter.Comment(xE.NodeValue);
-          etProcessingInstruction: xXmlWriter.ProcessingInstruction(xE.NodeName, xE.NodeValue);
+      while xXmlReader.ReadNextToken do begin
+        case xXmlReader.ReaderToken.TokenType of
+          rtAttribute: xXmlWriter.Attribute(xE.TokenName, xE.TokenValue);
+          rtOpenElement: xXmlWriter.OpenElement(xE.TokenName);
+          rtFinishOpenElement: xXmlWriter.FinishOpenElement;
+          rtFinishOpenElementClose: xXmlWriter.FinishOpenElementClose;
+          rtCloseElement: xXmlWriter.CloseElement(xE.TokenName);
+          rtText: xXmlWriter.Text(xE.TokenValue);
+          rtCData: xXmlWriter.CData(xE.TokenValue);
+          rtComment: xXmlWriter.Comment(xE.TokenValue);
+          rtProcessingInstruction: xXmlWriter.ProcessingInstruction(xE.TokenName, xE.TokenValue);
         end;
       end;
     finally
       xXmlReader.Free;
       xXmlWriter.Free;
-      xFSReader.Free;
-      xFSWriter.Free;
     end;
 
     Memo1.Lines.Text :=
@@ -290,9 +378,11 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   begin
     xT1 := GetTickCount;
 
-    xSAX := TSAXParser.CreateFromFile(DocDir+'sheet1.xml');
+    xSAX := TSAXParser.Create;
     try
-      xSAX.Parse;
+      xSAX.ReaderSettings.NodePathHandling := npLastPath;//better performance than npFull
+
+      xSAX.ParseFile(DocDir+'sheet1.xml');
     finally
       xSAX.Free;
     end;
@@ -306,22 +396,17 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
 
   procedure MatchTestFiles;
   var
-    xFS1, xFS2: TFileStream;
     xReader1, xReader2: TOTextReader;
     xC1, xC2: OWideChar;
     I: Integer;
   begin
     xC1 := #0;
     xC2 := #0;
-    xFS1 := nil;
-    xFS2 := nil;
-    xReader1 := nil;
-    xReader2 := nil;
+    xReader1 := TOTextReader.Create;
+    xReader2 := TOTextReader.Create;
     try
-      xFS1 := TFileStream.Create(DocDir+'sheet1.xml', fmOpenRead);
-      xFS2 := TFileStream.Create(DocDir+'sheet1-resave.xml', fmOpenRead);
-      xReader1 := TOTextReader.Create(xFS1);
-      xReader2 := TOTextReader.Create(xFS2);
+      xReader1.InitFile(DocDir+'sheet1.xml');
+      xReader2.InitFile(DocDir+'sheet1-resave.xml');
 
       //start comparing after PI
       while (xC1 <> '>') do
@@ -366,13 +451,19 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
     finally
       xReader1.Free;
       xReader2.Free;
-      xFS1.Free;
-      xFS2.Free;
     end;
   end;
 begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
+
+  {$IFDEF USE_DELPHIXML}
+  TestDelphiXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_MSXML}
+  TestMSXmlDOM;
+  {$ENDIF}
 
   {$IFDEF USE_OMNIXML}
   TestOmniXmlDOM;
@@ -391,6 +482,11 @@ begin
   MatchTestFiles;//comment/uncomment to check if files match
   {$ENDIF}
 
+  {$IFDEF USE_SIMPLEXML}
+  TestSimpleXmlDOM;
+  //MatchTestFiles;//comment/uncomment to check if files match
+  {$ENDIF}
+
   TestOXmlPDOM;
   MatchTestFiles;//comment/uncomment to check if files match
 
@@ -398,6 +494,7 @@ begin
 
   TestDirect;
   MatchTestFiles;//comment/uncomment to check if files match
+
 end;
 
 procedure TForm1.BtnSequentialTestClick(Sender: TObject);
@@ -408,8 +505,10 @@ procedure TForm1.BtnSequentialTestClick(Sender: TObject);
     xItemsElementIsOpen: Boolean;
     xName, xColor, xText: OWideString;
   begin
-    xSeqParser := TXMLSeqParser.CreateFromXML(aXML);
+    xSeqParser := TXMLSeqParser.Create;
     try
+      xSeqParser.InitXML(aXML);
+
       if not xSeqParser.GoToPath('/root/items:test') then
         raise Exception.Create('Wrong XML document.');
 
@@ -569,8 +668,9 @@ const
     ' <titel>DOM, SAX und SOAP</titel>'+sLineBreak+
     ' <inhalt>'+sLineBreak+
     '  <kapitel value="1">Einleitung</kapitel>'+sLineBreak+
-    '  <kapitel value="2">Hauptteil</kapitel>'+sLineBreak+
+    '  <kapitel value="2" attr="val">Hauptteil</kapitel>'+sLineBreak+
     '  <kapitel value="3">Fazit</kapitel>'+sLineBreak+
+    '  <kapitel value="4" />'+sLineBreak+
     ' </inhalt>'+sLineBreak+
     ' <!-- comment -->'+sLineBreak+
     ' <![CDATA[ cdata ]]>'+sLineBreak+
@@ -580,7 +680,9 @@ begin
   Memo1.Lines.Text := 'Events:'+sLineBreak+sLineBreak;
   Memo2.Lines.Text := 'Anonymous methods:'+sLineBreak+sLineBreak;
 
-  xSAX := TSAXParser.CreateFromXML(cXML);
+  Memo1.Lines.BeginUpdate;
+  Memo2.Lines.BeginUpdate;
+  xSAX := TSAXParser.Create;
   try
     //old-fashioned events
     xSAX.OnStartDocument := SAXStartDocument;
@@ -594,38 +696,38 @@ begin
     {$IFNDEF FPC}{$IF CompilerVersion >= 20}
     //anonymous methods
     xSAX.StartDocumentProc := (
-      procedure
+      procedure(aSaxParser: TSAXParser)
       begin
         Memo2.Lines.Add('startDocument()');
       end);
 
     xSAX.EndDocumentProc := (
-      procedure
+      procedure(aSaxParser: TSAXParser)
       begin
         Memo2.Lines.Add('endDocument()');
       end);
 
     xSAX.CharactersProc := (
-      procedure(const aText: OWideString; var aStop: Boolean)
+      procedure(aSaxParser: TSAXParser; const aText: OWideString)
       begin
         Memo2.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
       end);
 
     xSAX.CommentProc := (
-      procedure(const aText: OWideString; var aStop: Boolean)
+      procedure(aSaxParser: TSAXParser; const aText: OWideString)
       begin
         Memo2.Lines.Add('comment("'+SAXEscapeString(aText)+'")');
       end);
 
     xSAX.ProcessingInstructionProc := (
-      procedure(const aTarget, aContent: OWideString; var aStop: Boolean)
+      procedure(aSaxParser: TSAXParser; const aTarget, aContent: OWideString)
       begin
         Memo2.Lines.Add('processingInstruction("'+SAXEscapeString(aTarget)+'", "'+SAXEscapeString(aContent)+'")');
       end);
 
     xSAX.StartElementProc := (
-      procedure(const aName: OWideString;
-        const aAttributes: TSAXAttributes; var aStop: Boolean)
+      procedure(aSaxParser: TSAXParser; const aName: OWideString;
+        const aAttributes: TSAXAttributes)
       var
         xAttrStr: OWideString;
         xAttr: TSAXAttribute;
@@ -633,8 +735,8 @@ begin
         xAttrStr := '';
         for xAttr in aAttributes do begin
           if xAttrStr <> '' then
-            xAttrStr := xAttrStr + ';';
-          xAttrStr := xAttrStr + SAXEscapeString(xAttr.Key)+'="'+SAXEscapeString(xAttr.Value)+'"';
+            xAttrStr := xAttrStr + ', ';
+          xAttrStr := xAttrStr + SAXEscapeString(xAttr.AttrName)+'="'+SAXEscapeString(xAttr.AttrValue)+'"';
         end;
         xAttrStr := '['+xAttrStr+']';
 
@@ -642,15 +744,18 @@ begin
       end);
 
     xSAX.EndElementProc := (
-      procedure(const aName: OWideString; var aStop: Boolean)
+      procedure(aSaxParser: TSAXParser; const aName: OWideString)
       begin
         Memo2.Lines.Add('endElement("'+SAXEscapeString(aName)+'")');
       end);
     {$IFEND}{$ENDIF}
 
-    xSAX.Parse;
+    xSAX.ParseXML(cXML);
   finally
     xSAX.Free;
+
+    Memo1.Lines.EndUpdate;
+    Memo2.Lines.EndUpdate;
   end;
 end;
 
@@ -1140,6 +1245,101 @@ begin
 end;
 
 procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
+  {$IFDEF USE_DELPHIXML}
+  procedure DelphiXmlTest;
+  var
+    I: Integer;
+    xT1: Cardinal;
+    xXML: XmlIntf.IXMLDocument;
+    xRootNode, xNode: XmlIntf.IXMLNode;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := XMLDoc.TXMLDocument.Create(nil);
+    xXML.Active := True;
+    xXML.DocumentElement := xXML.CreateElement('root', '');
+    xRootNode := xXML.DocumentElement;
+
+
+    for I := 1 to 10*1000 do begin
+      xNode := xRootNode.AddChild('text');
+      xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').Text := 'afg';
+      xNode.SetAttribute('attr1', 'A'+IntToStr(I));
+      xNode.SetAttribute('attr2', 'const');
+      xNode.SetAttribute('attr3', 'const');
+    end;
+
+    xRootNode := nil;
+    xNode := nil;
+    xXML := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'DELPHI XML DOM'+sLineBreak+
+      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'IMPORTANT: The Delphi XML performance is so horrible'+sLineBreak+
+      'that it''s not possible to create the nodes within a reasonable'+sLineBreak+
+      'time limit. Therefore only 1/10 of the nodes are created!'+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+  {$IFDEF USE_MSXML}
+  procedure MSXmlTest;
+  var
+    I: Integer;
+    xT1: Cardinal;
+    xXML: msxml.IXMLDOMDocument;
+    xRootNode, xNode, xNewChild, xFirstNode: msxml.IXMLDOMNode;
+    xNewAttr: msxml.IXMLDOMAttribute;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := msxmldom.CreateDOMDocument;
+    xRootNode := xXML.createElement('root');
+    xXML.appendChild(xRootNode);
+    for I := 1 to 100*1000 do begin
+      xNewChild := xXML.CreateElement('text');
+      xNode := xRootNode.AppendChild(xNewChild);
+      xFirstNode := xNode;
+
+      xNewChild := xXML.CreateElement('A'+IntToStr(I));
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateElement('noname');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateElement('some');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateElement('p');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewChild := xXML.CreateTextNode('afg');
+      xNode := xNode.AppendChild(xNewChild);
+
+      xNewAttr := xXML.CreateAttribute('attr1');
+      xNewAttr.Value := 'A'+IntToStr(I);
+      xFirstNode.Attributes.setNamedItem(xNewAttr);
+      xNewAttr := xXML.CreateAttribute('attr2');
+      xNewAttr.Value := 'const';
+      xFirstNode.Attributes.setNamedItem(xNewAttr);
+      xNewAttr := xXML.CreateAttribute('attr3');
+      xNewAttr.Value := 'const';
+      xFirstNode.Attributes.setNamedItem(xNewAttr);
+    end;
+
+    xRootNode := nil;
+    xNode := nil;
+    xXML := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'MS XML DOM'+sLineBreak+
+      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
   {$IFDEF USE_OMNIXML}
   procedure OmniXmlTest;
   var
@@ -1285,6 +1485,62 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   end;
   {$ENDIF}
 
+  {$IFDEF USE_SIMPLEXML}
+  procedure SimpleXmlTest;
+  var
+    xXML: SimpleXML.IXmlDocument;
+    I: Integer;
+    xT1: Cardinal;
+    xRootNode, xNode, xNewChild, xFirstNode: SimpleXML.IXMLNode;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := SimpleXML.CreateXmlDocument('root', '1.0', 'utf-8');
+
+    xRootNode := xXML.DocumentElement;
+    for I := 1 to 100*1000 do begin
+      xNode := xXML.CreateElement('text');
+      xRootNode.AppendChild(xNode);
+      xFirstNode := xNode;
+
+      xNewChild := xXML.CreateElement('A'+IntToStr(I));
+      xNode.AppendChild(xNewChild);
+      xNode := xNewChild;
+
+      xNewChild := xXML.CreateElement('noname');
+      xNode.AppendChild(xNewChild);
+      xNode := xNewChild;
+
+      xNewChild := xXML.CreateElement('some');
+      xNode.AppendChild(xNewChild);
+      xNode := xNewChild;
+
+      xNewChild := xXML.CreateElement('p');
+      xNode.AppendChild(xNewChild);
+      xNode := xNewChild;
+
+      xNewChild := xXML.CreateText('afg');
+      xNode.AppendChild(xNewChild);
+      xNode := xNewChild;
+
+      xFirstNode.SetAttr('attr1', 'A'+IntToStr(I));
+      xFirstNode.SetAttr('attr2', 'const');
+      xFirstNode.SetAttr('attr3', 'const');
+    end;
+
+    xRootNode := nil;
+    xNode := nil;
+    xFirstNode := nil;
+    xXML := nil;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'SimpleXML DOM'+sLineBreak+
+      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
   procedure OXmlPDOMTest;
   var
     xXML: OXmlPDOM.IXMLDocument;
@@ -1299,9 +1555,9 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
     for I := 1 to 100*1000 do begin
       xNode := xRootNode.AddChild('text');
       xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').AddText('afg');
-      xNode.Attributes['attr1'] := 'A'+IntToStr(I);
-      xNode.Attributes['attr2'] := 'const';
-      xNode.Attributes['attr3'] := 'const';
+      xNode.AddAttribute('attr1', 'A'+IntToStr(I));
+      xNode.AddAttribute('attr2', 'const');
+      xNode.AddAttribute('attr3', 'const');
     end;
 
     xXML := nil;
@@ -1316,6 +1572,12 @@ begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
 
+  {$IFDEF USE_DELPHIXML}
+  DelphiXmlTest;
+  {$ENDIF}
+  {$IFDEF USE_MSXML}
+  MSXmlTest;
+  {$ENDIF}
   {$IFDEF USE_OMNIXML}
   OmniXmlTest;
   {$ENDIF}
@@ -1325,6 +1587,9 @@ begin
   {$IFDEF USE_VERYSIMPLE}
   VerySimpleXmlTest;
   {$ENDIF}
+  {$IFDEF USE_SIMPLEXML}
+  SimpleXmlTest;
+  {$ENDIF}
   OXmlPDOMTest;
 end;
 
@@ -1332,13 +1597,15 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
   procedure WriteDocument;
   var
     xS: TStream;
-    xXmlWriter: TOXmlWriter;
-    xRootElement, xPersonElement: TOXmlWriterElement;
+    xXmlWriter: TXMLWriter;
+    xRootElement, xPersonElement: TXMLWriterElement;
   begin
     xS := TFileStream.Create(DocDir+'simple.xml', fmCreate);
-    xXmlWriter := TOXmlWriter.Create(xS, TEncoding.UTF8);
+    xXmlWriter := TXMLWriter.Create;
     try
-      xXmlWriter.IndentType := itNone;
+      xXmlWriter.InitStream(xS);
+      xXmlWriter.Encoding := TEncoding.UTF8;
+      xXmlWriter.WriterSettings.IndentType := itNone;
 
       xXmlWriter.DocType('root PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"');
       xXmlWriter.XmlDeclaration(True);
@@ -1404,12 +1671,12 @@ begin
   {$IFEND}{$ENDIF}
 end;
 
-procedure TForm1.SAXCharacters(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
+procedure TForm1.SAXCharacters(Sender: TSAXParser; const aText: OWideString);
 begin
   Memo1.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
 end;
 
-procedure TForm1.SAXComment(Sender: TSAXParser; const aText: OWideString; var aStop: Boolean);
+procedure TForm1.SAXComment(Sender: TSAXParser; const aText: OWideString);
 begin
   Memo1.Lines.Add('comment("'+SAXEscapeString(aText)+'")');
 end;
@@ -1419,13 +1686,13 @@ begin
   Memo1.Lines.Add('endDocument()');
 end;
 
-procedure TForm1.SAXEndElement(Sender: TSAXParser; const aName: OWideString; var aStop: Boolean);
+procedure TForm1.SAXEndElement(Sender: TSAXParser; const aName: OWideString);
 begin
   Memo1.Lines.Add('endElement("'+SAXEscapeString(aName)+'")');
 end;
 
 procedure TForm1.SAXProcessingInstruction(Sender: TSAXParser; const aTarget,
-  aContent: OWideString; var aStop: Boolean);
+  aContent: OWideString);
 begin
   Memo1.Lines.Add('processingInstruction("'+SAXEscapeString(aTarget)+'", "'+SAXEscapeString(aContent)+'")');
 end;
@@ -1436,7 +1703,7 @@ begin
 end;
 
 procedure TForm1.SAXStartElement(Sender: TSAXParser; const aName: OWideString;
-  const aAttributes: TSAXAttributes; var aStop: Boolean);
+  const aAttributes: TSAXAttributes);
 var
   xAttrStr: OWideString;
   xAttr: TSAXAttribute;
@@ -1446,14 +1713,16 @@ var
 begin
   xAttrStr := '';
   {$IFDEF USE_FORIN}
-  for xAttr in aAttributes do begin
+  for xAttr in aAttributes do
+  begin
   {$ELSE}
-  for I := 0 to aAttributes.Count-1 do begin
-    xAttr := aAttributes.Pairs[I];
+  for I := 0 to aAttributes.Count-1 do
+  begin
+    xAttr := aAttributes.Attributes[I];
   {$ENDIF}
     if xAttrStr <> '' then
-      xAttrStr := xAttrStr + ';';
-    xAttrStr := xAttrStr + SAXEscapeString(xAttr.Key)+'="'+SAXEscapeString(xAttr.Value)+'"';
+      xAttrStr := xAttrStr + ', ';
+    xAttrStr := xAttrStr + SAXEscapeString(xAttr.AttrName)+'="'+SAXEscapeString(xAttr.AttrValue)+'"';
   end;
   xAttrStr := '['+xAttrStr+']';
 

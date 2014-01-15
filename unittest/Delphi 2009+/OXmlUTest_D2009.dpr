@@ -1,8 +1,13 @@
-program FileList;
+program OXmlUTest_D2009;
+
+{$APPTYPE CONSOLE}
+
+{$R *.res}
 
 uses
-  Forms,
-  main in 'main.pas' {fMain},
+  SysUtils,
+  Classes,
+  OXmlUnitTests in '..\OXmlUnitTests.pas',
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   ODictionary in '..\..\units\ODictionary.pas',
   OEncoding in '..\..\units\OEncoding.pas',
@@ -17,11 +22,23 @@ uses
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas';
 
-{$R *.RES}
-
+var
+  xTest: TOXmlUnitTest;
+  xStrL: TStringList;
+  I: Integer;
 begin
-  Application.Initialize;
-  Application.CreateForm(TfMain, fMain);
-  Application.Run;
-end.
+  ReportMemoryLeaksOnShutdown := True;
 
+  xTest := TOXmlUnitTest.Create;
+  xStrL := TStringList.Create;
+  try
+    xTest.OXmlTestAll(xStrL);
+    for I := 0 to xStrL.Count-1 do
+      Writeln(xStrL[I]);
+  finally
+    xStrL.Free;
+    xTest.Free;
+  end;
+
+  Readln;
+end.

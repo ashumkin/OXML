@@ -62,7 +62,7 @@
 			<DCCReference Include="..\..\units\OHashedStrings.pas"/>
 			<DCCReference Include="..\..\units\OBufferedStreams.pas"/>
 			<DCCReference Include="..\..\units\OEncoding.pas"/>
-			<DCCReference Include="..\..\units\OXmlDOM.pas"/>
+			<DCCReference Include="..\..\units\OXmlPDOM.pas"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

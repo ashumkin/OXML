@@ -4,12 +4,15 @@
     <Version Value="9"/>
     <PathDelim Value="\"/>
     <General>
+      <Flags>
+        <MainUnitHasCreateFormStatements Value="False"/>
+        <MainUnitHasTitleStatement Value="False"/>
+      </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <Title Value="OXmlTest"/>
+      <Title Value="OXmlUTest_Laz"/>
+      <UseAppBundle Value="False"/>
       <ResourceType Value="res"/>
-      <UseXPManifest Value="True"/>
-      <Icon Value="0"/>
     </General>
     <i18n>
       <EnableI18N LFM="False"/>
@@ -32,82 +35,79 @@
     </RunParams>
     <RequiredPackages Count="1">
       <Item1>
-        <PackageName Value="LCL"/>
+        <PackageName Value="LazUtils"/>
       </Item1>
     </RequiredPackages>
     <Units Count="15">
       <Unit0>
-        <Filename Value="OXmlTest.lpr"/>
+        <Filename Value="OXmlUTest_Laz.lpr"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlTest"/>
+        <UnitName Value="OXmlUTest_Laz"/>
       </Unit0>
       <Unit1>
-        <Filename Value="uXmlTest.pas"/>
+        <Filename Value="..\OXmlUnitTests.pas"/>
         <IsPartOfProject Value="True"/>
-        <ComponentName Value="Form1"/>
-        <HasResources Value="True"/>
-        <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uXmlTest"/>
+        <UnitName Value="OXmlUnitTests"/>
       </Unit1>
       <Unit2>
-        <Filename Value="..\..\units\OBufferedStreams.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OBufferedStreams"/>
-      </Unit2>
-      <Unit3>
-        <Filename Value="..\..\units\ODictionary.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="ODictionary"/>
-      </Unit3>
-      <Unit4>
-        <Filename Value="..\..\units\OEncoding.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OEncoding"/>
-      </Unit4>
-      <Unit5>
-        <Filename Value="..\..\units\OHashedStrings.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OHashedStrings"/>
-      </Unit5>
-      <Unit6>
-        <Filename Value="..\..\units\OTextReadWrite.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OTextReadWrite"/>
-      </Unit6>
-      <Unit7>
-        <Filename Value="..\..\units\OWideSupp.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OWideSupp"/>
-      </Unit7>
-      <Unit8>
-        <Filename Value="..\..\units\OXmlLng.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlLng"/>
-      </Unit8>
-      <Unit9>
-        <Filename Value="..\..\units\OXmlReadWrite.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlReadWrite"/>
-      </Unit9>
-      <Unit10>
-        <Filename Value="..\..\units\OXmlSAX.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlSAX"/>
-      </Unit10>
-      <Unit11>
-        <Filename Value="..\..\units\OXmlSeq.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlSeq"/>
-      </Unit11>
-      <Unit12>
-        <Filename Value="..\..\units\OXmlUtils.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlUtils"/>
-      </Unit12>
-      <Unit13>
         <Filename Value="..\..\units\OXmlXPath.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="OXmlXPath"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="..\..\units\OBufferedStreams.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OBufferedStreams"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="..\..\units\ODictionary.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="ODictionary"/>
+      </Unit4>
+      <Unit5>
+        <Filename Value="..\..\units\OEncoding.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OEncoding"/>
+      </Unit5>
+      <Unit6>
+        <Filename Value="..\..\units\OHashedStrings.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OHashedStrings"/>
+      </Unit6>
+      <Unit7>
+        <Filename Value="..\..\units\OTextReadWrite.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OTextReadWrite"/>
+      </Unit7>
+      <Unit8>
+        <Filename Value="..\..\units\OWideSupp.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OWideSupp"/>
+      </Unit8>
+      <Unit9>
+        <Filename Value="..\..\units\OXmlLng.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OXmlLng"/>
+      </Unit9>
+      <Unit10>
+        <Filename Value="..\..\units\OXmlReadWrite.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OXmlReadWrite"/>
+      </Unit10>
+      <Unit11>
+        <Filename Value="..\..\units\OXmlSAX.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OXmlSAX"/>
+      </Unit11>
+      <Unit12>
+        <Filename Value="..\..\units\OXmlSeq.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OXmlSeq"/>
+      </Unit12>
+      <Unit13>
+        <Filename Value="..\..\units\OXmlUtils.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OXmlUtils"/>
       </Unit13>
       <Unit14>
         <Filename Value="..\..\units\OXmlPDOM.pas"/>
@@ -120,20 +120,13 @@
     <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="OXmlTest"/>
+      <Filename Value="OXmlUTest_Laz"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\units"/>
+      <OtherUnitFiles Value="..\..\units;.."/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
-    <Linking>
-      <Options>
-        <Win32>
-          <GraphicApplication Value="True"/>
-        </Win32>
-      </Options>
-    </Linking>
     <Other>
       <CompilerMessages>
         <MsgFileName Value=""/>
