@@ -2,7 +2,7 @@
 
 {.$DEFINE USE_DELPHIXML}//define/undefine to compare OXml with Delphi XML
 {.$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
-{$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
+{.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
 {.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
 {.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML: http://blog.spreendigital.de/2011/11/10/verysimplexml-a-lightweight-delphi-xml-reader-and-writer/
 {.$DEFINE USE_SIMPLEXML}//define/undefine to compare OXml with SimpleXML: http://www.audio-data.de/simplexml.html

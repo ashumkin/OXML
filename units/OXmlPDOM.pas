@@ -1441,7 +1441,6 @@ end;
 
 function TXMLNode.LoadFromReader(const aReader: TXMLReader): Boolean;
 var
-  xNodePathHandling: TXMLNodePathHandling;
   xLastNode, xLastParentNode: PXMLNode;
   xOmitEmptyTextInTheBeginning: Boolean;
 begin
@@ -1456,8 +1455,7 @@ begin
 
   DeleteChildren(True);
 
-  xNodePathHandling := aReader.ReaderSettings.NodePathHandling;
-  aReader.ReaderSettings.NodePathHandling := npNo;
+  //aReader.ReaderSettings.NodePathHandling := npNo; !!! MUST NOT BE HERE due to OXmlSeq.pas -> MUST BE IN LoadFromStream !!!
   fOwnerDocument.Loading := True;
   try
     xLastNode := @Self;
@@ -1543,7 +1541,6 @@ begin
     end;
   finally
     fOwnerDocument.Loading := False;
-    aReader.ReaderSettings.NodePathHandling := xNodePathHandling;
 
     Result := HasAttributes or HasChildNodes;
   end;
@@ -1556,6 +1553,7 @@ var
 begin
   xReader := TXMLReader.Create;
   try
+    xReader.ReaderSettings.NodePathHandling := npNo;// !!! MUST BE HERE due to OXmlSeq.pas -> MUST NOT BE IN LoadFromReader !!!
     xReader.InitStream(aStream, aForceEncoding);
     xReader.ReaderSettings.Assign(OwnerDocument.fReaderSettings);
     Result := LoadFromReader(xReader);

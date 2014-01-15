@@ -15,18 +15,7 @@ uses
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
-  OmniXML in '..\..\units\OmniXML\OmniXML.pas',
-  OmniXML_Dictionary in '..\..\units\OmniXML\OmniXML_Dictionary.pas',
-  OmniXML_LookupTables in '..\..\units\OmniXML\OmniXML_LookupTables.pas',
-  OmniXML_MSXML in '..\..\units\OmniXML\OmniXML_MSXML.pas',
-  OmniXML_Types in '..\..\units\OmniXML\OmniXML_Types.pas',
-  OmniXMLConf in '..\..\units\OmniXML\OmniXMLConf.pas',
-  OmniXMLDatabase in '..\..\units\OmniXML\OmniXMLDatabase.pas',
-  OmniXMLPersistent in '..\..\units\OmniXML\OmniXMLPersistent.pas',
-  OmniXMLProperties in '..\..\units\OmniXML\OmniXMLProperties.pas',
-  OmniXMLUtils in '..\..\units\OmniXML\OmniXMLUtils.pas',
-  OmniXMLXPath in '..\..\units\OmniXML\OmniXMLXPath.pas';
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
 
 {$R *.res}
 

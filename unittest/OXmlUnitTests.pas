@@ -110,7 +110,7 @@ begin
       if not Result then Exit;
 
       for I := 0 to xBuf.UsedLength-1 do begin
-        xBuf.GetBuffer(xC, I+1, 1);
+        xBuf.GetBuffer({%H-}xC, I+1, 1);
         Result := xC = IntToStr(I mod 10);
         if not Result then
           Exit;

@@ -352,21 +352,22 @@ type
   protected
     procedure DoCreate;
     procedure DoDestroy;
-    procedure DoInit(const aForceEncoding: TEncoding); virtual;
+    procedure DoInit(const aForceEncoding: TEncoding);
   protected
     procedure AddToNodePath(const aNodeName: OWideString);
     procedure RemoveLastFromNodePath(var ioNodeName: OWideString);
     function NodePathIsEmpty: Boolean;
   public
-    //create and init
+    //create
     constructor Create; overload;
+    //create and init
     constructor Create(const aStream: TStream; const aForceEncoding: TEncoding = nil); overload;
 
     destructor Destroy; override;
   public
     //The Init* procedures initialize a XML document for parsing.
     // Please note that the file/stream/... is locked until the end of the
-    // document is reached or you call ReleaseDocument!
+    // document is reached, you destroy TXMLReader or you call ReleaseDocument!
 
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document

@@ -5,7 +5,7 @@
 			<FrameworkType>VCL</FrameworkType>
 			<MainSource>OXmlTest.dpr</MainSource>
 			<Base>True</Base>
-			<Config Condition="'$(Config)'==''">Release</Config>
+			<Config Condition="'$(Config)'==''">Debug</Config>
 			<Platform Condition="'$(Platform)'==''">Win32</Platform>
 			<TargetedPlatforms>3</TargetedPlatforms>
 			<AppType>Application</AppType>
@@ -142,17 +142,6 @@
 			<DCCReference Include="..\..\units\OXmlUtils.pas"/>
 			<DCCReference Include="..\..\units\OXmlXPath.pas"/>
 			<DCCReference Include="..\..\units\OXmlPDOM.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXML.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXML_Dictionary.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXML_LookupTables.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXML_MSXML.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXML_Types.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXMLConf.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXMLDatabase.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXMLPersistent.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXMLProperties.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXMLUtils.pas"/>
-			<DCCReference Include="..\..\units\OmniXML\OmniXMLXPath.pas"/>
 			<BuildConfiguration Include="Release">
 				<Key>Cfg_2</Key>
 				<CfgParent>Base</CfgParent>
