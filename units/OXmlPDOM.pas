@@ -1531,7 +1531,6 @@ begin
               (xLastNode = @Self)
             )
           then begin
-            aReader.ReleaseDocument;
             Exit;
           end;
 
