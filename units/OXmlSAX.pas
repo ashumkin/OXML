@@ -457,6 +457,7 @@ end;
 function TSAXParser.StartParsing: Boolean;
 var
   xAttributes: TSAXAttributes;
+  xReaderToken: TXMLReaderToken;
 begin
   fDataRead := False;
   fStopParsing := False;
@@ -468,8 +469,9 @@ begin
 
   xAttributes := TSAXAttributes.Create;
   try
+    xReaderToken := fReader.ReaderToken;
     while (not fStopParsing) and fReader.ReadNextToken do begin
-      case fReader.ReaderToken.TokenType of
+      case xReaderToken.TokenType of
         rtOpenElement: begin
           xAttributes.Clear;
           if not fDataRead then begin
@@ -478,20 +480,20 @@ begin
           end;
         end;
         rtAttribute: begin
-          xAttributes.Add(fReader.ReaderToken.TokenName, fReader.ReaderToken.TokenValue);
+          xAttributes.Add(xReaderToken.TokenName, xReaderToken.TokenValue);
         end;
         rtFinishOpenElementClose: begin
-          DoOnStartElement(fReader.ReaderToken.TokenName, xAttributes);
-          DoOnEndElement(fReader.ReaderToken.TokenName);
+          DoOnStartElement(xReaderToken.TokenName, xAttributes);
+          DoOnEndElement(xReaderToken.TokenName);
         end;
-        rtFinishOpenElement: DoOnStartElement(fReader.ReaderToken.TokenName, xAttributes);
-        rtCloseElement: DoOnEndElement(fReader.ReaderToken.TokenName);
+        rtFinishOpenElement: DoOnStartElement(xReaderToken.TokenName, xAttributes);
+        rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
         rtText, rtCData:
-          if fDataRead or not OXmlIsWhiteSpace(fReader.ReaderToken.TokenValue)
+          if fDataRead or not OXmlIsWhiteSpace(xReaderToken.TokenValue)
           then//omit empty text before root node
-            DoOnCharacters(fReader.ReaderToken.TokenValue);
-        rtComment: DoOnComment(fReader.ReaderToken.TokenValue);
-        rtProcessingInstruction: DoOnProcessingInstruction(fReader.ReaderToken.TokenName, fReader.ReaderToken.TokenValue);
+            DoOnCharacters(xReaderToken.TokenValue);
+        rtComment: DoOnComment(xReaderToken.TokenValue);
+        rtProcessingInstruction: DoOnProcessingInstruction(xReaderToken.TokenName, xReaderToken.TokenValue);
       end;
     end;
 

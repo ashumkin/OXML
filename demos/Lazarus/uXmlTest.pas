@@ -346,7 +346,7 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
       xXmlReader.InitFile(DocDir+'sheet1.xml');
       xXmlWriter.XmlDeclaration(True);
       while xXmlReader.ReadNextToken do begin
-        case xXmlReader.ReaderToken.TokenType of
+        case xE.TokenType of
           rtAttribute: xXmlWriter.Attribute(xE.TokenName, xE.TokenValue);
           rtOpenElement: xXmlWriter.OpenElement(xE.TokenName);
           rtFinishOpenElement: xXmlWriter.FinishOpenElement;

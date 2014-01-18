@@ -47,6 +47,7 @@ type
   TXMLSeqParser = class(TObject)
   private
     fReader: TXMLReader;
+    fReaderToken: TXMLReaderToken;//performance boost when used instead of fReader.ReaderToken in D6-D2007
     fDataRead: Boolean;
     fTempReaderPath: TOWideStringList;
     fTempNodePath: TOWideStringList;
@@ -192,6 +193,7 @@ procedure TXMLSeqParser.DoCreate;
 begin
   fReader := TXMLReader.Create;
   fReader.ReaderSettings.NodePathHandling := npFull;
+  fReaderToken := fReader.ReaderToken;
   fXmlDoc := TXMLDocument.Create;
   fTempNodePath := TOWideStringList.Create;
   fTempReaderPath := TOWideStringList.Create;
@@ -232,9 +234,9 @@ begin
 
   while fReader.ReadNextToken do
   begin
-    case fReader.ReaderToken.TokenType of
+    case fReaderToken.TokenType of
       rtOpenElement: begin
-        outElementName := fReader.ReaderToken.TokenName;
+        outElementName := fReaderToken.TokenName;
         Result := True;
         Exit;
       end;
@@ -262,7 +264,7 @@ begin
   end;
 
   while fReader.ReadNextToken do
-  if (fReader.ReaderToken.TokenType in [rtOpenElement, rtCloseElement, rtFinishOpenElementClose]) and
+  if (fReaderToken.TokenType in [rtOpenElement, rtCloseElement, rtFinishOpenElementClose]) and
       fReader.NodePathMatch(fTempNodePath)
   then begin
     fDataRead := True;
@@ -369,9 +371,9 @@ begin
   try
     fXmlDoc.Clear;
 
-    if fReader.ReaderToken.TokenType = rtOpenElement then begin
+    if fReaderToken.TokenType = rtOpenElement then begin
       //last found was opening element (most probably from GoToPath()), write it down!
-      xLastNode := fXmlDoc.Node.AddChild(fReader.ReaderToken.TokenName)
+      xLastNode := fXmlDoc.Node.AddChild(fReaderToken.TokenName)
     end else begin
       //last found was something else
       xLastNode := fXmlDoc.Node;
@@ -379,10 +381,10 @@ begin
       //go to next child
       if aOnlyElementHeader then begin
         while fReader.ReadNextToken do begin
-          case fReader.ReaderToken.TokenType of
+          case fReaderToken.TokenType of
             rtOpenElement://new element found
             begin
-              xLastNode := fXmlDoc.Node.AddChild(fReader.ReaderToken.TokenName);
+              xLastNode := fXmlDoc.Node.AddChild(fReaderToken.TokenName);
               Break;
             end;
             rtCloseElement://parent element may be closed
@@ -401,9 +403,9 @@ begin
     end else begin
       //read only element header
       while fReader.ReadNextToken do begin
-        case fReader.ReaderToken.TokenType of
+        case fReaderToken.TokenType of
           rtXMLDeclarationAttribute, rtAttribute:
-            xLastNode.Attributes[fReader.ReaderToken.TokenName] := fReader.ReaderToken.TokenValue;
+            xLastNode.Attributes[fReaderToken.TokenName] := fReaderToken.TokenValue;
           rtFinishOpenElement:
           begin
             outElementIsOpen := True;

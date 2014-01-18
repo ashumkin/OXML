@@ -280,23 +280,23 @@ begin
     Result := False;
   end;
 {$ELSE}
-  case aChar of
-    'A'..'Z',
-    'a'..'z',
-    ':',
-    '_',
-    #$C0..#$D6,
-    #$D8..#$F6,
-    #$F8..#$FF,
-    #$100..#$2FF,
-    #$370..#$37D,
-    #$37F..#$1FFF,
-    #$200C..#$200D,
-    #$2070..#$218F,
-    #$2C00..#$2FEF,
-    #$3001..#$D7FF,
-    #$F900..#$FDCF,
-    #$FDF0..#$FFFD: Result := True;
+  case Ord(aChar) of//MUST BE Ord(aChar) because some Delphi show "E2030 Duplicate case label" error - > the performance is the same
+    Ord('A')..Ord('Z'),
+    Ord('a')..Ord('z'),
+    Ord(':'),
+    Ord('_'),
+    $C0..$D6,
+    $D8..$F6,
+    $F8..$FF,
+    $100..$2FF,
+    $370..$37D,
+    $37F..$1FFF,
+    $200C..$200D,
+    $2070..$218F,
+    $2C00..$2FEF,
+    $3001..$D7FF,
+    $F900..$FDCF,
+    $FDF0..$FFFD: Result := True;
   else
     Result := False;
   end;
@@ -332,29 +332,29 @@ begin
     Result := False;
   end;
 {$ELSE}
-  case aChar of
-    'A'..'Z',
-    'a'..'z',
-    '0'..'9',
-    ':',
-    '_',
-    '-',
-    '.',
-    #$B7,
-    #$C0..#$D6,
-    #$D8..#$F6,
-    #$F8..#$FF,
-    #$100..#$2FF,
-    #$370..#$37D,
-    #$37F..#$1FFF,
-    #$200C..#$200D,
-    #$2070..#$218F,
-    #$2C00..#$2FEF,
-    #$3001..#$D7FF,
-    #$F900..#$FDCF,
-    #$FDF0..#$FFFD,
-    #$0300..#$036F,
-    #$203F..#$2040: Result := True;
+  case Ord(aChar) of//MUST BE Ord(aChar) because some Delphi show "E2030 Duplicate case label" error - > the performance is the same
+    Ord('A')..Ord('Z'),
+    Ord('a')..Ord('z'),
+    Ord('0')..Ord('9'),
+    Ord(':'),
+    Ord('_'),
+    Ord('-'),
+    Ord('.'),
+    $B7,
+    $C0..$D6,
+    $D8..$F6,
+    $F8..$FF,
+    $100..$2FF,
+    $370..$37D,
+    $37F..$1FFF,
+    $200C..$200D,
+    $2070..$218F,
+    $2C00..$2FEF,
+    $3001..$D7FF,
+    $F900..$FDCF,
+    $FDF0..$FFFD,
+    $0300..$036F,
+    $203F..$2040: Result := True;
   else
     Result := False;
   end;

@@ -1005,7 +1005,7 @@ begin
     fReaderToken.fTokenType := rtXMLDeclarationAttribute;
 
     if not fForceEncoding and fAllowSetEncodingFromFile and
-      (fReaderToken.fTokenName = 'encoding')
+      (fReaderToken.TokenName = 'encoding')
     then
       ChangeEncoding(fReaderToken.TokenValue);
   end else begin
@@ -1287,7 +1287,7 @@ begin
   fReaderToken.fTokenValue := '';
   fReaderToken.fTokenType := rtOpenElement;
 
-  AddToNodePath(fReaderToken.fTokenName);
+  AddToNodePath(fReaderToken.TokenName);
 end;
 
 function TXMLReader.ReadNextToken: Boolean;

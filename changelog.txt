@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 0.5 [SVN commit: 8, https://sourceforge.net/p/oxml/code/8/]
+Version 0.5 [SVN commit: 9, https://sourceforge.net/p/oxml/code/9/]
   Comment in the beginning:
   This is a commit with big changes to make OXml simpler and easier to use. I renamed
   some units/classes/properties in order to reduce confusion and make things more straightforward.

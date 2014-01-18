@@ -1443,6 +1443,7 @@ function TXMLNode.LoadFromReader(const aReader: TXMLReader): Boolean;
 var
   xLastNode, xLastParentNode: PXMLNode;
   xOmitEmptyTextInTheBeginning: Boolean;
+  xReaderToken: TXMLReaderToken;
 begin
   {$IFNDEF FPC}
   Result := False;//to avoid false warnings in Delphi
@@ -1459,22 +1460,23 @@ begin
   fOwnerDocument.Loading := True;
   try
     xLastNode := @Self;
+    xReaderToken := aReader.ReaderToken;
     while aReader.ReadNextToken do begin
-      case aReader.ReaderToken.TokenType of
+      case xReaderToken.TokenType of
         rtOpenXMLDeclaration: xLastNode := xLastNode.AddXMLDeclaration;
-        rtXMLDeclarationAttribute, rtAttribute: xLastNode._AddAttribute(aReader.ReaderToken.TokenName, aReader.ReaderToken.TokenValue, False);
+        rtXMLDeclarationAttribute, rtAttribute: xLastNode._AddAttribute(xReaderToken.TokenName, xReaderToken.TokenValue, False);
         rtOpenElement: begin
           xOmitEmptyTextInTheBeginning := False;
-          xLastNode := xLastNode.AddChild(aReader.ReaderToken.TokenName);
+          xLastNode := xLastNode.AddChild(xReaderToken.TokenName);
         end;
         rtText:
-          if not (xOmitEmptyTextInTheBeginning and OXmlIsWhiteSpace(aReader.ReaderToken.TokenValue))
+          if not (xOmitEmptyTextInTheBeginning and OXmlIsWhiteSpace(xReaderToken.TokenValue))
           then//omit empty text before root node
-            xLastNode.AddText(aReader.ReaderToken.TokenValue);
-        rtCData: xLastNode.AddCDATASection(aReader.ReaderToken.TokenValue);
-        rtComment: xLastNode.AddComment(aReader.ReaderToken.TokenValue);
-        rtDocType: xLastNode.AddDocType(aReader.ReaderToken.TokenValue);
-        rtProcessingInstruction: xLastNode.AddProcessingInstruction(aReader.ReaderToken.TokenName, aReader.ReaderToken.TokenValue);
+            xLastNode.AddText(xReaderToken.TokenValue);
+        rtCData: xLastNode.AddCDATASection(xReaderToken.TokenValue);
+        rtComment: xLastNode.AddComment(xReaderToken.TokenValue);
+        rtDocType: xLastNode.AddDocType(xReaderToken.TokenValue);
+        rtProcessingInstruction: xLastNode.AddProcessingInstruction(xReaderToken.TokenName, xReaderToken.TokenValue);
         rtFinishXMLDeclarationClose, rtFinishOpenElementClose, rtCloseElement: begin
           xLastParentNode := xLastNode.ParentNode;
 
@@ -1489,15 +1491,15 @@ begin
             end;
 
             if
-              (aReader.ReaderToken.TokenName <> '') and
-              (xLastNode.NodeName <> aReader.ReaderToken.TokenName)
+              (xReaderToken.TokenName <> '') and
+              (xLastNode.NodeName <> xReaderToken.TokenName)
             then begin//node names mismatch
               if fOwnerDocument.ReaderSettings.StrictXML then begin
-                raise EXmlReaderInvalidStructure.CreateFmt(aReader, OXmlLng_WrongElementClosed, [aReader.ReaderToken.TokenName, xLastNode.NodeName]);
+                raise EXmlReaderInvalidStructure.CreateFmt(aReader, OXmlLng_WrongElementClosed, [xReaderToken.TokenName, xLastNode.NodeName]);
               end else begin
                 while
                   (Assigned(xLastParentNode) and (xLastParentNode.NodeType <> ntDocument)) and
-                  (xLastParentNode.NodeName <> aReader.ReaderToken.TokenName)
+                  (xLastParentNode.NodeName <> xReaderToken.TokenName)
                 do
                   xLastParentNode := xLastParentNode.ParentNode;
 

@@ -584,21 +584,29 @@ end;
 
 function TOTextReader.ReadString(const aMaxChars: Integer): OWideString;
 var
-  I: Integer;
+  I, R: Integer;
   xC: OWideChar;
+const
+  cMaxStartBuffer = 10*1024;
 begin
   if aMaxChars <= 0 then begin
     Result := '';
     Exit;
   end;
 
-  SetLength(Result, aMaxChars);
+  R := aMaxChars;
+  if aMaxChars > cMaxStartBuffer then
+    R := cMaxStartBuffer;
+  SetLength(Result, R);
   I := 0;
-  while ReadNextChar({%H-}xC) do begin
+  while (I < aMaxChars) and ReadNextChar({%H-}xC) do begin
     Inc(I);
+    if R = 0 then begin
+      R := Length(Result);
+      SetLength(Result, Length(Result) + R);
+    end;
     Result[I] := xC;
-    if I >= aMaxChars then
-      Break;
+    Dec(R);
   end;
 
   if I < aMaxChars then
