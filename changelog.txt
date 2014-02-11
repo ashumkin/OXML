@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 0.6 [SVN commit: 10, https://sourceforge.net/p/oxml/code/10/]
+Version 0.6 2014-02-11 [SVN commit: 10, https://sourceforge.net/p/oxml/code/10/]
   - Renamed TXMLNode.SelectNodeNull to SelectNodeDummy
   - Renamed TXMLSeqParser.PassNextChildElementHeader to SkipNextChildElementHeader
   - Renamed TXMLSeqParser.PassNextChildNode to SkipNextChildNode
