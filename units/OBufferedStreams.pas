@@ -38,7 +38,13 @@ unit OBufferedStreams;
 interface
 
 uses
-  SysUtils, Classes, OWideSupp;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
+  {$ELSE}
+  SysUtils, Classes,
+  {$ENDIF}
+
+  OWideSupp;
 
 type
 

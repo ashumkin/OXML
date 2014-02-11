@@ -12,7 +12,8 @@ unit OXmlUnitTests;
 
 interface
 
-uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM;
+uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM,
+  OHashedStrings;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -24,8 +25,8 @@ type
     procedure FunctionPassed(const aFunction: TObjFunc; const aFunctionName: String);
   private
     //OXmlReadWrite.pas
-    function Test_TOXmlReader_FinishOpenElementClose_NodeName_Empty: Boolean;
-    function Test_TOXmlReader_InvalidDocument1: Boolean;
+    function Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
+    function Test_TXMLReader_InvalidDocument1: Boolean;
   private
     //OXmlPDOM.pas
     function Test_TXMLNode_SelectNodeCreate_Attribute: Boolean;
@@ -33,6 +34,9 @@ type
   private
     //OWideSupp.pas
     function Test_TOTextBuffer: Boolean;
+  private
+    //OHashedStrings
+    function Test_TOHashedStrings_Grow: Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
@@ -74,11 +78,12 @@ begin
   //we cannot use RTTI to call all test functions automatically
   // -> call here all functions manually
 
-  FunctionPassed(Test_TOXmlReader_FinishOpenElementClose_NodeName_Empty, 'Test_TOXmlReader_FinishOpenElementClose_NodeName_Empty');
-  FunctionPassed(Test_TOXmlReader_InvalidDocument1, 'Test_TOXmlReader_InvalidDocument1');
+  FunctionPassed(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
+  FunctionPassed(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
   FunctionPassed(Test_TXMLNode_SelectNodeCreate_Attribute, 'Test_TXMLNode_SelectNodeCreate_Attribute');
   FunctionPassed(Test_TXMLDocument_InvalidDocument1, 'Test_TXMLDocument_InvalidDocument1');
   FunctionPassed(Test_TOTextBuffer, 'Test_TOTextBuffer');
+  FunctionPassed(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
 
 
   if fPassNameIfFalse.Count = 0 then
@@ -91,6 +96,27 @@ begin
 
     for I := 0 to fPassNameIfFalse.Count-1 do
       aStrList.Add(fPassNameIfFalse[I]);
+  end;
+end;
+
+function TOXmlUnitTest.Test_TOHashedStrings_Grow: Boolean;
+var
+  xHS: TOHashedStrings;
+  I: Integer;
+begin
+  xHS := TOHashedStrings.Create;
+  try
+    for I := 1 to 35 do
+      xHS.Add(IntToStr(I));
+
+    //36 is the limit when GrowBuckets is called and new hashes are generated
+    xHS.Add('x');
+    //x must be found in created list by a new hash!
+    xHS.Add('x');
+
+    Result := xHS.Count = 36;
+  finally
+    xHS.Free;
   end;
 end;
 
@@ -123,20 +149,20 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TOXmlReader_FinishOpenElementClose_NodeName_Empty: Boolean;
+function TOXmlUnitTest.Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
 var
   xReader: TXMLReader;
+  xReaderToken: PXMLReaderToken;
   xResult: OWideString;
 begin
   xReader := TXMLReader.Create;
   try
-    xReader.ReaderSettings.NodePathHandling := npFull;
     xReader.InitXML('<root attribute="1" />');
 
     xResult := '';
-    while xReader.ReadNextToken do
+    while xReader.ReadNextToken(xReaderToken) do
     begin
-      xResult := xResult + Format('%d:%s:%s;', [Ord(xReader.ReaderToken.TokenType), xReader.ReaderToken.TokenName, xReader.ReaderToken.TokenValue]);
+      xResult := xResult + Format('%d:%s:%s;', [Ord(xReaderToken.TokenType), xReaderToken.TokenName, xReaderToken.TokenValue]);
     end;
 
     Result := xResult = '4:root:;5:attribute:1;7:root:;';
@@ -145,16 +171,16 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TOXmlReader_InvalidDocument1: Boolean;
+function TOXmlUnitTest.Test_TXMLReader_InvalidDocument1: Boolean;
 const
   inXML: OWideString = '<root><b>TEXT</i><p><t><aaa/></p></root>';
 var
   xXMLReader: TXMLReader;
-  xToken: TXMLReaderToken;
+  xToken: PXMLReaderToken;
 
   procedure CheckNextToken(aTokenType: TXMLReaderTokenType; const aTokenName, aTokenValue: OWideString);
   begin
-    Result := Result and xXMLReader.ReadNextToken and
+    Result := Result and xXMLReader.ReadNextToken(xToken) and
       ((xToken.TokenType = aTokenType) and (xToken.TokenName = aTokenName) and (xToken.TokenValue = aTokenValue));
   end;
 begin
@@ -162,10 +188,7 @@ begin
 
   xXMLReader := TXMLReader.Create;
   try
-    xToken := xXMLReader.ReaderToken;
-
     xXMLReader.ReaderSettings.StrictXML := False;
-    xXMLReader.ReaderSettings.NodePathHandling := npFull;
 
     xXMLReader.InitXML(inXML);
 

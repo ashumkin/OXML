@@ -64,13 +64,23 @@ unit OXmlXPath;
 interface
 
 uses
-  SysUtils, Classes, OWideSupp, OXmlUtils
-  {$IFDEF O_GENERICS}
-  , Generics.Collections
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
   {$ELSE}
-  , Contnrs, ODictionary
+  SysUtils, Classes,
   {$ENDIF}
-  ;
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Collections,
+    {$ELSE}
+    Generics.Collections,
+    {$ENDIF}
+  {$ELSE}
+  Contnrs, ODictionary,
+  {$ENDIF}
+
+  OWideSupp, OXmlUtils;
 
 type
   //xntNode = "xntElement, xntAttribute, xntText"

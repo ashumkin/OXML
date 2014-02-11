@@ -4,8 +4,10 @@ unit OXmlTestUnit;
 {.$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
 {.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
 {.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
-{.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML
+{.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML: http://blog.spreendigital.de/2011/11/10/verysimplexml-a-lightweight-delphi-xml-reader-and-writer/
 {.$DEFINE USE_SIMPLEXML}//define/undefine to compare OXml with SimpleXML: http://www.audio-data.de/simplexml.html
+{$DEFINE USE_DIXML}//define/undefine to compare OXml with DIXml: http://www.yunqa.de/delphi/doku.php/products/xml/index?DokuWiki=kg5ade2rod3o49f5v1anmf7ol1
+{.$DEFINE USE_LAZARUSDOMXML}//define/undefine to compare OXml with Lazarus DOM XML
 
 {$IFDEF FPC}
   {$DEFINE USE_GENERICS}
@@ -38,34 +40,38 @@ uses
   {$IFDEF USE_SIMPLEXML}
   SimpleXML,
   {$ENDIF}
+  {$IFDEF USE_DIXML}
+  DIXml,
+  {$ENDIF}
+  {$IFDEF USE_LAZARUSDOMXML}
+  XMLRead, XMLWrite, DOM,
+  {$ENDIF}
   OEncoding, OBufferedStreams, OHashedStrings,
   OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
-  {$IFDEF USE_INTF}
-  OXmlIntfDOM,
-  {$ENDIF}
   OXmlPDOM, OXmlSAX, OXmlSeq;
 
 type
   TForm1 = class(TForm)
-    BtnXmlDirectWrite: TButton;
-    BtnResaveWithDOM: TButton;
-    BtnTestXPath: TButton;
-    Memo1: TMemo;
-    Memo2: TMemo;
-    BtnTestSAX: TButton;
-    BtnInterfaceCreate: TButton;
     LblTimeInfo: TLabel;
-    BtnTestWriteInvalid: TButton;
-    BtnEncodingTest: TButton;
+    BtnReadPerformanceTest: TButton;
+    BtnWritePerformanceTest: TButton;
+    BtnResaveTest: TButton;
+    BtnXmlDirectWrite: TButton;
+    BtnTestSAX: TButton;
+    BtnDOMTest: TButton;
     BtnIterateTest: TButton;
     BtnSequentialTest: TButton;
+    BtnTestXPath: TButton;
     BtnTestReadInvalid: TButton;
-    BtnDOMTest: TButton;
+    BtnTestWriteInvalid: TButton;
+    BtnEncodingTest: TButton;
+    Memo1: TMemo;
+    Memo2: TMemo;
     procedure BtnXmlDirectWriteClick(Sender: TObject);
-    procedure BtnResaveWithDOMClick(Sender: TObject);
+    procedure BtnReadPerformanceTestClick(Sender: TObject);
     procedure BtnTestXPathClick(Sender: TObject);
     procedure BtnTestSAXClick(Sender: TObject);
-    procedure BtnInterfaceCreateClick(Sender: TObject);
+    procedure BtnWritePerformanceTestClick(Sender: TObject);
     procedure BtnTestWriteInvalidClick(Sender: TObject);
     procedure BtnEncodingTestClick(Sender: TObject);
     procedure BtnIterateTestClick(Sender: TObject);
@@ -73,6 +79,15 @@ type
     procedure FormResize(Sender: TObject);
     procedure BtnTestReadInvalidClick(Sender: TObject);
     procedure BtnDOMTestClick(Sender: TObject);
+    procedure BtnResaveTestClick(Sender: TObject);
+  private
+    procedure DoNothing(const {%H-}aStr1, {%H-}aStr2: OWideString);
+
+    procedure MatchTestFiles(const aFileSource, aFileTarget: OWideString);
+
+    procedure Navigate_SAXStartElement(Sender: TSAXParser; const aName: OWideString;
+      const aAttributes: TSAXAttributes);
+    procedure Navigate_SAXEndElement(Sender: TSAXParser; const aName: OWideString);
   private
     DocDir: String;
 
@@ -97,64 +112,129 @@ implementation
 
 {$R *.dfm}
 
-procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
+procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
   {$IFDEF USE_DELPHIXML}
   procedure TestDelphiXmlDOM;
+    procedure _Navigate(const aNode: XMLIntf.IXmlNode);
+    var
+      I: Integer;
+      xCNode: XMLIntf.IXmlNode;
+    begin
+      for I := 0 to aNode.AttributeNodes.Count-1 do
+      begin
+        xCNode := aNode.AttributeNodes[I];
+        DoNothing(xCNode.NodeName, xCNode.NodeValue);
+      end;
+
+      if aNode.HasChildNodes then
+      for I := 0 to aNode.ChildNodes.Count-1 do
+      begin
+        xCNode := aNode.ChildNodes[I];
+        DoNothing(xCNode.NodeName, '');
+        if xCNode.NodeType = XMLIntf.ntElement then
+          _Navigate(xCNode);
+      end;
+    end;
   var
     xXml: XMLIntf.IXMLDocument;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := XMLDoc.TXMLDocument.Create(nil);
     xXml.LoadFromFile(DocDir+'sheet1.xml');
     xXml.Active := True;
     xT2 := GetTickCount;
-    xXml.SaveToFile(DocDir+'sheet1-resave.xml');
+
+    _Navigate(xXml.Node);
 
     xXml := nil;
+
+    xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'DELPHI XML DOM'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
-      '(The very good results from this test are a fact that no Delphi nodes'+sLineBreak+
-      'are created from the MS XML DOM. '+sLineBreak+
-      'Basically, MS XML DOM is very fast but the Delphi implementation is'+sLineBreak+
-      'slow (and the Delphi implementation is not used in this demo.)'+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
   {$IFDEF USE_MSXML}
   procedure TestMSXmlDOM;
+    procedure _Navigate(const aNode: msxml.IXmlDOMNode);
+    var
+      I: Integer;
+      xCNode: msxml.IXmlDOMNode;
+    begin
+      if Assigned(aNode.attributes) then begin
+        for I := 0 to aNode.attributes.length-1 do
+        begin
+          xCNode := aNode.attributes.item[I];
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+        end;
+      end;
+
+      if aNode.HasChildNodes then
+      for I := 0 to aNode.ChildNodes.length-1 do
+      begin
+        xCNode := aNode.ChildNodes[I];
+        DoNothing(xCNode.NodeName, '');
+        if xCNode.NodeType = msxml.NODE_ELEMENT then
+          _Navigate(xCNode);
+      end;
+    end;
   var
     xXml: msxml.IXMLDOMDocument;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := msxmldom.CreateDOMDocument;
     xXml.load(DocDir+'sheet1.xml');
     xT2 := GetTickCount;
-    xXml.save(DocDir+'sheet1-resave.xml');
+    _Navigate(xXML);
 
     xXml := nil;
+
+    xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'MS XML DOM'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
 
   {$IFDEF USE_OMNIXML}
   procedure TestOmniXmlDOM;
+    procedure _Navigate(const aNode: OmniXml.IXMLNode);
+    var
+      I: Integer;
+      xCNode: OmniXml.IXMLNode;
+    begin
+      if Assigned(aNode.attributes) then begin
+        for I := 0 to aNode.attributes.length-1 do
+        begin
+          xCNode := aNode.attributes.item[I];
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+        end;
+      end;
+
+      if aNode.HasChildNodes then
+      for I := 0 to aNode.ChildNodes.length-1 do
+      begin
+        xCNode := aNode.ChildNodes.Item[I];
+        DoNothing(xCNode.NodeName, '');
+        if xCNode.NodeType = OmniXML.ELEMENT_NODE then
+          _Navigate(xCNode);
+      end;
+    end;
   var
     xXml: OmniXml.IXMLDocument;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := OmniXml.CreateXMLDoc;
@@ -162,57 +242,46 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
     xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
     xXml.Load(DocDir+'sheet1.xml');
     xT2 := GetTickCount;
-    xXml.Save(DocDir+'sheet1-resave.xml');
+    _Navigate(xXML);
 
     xXml := nil;
+
+    xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OmniXML DOM'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
-      sLineBreak+sLineBreak;
-  end;
-
-  procedure TestOmniXmlDOM_MS;
-  var
-    xXml: OmniXml.IXMLDocument;
-    xT1, xT2: Cardinal;
-    xMS: TMemoryStream;
-  begin
-    xT1 := GetTickCount;
-    xXml := OmniXml.CreateXMLDoc;
-    //xXml.WhiteSpaceHandling := OmniXML.wsPreserveAll;//enable/disable according to OmniXML mod
-    xXml.PreserveWhiteSpace := True;//enable/disable according to OmniXML mod
-    xXml.Load(DocDir+'sheet1.xml');
-    xT2 := GetTickCount;
-    xMS := TMemoryStream.Create;
-    try
-      xXml.SaveToStream(xMS);
-      xMS.Position := 0;
-      xMS.SaveToFile(DocDir+'sheet1-resave.xml');
-    finally
-      xMS.Free;
-    end;
-
-    xXml := nil;
-
-    Memo1.Lines.Text :=
-      Memo1.Lines.Text+sLineBreak+
-      'OmniXML DOM (TMemoryStream)'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
 
   {$IFDEF USE_NATIVEXML}
   procedure TestNativeXmlDOM;
+    procedure _Navigate(const aNode: NativeXml.TXmlNode);
+    var
+      I: Integer;
+      xCNode: NativeXml.TXmlNode;
+    begin
+      for I := 0 to aNode.AttributeCount-1 do
+      begin
+        xCNode := aNode.Attributes[I];
+        DoNothing(xCNode.NameUnicode, xCNode.ValueUnicode);
+      end;
+
+      for I := 0 to aNode.ElementCount-1 do
+      begin
+        xCNode := aNode.Elements[I];
+        DoNothing(xCNode.NameUnicode, '');
+        if xCNode.ElementType = NativeXml.xeElement then
+          _Navigate(xCNode);
+      end;
+    end;
   var
     xXml: NativeXml.TNativeXml;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := NativeXml.TNativeXml.Create(nil);
@@ -220,16 +289,18 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
       xXml.XmlFormat := NativeXml.xfPreserve;
       xXml.LoadFromFile(DocDir+'sheet1.xml');
       xT2 := GetTickCount;
-      xXml.SaveToFile(DocDir+'sheet1-resave.xml');
+      _Navigate(xXml.Root);
 
       FreeAndNil(xXml);
+
+      xT3 := GetTickCount;
 
       Memo1.Lines.Text :=
         Memo1.Lines.Text+sLineBreak+
         'NativeXml DOM'+sLineBreak+
-        'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-        'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-        'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+        'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+        'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+        'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
         sLineBreak+sLineBreak;
     finally
       xXml.Free;
@@ -241,23 +312,26 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
   procedure TestVerySimpleXmlDOM;
   var
     xXml: Xml.VerySimple.TXmlVerySimple;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := Xml.VerySimple.TXmlVerySimple.Create;
     try
       xXml.LoadFromFile(DocDir+'sheet1.xml');
       xT2 := GetTickCount;
-      xXml.SaveToFile(DocDir+'sheet1-resave.xml');
+
+      //navigate -> not necessary, VerySimple fails to read the file
 
       FreeAndNil(xXml);
+
+      xT3 := GetTickCount;
 
       Memo1.Lines.Text :=
         Memo1.Lines.Text+sLineBreak+
         'VerySimpleXML DOM'+sLineBreak+
-        'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-        'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-        'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+        'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+        'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+        'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
         sLineBreak+sLineBreak;
     finally
       xXml.Free;
@@ -267,33 +341,419 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
 
   {$IFDEF USE_SIMPLEXML}
   procedure TestSimpleXmlDOM;
+    procedure _Navigate(const aNode: SimpleXML.IXMLNode);
+    var
+      I: Integer;
+      xCNode: SimpleXML.IXmlNode;
+    begin
+      for I := 0 to aNode.AttrCount-1 do
+      begin
+        DoNothing(aNode.AttrNames[I], aNode.GetAttr(aNode.AttrNameIDs[I]));
+      end;
+
+      if Assigned(aNode.ChildNodes) then
+      for I := 0 to aNode.ChildNodes.Count-1 do
+      begin
+        xCNode := aNode.ChildNodes[I];
+        DoNothing(xCNode.NodeName, '');
+        if xCNode.NodeType = SimpleXML.NODE_ELEMENT then
+          _Navigate(xCNode);
+      end;
+    end;
   var
     xXml: SimpleXML.IXmlDocument;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := SimpleXML.CreateXmlDocument;
     xXml.PreserveWhiteSpace := True;
     xXml.Load(DocDir+'sheet1.xml');
     xT2 := GetTickCount;
-    xXml.Save(DocDir+'sheet1-resave.xml');
+    _Navigate(xXml);
 
     xXml := nil;
+
+    xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'SimpleXML DOM'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
-      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
+  {$IFDEF USE_DIXML}
+  procedure TestDIXmlDOM;
+    procedure _Navigate(const aNode: DIXml.xmlNodePtr);
+    var
+      xCNode: DIXml.xmlNodePtr;
+      xCAttr: DIXml.xmlAttrPtr;
+      xAttrValue: PAnsiChar;
+    begin
+      xCAttr := aNode.Properties;
+      while Assigned(xCAttr) do
+      begin
+        xAttrValue := xmlGetProp(aNode, xCAttr.Name);
+        DoNothing(
+          {$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(xCAttr.Name),
+          {$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(xAttrValue));
+        FreeMem(xAttrValue);
+        xCAttr := xCAttr.Next;
+      end;
+
+      xCNode := aNode.Children;
+      while Assigned(xCNode) do
+      begin
+        DoNothing({$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(xCNode.Name), '');
+        if xCNode.Type_ = DIXml.XML_ELEMENT_NODE then
+          _Navigate(xCNode);
+        xCNode := xCNode.Next;
+      end;
+    end;
+  var
+    xXml: DIXml.xmlDocPtr;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+    DIXml.xmlInitParser;
+    xXml := DIXml.xmlReadFile(PAnsiChar({$IFNDEF FPC}UTF8Encode{$ENDIF}(DocDir+'sheet1.xml')), nil, 0);
+    xT2 := GetTickCount;
+    _Navigate(DIXml.xmlDocGetRootElement(xXml));
+
+    DIXml.xmlFreeDoc(xXml);
+    DIXml.xmlCleanupParser;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'DIXml DOM'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
+  {$IFDEF USE_LAZARUSDOMXML}
+  procedure TestLazarusDOM;
+    procedure _Navigate(const aNode: DOM.TDOMNode);
+    var
+      xCNode: DOM.TDOMNode;
+      I: Integer;
+    begin
+      if aNode.HasAttributes then begin
+        for I := 0 to aNode.Attributes.Length-1 do
+        begin
+          xCNode := aNode.Attributes[I];
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+        end;
+      end;
+
+      if aNode.HasChildNodes then begin
+        for I := 0 to aNode.ChildNodes.Length-1 do
+        begin
+          xCNode := aNode.ChildNodes[I];
+          DoNothing(xCNode.NodeName, '');
+          if xCNode.NodeType = DOM.ELEMENT_NODE then
+            _Navigate(xCNode);
+        end;
+      end;
+    end;
+  var
+    xXml: DOM.TXMLDocument;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xXml := nil;
+    try
+      xT1 := GetTickCount;
+      XMLRead.ReadXMLFile(xXml, DocDir+'sheet1.xml');
+      xT2 := GetTickCount;
+      _Navigate(xXml);
+    finally
+      xXml.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'Lazarus XML DOM'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
 
   procedure TestOXmlPDOM;
+    procedure _Navigate(const aNode: OXmlPDOM.PXMLNode);
+    var
+      xCNode: OXmlPDOM.PXMLNode;
+    begin
+      if aNode.HasAttributes then begin
+        xCNode := aNode.FirstAttribute;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+
+      if aNode.HasChildNodes then begin
+        xCNode := aNode.FirstChild;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, '');
+          if xCNode.NodeType = OXmlUtils.ntElement then
+            _Navigate(xCNode);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+    end;
   var
     xXml: OXmlPDOM.IXMLDocument;
-    xT1, xT2: Cardinal;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+    xXml := OXmlPDOM.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
+    xXml.LoadFromFile(DocDir+'sheet1.xml');
+    xT2 := GetTickCount;
+    _Navigate(xXml.Node);
+
+    xXml := nil;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml record DOM'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure TestOXmlSAX;
+  var
+    xSAX: TSAXParser;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+
+    //read
+    xSAX := TSAXParser.Create;
+    try
+      xSAX.ParseFile(DocDir+'sheet1.xml');
+    finally
+      xSAX.Free;
+    end;
+
+    xT2 := GetTickCount;
+
+    //read+navigate
+    xSAX := TSAXParser.Create;
+    try
+      xSAX.OnStartElement := Navigate_SAXStartElement;
+      xSAX.OnEndElement := Navigate_SAXEndElement;
+
+      xSAX.ParseFile(DocDir+'sheet1.xml');
+    finally
+      xSAX.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml SAX'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((Integer(xT3-xT2)-Integer(xT2-xT1)) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure TestOXmlSeq;
+    procedure _Navigate(const aNode: OXmlPDOM.PXMLNode);
+    var
+      xCNode: OXmlPDOM.PXMLNode;
+    begin
+      if aNode.HasAttributes then begin
+        xCNode := aNode.FirstAttribute;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+
+      if aNode.HasChildNodes then begin
+        xCNode := aNode.FirstChild;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, '');
+          if xCNode.NodeType = OXmlUtils.ntElement then
+            _Navigate(xCNode);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+    end;
+  var
+    xSeq: TXMLSeqParser;
+    xT1, xT2, xT3: Cardinal;
+    xDataIsOpen: Boolean;
+    xRowNode: PXMLNode;
+  begin
+    xT1 := GetTickCount;
+
+    //read
+    xSeq := TXMLSeqParser.Create;
+    try
+      xSeq.InitFile(DocDir+'sheet1.xml');
+
+      xSeq.GoToPath('/worksheet/sheetData');
+      xSeq.SkipNextChildElementHeader({%H-}xDataIsOpen);
+      if xDataIsOpen then
+      begin
+        while xSeq.ReadNextChildNode({%H-}xRowNode) do
+        begin
+          //nothing
+        end;
+      end;
+
+      xSeq.GoToPath('/');//go to end
+    finally
+      xSeq.Free;
+    end;
+
+    xT2 := GetTickCount;
+
+    //read + navigate
+    xSeq := TXMLSeqParser.Create;
+    try
+      xSeq.InitFile(DocDir+'sheet1.xml');
+
+      xSeq.GoToPath('/worksheet/sheetData');
+      xSeq.SkipNextChildElementHeader(xDataIsOpen);
+      if xDataIsOpen then
+      begin
+        while xSeq.ReadNextChildNode(xRowNode) do
+        begin
+          _Navigate(xRowNode);
+        end;
+      end;
+
+      xSeq.GoToPath('/');//go to end
+    finally
+      xSeq.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml Sequential DOM'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((Integer(xT3-xT2)-Integer(xT2-xT1)) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure TestOXmlDirect;
+  var
+    xReaderToken: PXMLReaderToken;
+    xXmlReader: TXMLReader;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+
+    xXmlReader := TXMLReader.Create;
+    try
+      xXmlReader.InitFile(DocDir+'sheet1.xml');
+      while xXmlReader.ReadNextToken({%H-}xReaderToken) do begin
+      end;
+    finally
+      xXmlReader.Free;
+    end;
+
+    xT2 := GetTickCount;
+
+    xXmlReader := TXMLReader.Create;
+    try
+      xXmlReader.InitFile(DocDir+'sheet1.xml');
+      while xXmlReader.ReadNextToken({%H-}xReaderToken) do begin
+        DoNothing(xReaderToken.TokenName, xReaderToken.TokenValue);
+      end;
+    finally
+      xXmlReader.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml direct reader'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((Integer(xT3-xT2)-Integer(xT2-xT1)) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+begin
+  Memo1.Lines.Clear;
+  Memo2.Lines.Clear;
+
+
+  {$IFDEF USE_DELPHIXML}
+  TestDelphiXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_MSXML}
+  TestMSXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_OMNIXML}
+  TestOmniXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_NATIVEXML}
+  TestNativeXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_VERYSIMPLE}
+  //TestVerySimpleXmlDOM;  <- FAIL!!!
+  {$ENDIF}
+
+  {$IFDEF USE_SIMPLEXML}
+  TestSimpleXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_DIXML}
+  TestDIXmlDOM;
+  {$ENDIF}
+
+  {$IFDEF USE_LAZARUSDOMXML}
+  TestLazarusDOM;
+  {$ENDIF}
+
+  TestOXmlPDOM;
+
+  TestOXmlSeq;
+
+  TestOXmlSAX;
+
+  TestOXmlDirect;
+end;
+
+procedure TForm1.BtnResaveTestClick(Sender: TObject);
+  procedure TestOXmlPDOM;
+  var
+    xXml: OXmlPDOM.IXMLDocument;
+    xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
     xXml := OXmlPDOM.CreateXMLDoc;
@@ -304,25 +764,25 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
 
     xXml := nil;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OXml record DOM (default)'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
       'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
+      'Write: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
 
   procedure TestDirect;
-    procedure _DoNothing(const {%H-}aStr1, {%H-}aStr2: OWideString);
-    begin
-    end;
   var
     xXmlReader: TXMLReader;
     xXmlWriter: TXMLWriter;
-    xT1, xT2: Cardinal;
-    xE: TXMLReaderToken;
+    xT1, xT2, xT3: Cardinal;
+    xE: PXMLReaderToken;
   begin
+    xT1 := GetTickCount;
     xXmlReader := nil;
     xXmlWriter := nil;
     try
@@ -330,25 +790,21 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
       xXmlWriter := TXMLWriter.Create;
 
       xXmlReader.InitFile(DocDir+'sheet1.xml');
-      xXmlReader.ReaderSettings.NodePathHandling := npNo;
 
       xXmlWriter.InitFile(DocDir+'sheet1-resave.xml');
       xXmlWriter.Encoding := TEncoding.UTF8;
       xXmlWriter.WriterSettings.WriteBOM := False;
 
-      xE := xXmlReader.ReaderToken;
-
-      xT1 := GetTickCount;
       //simulate reading
-      while xXmlReader.ReadNextToken do begin
-        _DoNothing(xE.TokenName, xE.TokenValue);
+      while xXmlReader.ReadNextToken({%H-}xE) do begin
+        DoNothing(xE.TokenName, xE.TokenValue);
       end;
       xT2 := GetTickCount;
 
       //read+write
       xXmlReader.InitFile(DocDir+'sheet1.xml');
       xXmlWriter.XmlDeclaration(True);
-      while xXmlReader.ReadNextToken do begin
+      while xXmlReader.ReadNextToken(xE) do begin
         case xE.TokenType of
           rtAttribute: xXmlWriter.Attribute(xE.TokenName, xE.TokenValue);
           rtOpenElement: xXmlWriter.OpenElement(xE.TokenName);
@@ -366,142 +822,58 @@ procedure TForm1.BtnResaveWithDOMClick(Sender: TObject);
       xXmlWriter.Free;
     end;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OXml direct reader/writer'+sLineBreak+
-      'Whole: '+FloatToStr((GetTickCount-xT2) / 1000)+sLineBreak+
       'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
-      'Write: '+FloatToStr(((GetTickCount-xT2)-(xT2-xT1)) / 1000)+sLineBreak+
+      'Write: '+FloatToStr((Integer(xT3-xT2)-Integer(xT2-xT1)) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   procedure TestSAX;
   var
     xSAX: TSAXParser;
-    xT1: Cardinal;
+    xT1, xT2: Cardinal;
   begin
     xT1 := GetTickCount;
 
     xSAX := TSAXParser.Create;
     try
-      xSAX.ReaderSettings.NodePathHandling := npLastPath;//better performance than npFull
-
       xSAX.ParseFile(DocDir+'sheet1.xml');
     finally
       xSAX.Free;
     end;
 
+    xT2 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OXml SAX'+sLineBreak+
-      'Read: '+FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Read: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
 
-  procedure MatchTestFiles;
-  var
-    xReader1, xReader2: TOTextReader;
-    xC1, xC2: OWideChar;
-    I: Integer;
+  procedure _MatchTestFiles;
   begin
-    xC1 := #0;
-    xC2 := #0;
-    xReader1 := TOTextReader.Create;
-    xReader2 := TOTextReader.Create;
-    try
-      xReader1.InitFile(DocDir+'sheet1.xml');
-      xReader2.InitFile(DocDir+'sheet1-resave.xml');
-
-      //start comparing after PI
-      while (xC1 <> '>') do
-        if not xReader1.ReadNextChar(xC1) then
-          Break;
-      while xC2 <> '>' do
-        if not xReader2.ReadNextChar(xC2) then
-          Break;
-      xReader1.ReadNextChar(xC1);
-      xReader2.ReadNextChar(xC2);
-      while OXmlIsWhiteSpaceChar(xC1) do
-        if not xReader1.ReadNextChar(xC1) then
-          Break;
-      while OXmlIsWhiteSpaceChar(xC2) do
-        if not xReader2.ReadNextChar(xC2) then
-          Break;
-
-      while True do begin
-        xReader1.ReadNextChar(xC1);
-        xReader2.ReadNextChar(xC2);
-        if xC1 <> xC2 then begin
-          //get some information
-          xReader1.ClearCustomBuffer;
-          xReader2.ClearCustomBuffer;
-          xReader1.WritePreviousCharToBuffer;
-          xReader2.WritePreviousCharToBuffer;
-          for I := 0 to 19 do begin
-            xReader1.ReadNextChar(xC1);
-            xReader2.ReadNextChar(xC2);
-            xReader1.WritePreviousCharToBuffer;
-            xReader2.WritePreviousCharToBuffer;
-          end;
-
-          raise Exception.Create('Files do not match:'+sLineBreak+
-            'Reader1 = '+xReader1.GetCustomBuffer+sLineBreak+
-            'Reader2 = '+xReader2.GetCustomBuffer+sLineBreak);
-        end;
-
-        if (xC1 = #0) or (xC2 = #0) then
-          Break;
-      end;
-    finally
-      xReader1.Free;
-      xReader2.Free;
-    end;
+    MatchTestFiles(DocDir+'sheet1.xml', DocDir+'sheet1-resave.xml');
   end;
 begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
 
-  {$IFDEF USE_DELPHIXML}
-  TestDelphiXmlDOM;
-  {$ENDIF}
-
-  {$IFDEF USE_MSXML}
-  TestMSXmlDOM;
-  {$ENDIF}
-
-  {$IFDEF USE_OMNIXML}
-  TestOmniXmlDOM;
-  MatchTestFiles;//comment/uncomment to check if files match
-
-  //TestOmniXmlDOM_MS;
-  {$ENDIF}
-
-  {$IFDEF USE_NATIVEXML}
-  TestNativeXmlDOM;
-  MatchTestFiles;//comment/uncomment to check if files match
-  {$ENDIF}
-
-  {$IFDEF USE_VERYSIMPLE}
-  TestVerySimpleXmlDOM;
-  MatchTestFiles;//comment/uncomment to check if files match
-  {$ENDIF}
-
-  {$IFDEF USE_SIMPLEXML}
-  TestSimpleXmlDOM;
-  //MatchTestFiles;//comment/uncomment to check if files match
-  {$ENDIF}
-
   TestOXmlPDOM;
-  MatchTestFiles;//comment/uncomment to check if files match
+  _MatchTestFiles;
 
   TestSAX;
 
   TestDirect;
-  MatchTestFiles;//comment/uncomment to check if files match
-
+  _MatchTestFiles;
 end;
 
 procedure TForm1.BtnSequentialTestClick(Sender: TObject);
-  procedure TestSeq(const aXML: OWideString; aMemo: TMemo);
+  procedure TestSeq(const aXML, aCorrectOutput: OWideString; aMemo: TMemo);
   var
     xSeqParser: TXMLSeqParser;
     xNode, xAttr: OXmlPDOM.PXMLNode;
@@ -511,6 +883,7 @@ procedure TForm1.BtnSequentialTestClick(Sender: TObject);
     xSeqParser := TXMLSeqParser.Create;
     try
       xSeqParser.InitXML(aXML);
+      xSeqParser.ReaderSettings.BreakReading := brNone;
 
       if not xSeqParser.GoToPath('/root/items:test') then
         raise Exception.Create('Wrong XML document.');
@@ -519,6 +892,8 @@ procedure TForm1.BtnSequentialTestClick(Sender: TObject);
         raise Exception.Create('Wrong XML document.');
 
       aMemo.Lines.Add(xNode.XML);
+
+      aMemo.Lines.Add('-----');
 
       if xItemsElementIsOpen then begin
         while xSeqParser.ReadNextChildNode(xNode) do
@@ -539,6 +914,8 @@ procedure TForm1.BtnSequentialTestClick(Sender: TObject);
         end;
       end;
 
+      aMemo.Lines.Add('-----');
+
       while xSeqParser.ReadNextChildElementHeaderClose(xNode) do
       begin
         if (xNode.NodeType = ntElement) and
@@ -546,6 +923,20 @@ procedure TForm1.BtnSequentialTestClick(Sender: TObject);
         then
           aMemo.Lines.Add(xNode.XML);
       end;
+
+      aMemo.Lines.Add('-----');
+
+      if xSeqParser.GoToPath('/root2') then
+      if xSeqParser.SkipNextChildElementHeader(xItemsElementIsOpen) then
+      if xItemsElementIsOpen then
+      begin
+        while xSeqParser.ReadNextChildNode(xNode) do
+          aMemo.Lines.Add(xNode.XML);
+      end;
+
+      if aMemo.Lines.Text <> aCorrectOutput then
+        raise Exception.Create('Sequential parser test failed');
+
     finally
       xSeqParser.Free;
     end;
@@ -557,6 +948,7 @@ begin
   TestSeq(
     '<root>'+
       '<items:test defaultcolor="red">'+
+        '<item />'+
         '<item name="car" color="blue" />'+
         '<skip>Skip this element</skip>'+
         '<item name="bike">bike has <b>default</b> color!</item>'+
@@ -565,7 +957,41 @@ begin
       '<info text="Yes, I want to know it!" />'+
       'skip texts'+
       '<info text="Show me!" />'+
-    '</root>',
+      '<info />'+
+    '</root>'+
+    '<root2>'+
+      'text'+
+      '<items:test:2 defaultcolor="red" />'+
+      '<items:test:2 defaultcolor="green" />'+
+      '<items:test:2 />'+
+      '<items:test:2 />'+
+      'text'+
+    '</root2>'+
+    ''
+    ,
+      '<items:test defaultcolor="red"/>'+sLineBreak+
+      '-----'+sLineBreak+
+      '<item/>'+sLineBreak+
+      '  -> :[default]:'+sLineBreak+
+      '<item name="car" color="blue"/>'+sLineBreak+
+      '  -> car:blue:'+sLineBreak+
+      '<item name="bike">bike has <b>default</b> color!</item>'+sLineBreak+
+      '  -> bike:[default]:bike has default color!'+sLineBreak+
+      '<item name="tree" color="green"/>'+sLineBreak+
+      '  -> tree:green:'+sLineBreak+
+      '-----'+sLineBreak+
+      '<info text="Yes, I want to know it!"/>'+sLineBreak+
+      '<info text="Show me!"/>'+sLineBreak+
+      '<info/>'+sLineBreak+
+      '-----'+sLineBreak+
+      'text'+sLineBreak+
+      '<items:test:2 defaultcolor="red"/>'+sLineBreak+
+      '<items:test:2 defaultcolor="green"/>'+sLineBreak+
+      '<items:test:2/>'+sLineBreak+
+      '<items:test:2/>'+sLineBreak+
+      'text'+sLineBreak+
+      ''
+    ,
   Memo1);
 
   TestSeq(
@@ -577,7 +1003,16 @@ begin
         '<skip>all elements in info tag are not read</skip>'+
       '</info>'+
       '<info text="Show me!" />'+
-    '</root>',
+    '</root>'
+    ,
+      '<items:test defaultcolor="red"/>'+sLineBreak+
+      '-----'+sLineBreak+
+      '-----'+sLineBreak+
+      '<info text="Yes, I want to know it!"/>'+sLineBreak+
+      '<info text="Show me!"/>'+sLineBreak+
+      '-----'+sLineBreak+
+      ''
+    ,
   Memo2);
 
 end;
@@ -619,7 +1054,7 @@ end;
 procedure TForm1.BtnTestReadInvalidClick(Sender: TObject);
 const
   cXML: OWideString =
-    '<root>'+sLineBreak+
+    '<root><kolo></root>'+sLineBreak+
     '  <item < AttributeWithoutValue attr2 = value2 attr3  =  "value3"  ? />'+sLineBreak+
     '  <![aaa'+sLineBreak+
     '  kolo >'+sLineBreak+
@@ -643,6 +1078,7 @@ const
   begin
     xXML := OXmlPDOM.CreateXMLDoc;
     xXML.ReaderSettings.StrictXML := False;//set to true/false - allow/disallow invalid document
+    xXML.ReaderSettings.BreakReading := brNone;
     xXML.WriterSettings.StrictXML := False;//set to true/false - allow/disallow invalid document
 
     xXML.WhiteSpaceHandling := wsPreserveAll;
@@ -680,13 +1116,17 @@ const
     ' <?php echo "custom processing instruction" ?>'+sLineBreak+
     '</seminararbeit>'+sLineBreak;
 begin
-  Memo1.Lines.Text := 'Events:'+sLineBreak+sLineBreak;
-  Memo2.Lines.Text := 'Anonymous methods:'+sLineBreak+sLineBreak;
-
   Memo1.Lines.BeginUpdate;
   Memo2.Lines.BeginUpdate;
+
   xSAX := TSAXParser.Create;
   try
+    Memo1.Lines.Clear;
+    Memo2.Lines.Clear;
+
+    {$IFNDEF USE_ANONYMOUS_METHODS}
+    Memo1.Lines.Text := 'Events:'+sLineBreak+sLineBreak;
+
     //old-fashioned events
     xSAX.OnStartDocument := SAXStartDocument;
     xSAX.OnEndDocument := SAXEndDocument;
@@ -695,63 +1135,64 @@ begin
     xSAX.OnProcessingInstruction := SAXProcessingInstruction;
     xSAX.OnStartElement := SAXStartElement;
     xSAX.OnEndElement := SAXEndElement;
+    {$ELSE}
+    Memo1.Lines.Text := 'Anonymous methods:'+sLineBreak+sLineBreak;
 
-    {$IFNDEF FPC}{$IF CompilerVersion >= 20}
     //anonymous methods
-    xSAX.StartDocumentProc := (
+    xSAX.OnStartDocument := (
       procedure(aSaxParser: TSAXParser)
       begin
-        Memo2.Lines.Add('startDocument()');
+        Memo1.Lines.Add('startDocument()');
       end);
 
-    xSAX.EndDocumentProc := (
+    xSAX.OnEndDocument := (
       procedure(aSaxParser: TSAXParser)
       begin
-        Memo2.Lines.Add('endDocument()');
+        Memo1.Lines.Add('endDocument()');
       end);
 
-    xSAX.CharactersProc := (
+    xSAX.OnCharacters := (
       procedure(aSaxParser: TSAXParser; const aText: OWideString)
       begin
-        Memo2.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
+        Memo1.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
       end);
 
-    xSAX.CommentProc := (
+    xSAX.OnComment := (
       procedure(aSaxParser: TSAXParser; const aText: OWideString)
       begin
-        Memo2.Lines.Add('comment("'+SAXEscapeString(aText)+'")');
+        Memo1.Lines.Add('comment("'+SAXEscapeString(aText)+'")');
       end);
 
-    xSAX.ProcessingInstructionProc := (
+    xSAX.OnProcessingInstruction := (
       procedure(aSaxParser: TSAXParser; const aTarget, aContent: OWideString)
       begin
-        Memo2.Lines.Add('processingInstruction("'+SAXEscapeString(aTarget)+'", "'+SAXEscapeString(aContent)+'")');
+        Memo1.Lines.Add('processingInstruction("'+SAXEscapeString(aTarget)+'", "'+SAXEscapeString(aContent)+'")');
       end);
 
-    xSAX.StartElementProc := (
+    xSAX.OnStartElement := (
       procedure(aSaxParser: TSAXParser; const aName: OWideString;
         const aAttributes: TSAXAttributes)
       var
         xAttrStr: OWideString;
-        xAttr: TSAXAttribute;
+        xAttr: PSAXAttribute;
       begin
         xAttrStr := '';
         for xAttr in aAttributes do begin
           if xAttrStr <> '' then
             xAttrStr := xAttrStr + ', ';
-          xAttrStr := xAttrStr + SAXEscapeString(xAttr.AttrName)+'="'+SAXEscapeString(xAttr.AttrValue)+'"';
+          xAttrStr := xAttrStr + SAXEscapeString(xAttr.TokenName)+'="'+SAXEscapeString(xAttr.TokenValue)+'"';
         end;
         xAttrStr := '['+xAttrStr+']';
 
-        Memo2.Lines.Add('startElement("'+SAXEscapeString(aName)+'", '+xAttrStr+')');
+        Memo1.Lines.Add('startElement("'+SAXEscapeString(aName)+'", '+xAttrStr+')');
       end);
 
-    xSAX.EndElementProc := (
+    xSAX.OnEndElement := (
       procedure(aSaxParser: TSAXParser; const aName: OWideString)
       begin
-        Memo2.Lines.Add('endElement("'+SAXEscapeString(aName)+'")');
+        Memo1.Lines.Add('endElement("'+SAXEscapeString(aName)+'")');
       end);
-    {$IFEND}{$ENDIF}
+    {$ENDIF}
 
     xSAX.ParseXML(cXML);
   finally
@@ -1188,7 +1629,7 @@ procedure TForm1.BtnDOMTestClick(Sender: TObject);
   var
     xXML: OXmlPDOM.IXMLDocument;
     xRoot: OXmlPDOM.PXMLNode;
-    xChild1, xChild2, xChild3, xReplacedChild: OXmlPDOM.PXMLNode;
+    xChild1, xChild2, xChild3, xChild4, xReplacedChild: OXmlPDOM.PXMLNode;
     xAttribute: OXmlPDOM.PXMLNode;
   begin
     xXML := OXmlPDOM.CreateXMLDoc('root');
@@ -1208,6 +1649,9 @@ procedure TForm1.BtnDOMTestClick(Sender: TObject);
     xReplacedChild := xRoot.ReplaceChild(xChild3, xChild2);
     if Assigned(xReplacedChild) then//the replaced child doesn't get destroyed automatically
       xReplacedChild.DeleteSelf;//free the old child
+
+    xChild4 := xXML.CreateElement('child4');
+    xRoot.InsertBefore(xChild4, xRoot.FirstChild);
 
     Memo2.Lines.Text := xXML.XML;
   end;
@@ -1247,12 +1691,97 @@ begin
   Memo2.SetBounds(Memo1.BoundsRect.Right, Memo1.BoundsRect.Top, ClientWidth-Memo1.BoundsRect.Right, Memo1.Height);
 end;
 
-procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
+procedure TForm1.MatchTestFiles(const aFileSource, aFileTarget: OWideString);
+var
+  xReader1, xReader2: TOTextReader;
+  xBuffer1, xBuffer2: TOTextBuffer;
+  xC1, xC2: OWideChar;
+  I: Integer;
+begin
+  xC1 := #0;
+  xC2 := #0;
+  xReader1 := TOTextReader.Create;
+  xReader2 := TOTextReader.Create;
+  xBuffer1 := TOTextBuffer.Create;
+  xBuffer2 := TOTextBuffer.Create;
+  try
+    xReader1.InitFile(aFileSource);
+    xReader2.InitFile(aFileTarget);
+
+    //start comparing after PI
+    while (xC1 <> '>') do
+      if not xReader1.ReadNextChar(xC1) then
+        Break;
+    while xC2 <> '>' do
+      if not xReader2.ReadNextChar(xC2) then
+        Break;
+    xReader1.ReadNextChar(xC1);
+    xReader2.ReadNextChar(xC2);
+    while OXmlIsWhiteSpaceChar(xC1) do
+      if not xReader1.ReadNextChar(xC1) then
+        Break;
+    while OXmlIsWhiteSpaceChar(xC2) do
+      if not xReader2.ReadNextChar(xC2) then
+        Break;
+
+    while True do begin
+      if not xReader1.ReadNextChar(xC1) then
+        break;
+      xReader2.ReadNextChar(xC2);
+      if xC1 <> xC2 then begin
+        //get some information
+        xBuffer1.Clear;
+        xBuffer2.Clear;
+        xBuffer1.WriteChar(xC1);
+        xBuffer2.WriteChar(xC2);
+        for I := 0 to 19 do begin
+          if not xReader1.ReadNextChar(xC1) then
+            Break;
+          if not xReader2.ReadNextChar(xC2) then
+            Break;
+          xBuffer1.WriteChar(xC1);
+          xBuffer2.WriteChar(xC2);
+        end;
+
+        raise Exception.Create('Files do not match:'+sLineBreak+
+          'Reader1 = '+xBuffer1.GetBuffer+sLineBreak+
+          'Reader2 = '+xBuffer2.GetBuffer+sLineBreak);
+      end;
+
+      if xC2 = #0 then
+        Break;
+    end;
+  finally
+    xReader1.Free;
+    xReader2.Free;
+    xBuffer1.Free;
+    xBuffer2.Free;
+  end;
+end;
+
+procedure TForm1.Navigate_SAXEndElement(Sender: TSAXParser;
+  const aName: OWideString);
+begin
+  //do nothing
+end;
+
+procedure TForm1.Navigate_SAXStartElement(Sender: TSAXParser;
+  const aName: OWideString; const aAttributes: TSAXAttributes);
+var
+  I: Integer;
+begin
+  DoNothing(aName, '');
+
+  for I := 0 to aAttributes.Count-1 do
+    DoNothing(aAttributes[I].TokenName, aAttributes[I].TokenValue);
+end;
+
+procedure TForm1.BtnWritePerformanceTestClick(Sender: TObject);
   {$IFDEF USE_DELPHIXML}
   procedure DelphiXmlTest;
   var
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xXML: XmlIntf.IXMLDocument;
     xRootNode, xNode: XmlIntf.IXMLNode;
   begin
@@ -1272,14 +1801,22 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
       xNode.SetAttribute('attr3', 'const');
     end;
 
+    xT2 := GetTickCount;
+
+    xXML.SaveToFile(DocDir+'domtest-created.xml');
+
     xRootNode := nil;
     xNode := nil;
     xXML := nil;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'DELPHI XML DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       'IMPORTANT: The Delphi XML performance is so horrible'+sLineBreak+
       'that it''s not possible to create the nodes within a reasonable'+sLineBreak+
       'time limit. Therefore only 1/10 of the nodes are created!'+sLineBreak+
@@ -1290,7 +1827,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   procedure MSXmlTest;
   var
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xXML: msxml.IXMLDOMDocument;
     xRootNode, xNode, xNewChild, xFirstNode: msxml.IXMLDOMNode;
     xNewAttr: msxml.IXMLDOMAttribute;
@@ -1298,6 +1835,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
     xT1 := GetTickCount;
 
     xXML := msxmldom.CreateDOMDocument;
+    xXML.appendChild(xXML.createProcessingInstruction('xml', 'version="1.0" encoding="utf-8"'));
     xRootNode := xXML.createElement('root');
     xXML.appendChild(xRootNode);
     for I := 1 to 100*1000 do begin
@@ -1331,14 +1869,22 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
       xFirstNode.Attributes.setNamedItem(xNewAttr);
     end;
 
+    xT2 := GetTickCount;
+
+    xXML.save(DocDir+'domtest-created.xml');
+
     xRootNode := nil;
     xNode := nil;
     xXML := nil;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'MS XML DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
@@ -1347,7 +1893,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   procedure OmniXmlTest;
   var
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xXML: OmniXml.IXMLDocument;
     xRootNode, xNode, xNewChild, xFirstNode: OmniXml.IXMLNode;
     xNewAttr: OmniXml.IXMLAttr;
@@ -1355,6 +1901,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
     xT1 := GetTickCount;
 
     xXML := OmniXml.CreateXMLDoc;
+    xXML.AppendChild(xXML.createProcessingInstruction('xml', 'encoding="utf-8"'));
     xXML.DocumentElement := xXML.CreateElement('root');
     xRootNode := xXML.DocumentElement;
     for I := 1 to 100*1000 do begin
@@ -1388,14 +1935,22 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
       xFirstNode.Attributes.Add(xNewAttr);
     end;
 
+    xT2 := GetTickCount;
+
+    xXML.Save(DocDir+'domtest-created.xml');
+
     xRootNode := nil;
     xNode := nil;
     xXML := nil;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OmniXML DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
@@ -1404,24 +1959,24 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   procedure NativeXmlTest;
   var
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xXML: NativeXml.TNativeXml;
     xRootNode, xNode, xNodeN: NativeXml.TXmlNode;
   begin
     xT1 := GetTickCount;
 
-    xXML := NativeXml.TNativeXml.CreateEx(nil, False, False, True, 'root');
+    xXML := NativeXml.TNativeXml.CreateEx(nil, True, False, True, 'root');
     try
       xRootNode := xXML.Root;
       for I := 1 to 100*1000 do begin
         xNode := xXML.NodeNew('text');
         xRootNode.NodeAdd(xNode);
 
-        xNode.AttributeAdd('attr1', UTF8Encode('A'+IntToStr(I)));
+        xNode.AttributeAdd('attr1', {$IFNDEF FPC}UTF8Encode{$ENDIF}('A'+IntToStr(I)));
         xNode.AttributeAdd('attr2', 'const');
         xNode.AttributeAdd('attr3', 'const');
 
-        xNodeN := xXML.NodeNew(UTF8Encode('A'+IntToStr(I)));
+        xNodeN := xXML.NodeNew({$IFNDEF FPC}UTF8Encode{$ENDIF}('A'+IntToStr(I)));
         xNode.NodeAdd(xNodeN);
         xNode := xNodeN;
 
@@ -1440,14 +1995,23 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
         xNodeN := xXML.NodeNewTextType('', 'afg', xeCharData);
         xNode.NodeAdd(xNodeN);
       end;
+
+      xT2 := GetTickCount;
+
+      xXML.SaveToFile(DocDir+'domtest-created.xml');
+
     finally
       xXML.Free;
     end;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'NativeXml DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
@@ -1457,7 +2021,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   var
     xXML: Xml.VerySimple.TXmlVerySimple;
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xRootNode, xNode: Xml.VerySimple.TXMLNode;
   begin
     xT1 := GetTickCount;
@@ -1474,16 +2038,21 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
         xNode.SetAttribute('attr3', 'const');
       end;
 
-      xRootNode := nil;
-      xNode := nil;
+      xT2 := GetTickCount;
+
+      xXML.SaveToFile(DocDir+'domtest-created.xml');
     finally
       xXML.Free;
     end;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'VerySimpleXML DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
@@ -1493,7 +2062,7 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   var
     xXML: SimpleXML.IXmlDocument;
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xRootNode, xNode, xNewChild, xFirstNode: SimpleXML.IXMLNode;
   begin
     xT1 := GetTickCount;
@@ -1531,15 +2100,140 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
       xFirstNode.SetAttr('attr3', 'const');
     end;
 
+    xT2 := GetTickCount;
+
+    xXML.Save(DocDir+'domtest-created.xml');
+
     xRootNode := nil;
     xNode := nil;
     xFirstNode := nil;
     xXML := nil;
 
+    xT3 := GetTickCount;
+
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'SimpleXML DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
+  {$IFDEF USE_DIXML}
+  procedure DIXmlTest;
+  var
+    xXML: DIXml.xmlDocPtr;
+    I: Integer;
+    xT1, xT2, xT3: Cardinal;
+    xRootNode, xNode, xFirstNode: DIXml.xmlNodePtr;
+  begin
+    xT1 := GetTickCount;
+
+    DIXml.xmlInitParser;
+
+    xXML := DIXml.xmlNewDoc('1.0');
+    xRootNode := xmlNewNode(nil, 'root');
+    xmlDocSetRootElement(xXML, xRootNode);
+
+    for I := 1 to 100*1000 do begin
+      xNode := DIXml.xmlNewChild(xRootNode, nil, 'text', '');
+      xFirstNode := xNode;
+
+      xNode := DIXml.xmlNewChild(xNode, nil, PAnsiChar({$IFNDEF FPC}UTF8Encode{$ENDIF}('A'+IntToStr(I))), '');
+
+      xNode := DIXml.xmlNewChild(xNode, nil, 'noname', '');
+
+      xNode := DIXml.xmlNewChild(xNode, nil, 'some', '');
+
+      DIXml.xmlNewTextChild(xNode, nil, 'p', 'afg');
+
+      xmlNewProp(xFirstNode, 'attr1', PAnsiChar({$IFNDEF FPC}UTF8Encode{$ENDIF}('A'+IntToStr(I))));
+      xmlNewProp(xFirstNode, 'attr2', 'const');
+      xmlNewProp(xFirstNode, 'attr3', 'const');
+    end;
+
+    xT2 := GetTickCount;
+
+    DIXml.xmlSaveFormatFileEnc(PAnsiChar({$IFNDEF FPC}UTF8Encode{$ENDIF}(DocDir+'domtest-created.xml')), xXML, 'utf-8', 0);
+
+    DIXml.xmlFreeDoc(xXML);
+    DIXml.xmlCleanupParser;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'DIXml DOM'+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
+  {$IFDEF USE_LAZARUSDOMXML}
+  procedure LazarusDOMTest;
+  var
+    I: Integer;
+    xT1, xT2, xT3: Cardinal;
+    xXML: DOM.TXMLDocument;
+    xRootNode, xNode, xNewChild, xFirstNode: DOM.TDOMNode;
+    xNewAttr: DOM.TDOMAttr;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := DOM.TXMLDocument.Create;
+    try
+      xXML.AppendChild(xXML.CreateElement('root'));
+      xRootNode := xXML.DocumentElement;
+      for I := 1 to 100*1000 do begin
+        xNewChild := xXML.CreateElement('text');
+        xNode := xRootNode.AppendChild(xNewChild);
+        xFirstNode := xNode;
+
+        xNewChild := xXML.CreateElement('A'+IntToStr(I));
+        xNode := xNode.AppendChild(xNewChild);
+
+        xNewChild := xXML.CreateElement('noname');
+        xNode := xNode.AppendChild(xNewChild);
+
+        xNewChild := xXML.CreateElement('some');
+        xNode := xNode.AppendChild(xNewChild);
+
+        xNewChild := xXML.CreateElement('p');
+        xNode := xNode.AppendChild(xNewChild);
+
+        xNewChild := xXML.CreateTextNode('afg');
+        xNode := xNode.AppendChild(xNewChild);
+
+        xNewAttr := xXML.CreateAttribute('attr1');
+        xNewAttr.Value := 'A'+IntToStr(I);
+        xFirstNode.Attributes.SetNamedItem(xNewAttr);
+        xNewAttr := xXML.CreateAttribute('attr2');
+        xNewAttr.Value := 'const';
+        xFirstNode.Attributes.SetNamedItem(xNewAttr);
+        xNewAttr := xXML.CreateAttribute('attr3');
+        xNewAttr.Value := 'const';
+        xFirstNode.Attributes.SetNamedItem(xNewAttr);
+      end;
+
+      xT2 := GetTickCount;
+
+      XMLWrite.WriteXMLFile(xXML, DocDir+'domtest-created.xml');
+    finally
+      xXML.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'Lazarus DOM'+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
@@ -1548,12 +2242,14 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
   var
     xXML: OXmlPDOM.IXMLDocument;
     I: Integer;
-    xT1: Cardinal;
+    xT1, xT2, xT3: Cardinal;
     xRootNode, xNode: OXmlPDOM.PXMLNode;
   begin
     xT1 := GetTickCount;
 
-    xXML := OXmlPDOM.CreateXMLDoc('root');
+    xXML := OXmlPDOM.CreateXMLDoc('root', True);
+    xXML.WhiteSpaceHandling := wsTrim;
+    xXML.WriterSettings.WriteBOM := False;
     xRootNode := xXML.DocumentElement;
     for I := 1 to 100*1000 do begin
       xNode := xRootNode.AddChild('text');
@@ -1563,13 +2259,74 @@ procedure TForm1.BtnInterfaceCreateClick(Sender: TObject);
       xNode.AddAttribute('attr3', 'const');
     end;
 
+    xT2 := GetTickCount;
+
+    xXML.SaveToFile(DocDir+'domtest-created.xml');
+
     xXML := nil;
+
+    xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
       'OXml record DOM'+sLineBreak+
-      FloatToStr((GetTickCount-xT1) / 1000)+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
+  end;
+
+  procedure OXmlDirectTest;
+  var
+    xXML: TXMLWriter;
+    xT1, xT2: Cardinal;
+    I: Integer;
+    xElementA, xElementNoname, xElementSome, xElementP, xElementRoot, xElementText: TXMLWriterElement;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := TXMLWriter.Create;
+    try
+      xXML.InitFile(DocDir+'domtest-created.xml');
+      xXML.WriterSettings.WriteBOM := False;
+
+      xXML.XMLDeclaration(True, '1.0', 'yes');
+
+      xXML.OpenElementR('root', {%H-}xElementRoot);
+      for I := 1 to 100*1000 do begin
+        xElementRoot.OpenElementR('text', {%H-}xElementText);
+        xElementText.Attribute('attr1', 'A'+IntToStr(I));
+        xElementText.Attribute('attr2', 'const');
+        xElementText.Attribute('attr3', 'const');
+
+        xElementText.OpenElementR('A'+IntToStr(I), {%H-}xElementA);
+        xElementA.OpenElementR('noname', {%H-}xElementNoname);
+        xElementNoname.OpenElementR('some', {%H-}xElementSome);
+        xElementSome.OpenElementR('p', {%H-}xElementP);
+        xElementP.Text('afg');
+        xElementP.CloseElement;
+        xElementSome.CloseElement;
+        xElementNoname.CloseElement;
+        xElementA.CloseElement;
+        xElementText.CloseElement;
+      end;
+      xElementRoot.CloseElement;
+    finally
+      xXML.Free;
+    end;
+
+    xT2 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml direct writer'+sLineBreak+
+      'Save: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure _MatchTestFiles;
+  begin
+    MatchTestFiles(DocDir+'domtest.xml', DocDir+'domtest-created.xml');
   end;
 begin
   Memo1.Lines.Clear;
@@ -1577,23 +2334,42 @@ begin
 
   {$IFDEF USE_DELPHIXML}
   DelphiXmlTest;
+  //_MatchTestFiles; <- do not test on matching DelphiXmlTest
   {$ENDIF}
   {$IFDEF USE_MSXML}
   MSXmlTest;
+  _MatchTestFiles;
   {$ENDIF}
   {$IFDEF USE_OMNIXML}
   OmniXmlTest;
+  _MatchTestFiles;
   {$ENDIF}
   {$IFDEF USE_NATIVEXML}
   NativeXmlTest;
+  _MatchTestFiles;
   {$ENDIF}
   {$IFDEF USE_VERYSIMPLE}
   VerySimpleXmlTest;
+  //_MatchTestFiles; <- do not test on matching VerySimpleXmlTest
   {$ENDIF}
   {$IFDEF USE_SIMPLEXML}
   SimpleXmlTest;
+  //_MatchTestFiles; <- do not test on matching SimpleXmlTest
   {$ENDIF}
+  {$IFDEF USE_DIXML}
+  DIXmlTest;
+  _MatchTestFiles;
+  {$ENDIF}
+  {$IFDEF USE_LAZARUSDOMXML}
+  LazarusDOMTest;
+  //_MatchTestFiles; <- do not test on matching LazarusDOMTest
+  {$ENDIF}
+
   OXmlPDOMTest;
+  //_MatchTestFiles;
+
+  OXmlDirectTest;
+  //_MatchTestFiles;
 end;
 
 procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
@@ -1709,7 +2485,7 @@ procedure TForm1.SAXStartElement(Sender: TSAXParser; const aName: OWideString;
   const aAttributes: TSAXAttributes);
 var
   xAttrStr: OWideString;
-  xAttr: TSAXAttribute;
+  xAttr: PSAXAttribute;
   {$IFNDEF USE_FORIN}
   I: Integer;
   {$ENDIF}
@@ -1721,15 +2497,20 @@ begin
   {$ELSE}
   for I := 0 to aAttributes.Count-1 do
   begin
-    xAttr := aAttributes.Attributes[I];
+    xAttr := aAttributes[I];
   {$ENDIF}
     if xAttrStr <> '' then
       xAttrStr := xAttrStr + ', ';
-    xAttrStr := xAttrStr + SAXEscapeString(xAttr.AttrName)+'="'+SAXEscapeString(xAttr.AttrValue)+'"';
+    xAttrStr := xAttrStr + SAXEscapeString(xAttr.TokenName)+'="'+SAXEscapeString(xAttr.TokenValue)+'"';
   end;
   xAttrStr := '['+xAttrStr+']';
 
   Memo1.Lines.Add('startElement("'+SAXEscapeString(aName)+'", '+xAttrStr+')');
+end;
+
+procedure TForm1.DoNothing(const aStr1, aStr2: OWideString);
+begin
+  //nothing
 end;
 
 end.

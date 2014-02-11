@@ -39,9 +39,21 @@ unit ODictionary;
 interface
 
 uses
-  Classes, SysUtils, Types, OWideSupp
-  {$IFDEF O_GENERICS}, Generics.Defaults, Generics.Collections{$ENDIF}
-  ;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes, System.Types,
+  {$ELSE}
+  SysUtils, Classes, Types,
+  {$ENDIF}
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Defaults, System.Generics.Collections,
+    {$ELSE}
+    Generics.Defaults, Generics.Collections,
+    {$ENDIF}
+  {$ENDIF}
+
+  OWideSupp;
 
 type
 

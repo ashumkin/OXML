@@ -124,7 +124,7 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\units"/>
+      <OtherUnitFiles Value="..\..\units;..\..\..\..\OmniXML;..\..\..\..\NativeXML\units"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>

@@ -1,7 +1,7 @@
 object Form1: TForm1
   Left = 239
   Top = 139
-  Width = 943
+  Width = 1055
   Height = 690
   Caption = 'Form1'
   Color = clBtnFace
@@ -16,10 +16,37 @@ object Form1: TForm1
   TextHeight = 13
   object LblTimeInfo: TLabel
     Left = 16
-    Top = 112
+    Top = 144
     Width = 83
     Height = 13
     Caption = 'Time values in [s]'
+  end
+  object BtnReadPerformanceTest: TButton
+    Left = 16
+    Top = 16
+    Width = 193
+    Height = 25
+    Caption = 'Read Performance Test'
+    TabOrder = 0
+    OnClick = BtnReadPerformanceTestClick
+  end
+  object BtnWritePerformanceTest: TButton
+    Left = 216
+    Top = 16
+    Width = 193
+    Height = 25
+    Caption = 'Write Performance Test'
+    TabOrder = 1
+    OnClick = BtnWritePerformanceTestClick
+  end
+  object BtnResaveTest: TButton
+    Left = 416
+    Top = 16
+    Width = 193
+    Height = 25
+    Caption = 'Resave Test'
+    TabOrder = 2
+    OnClick = BtnResaveTestClick
   end
   object BtnXmlDirectWrite: TButton
     Left = 16
@@ -27,117 +54,99 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Xml Direct Write - simple.xml'
-    TabOrder = 4
+    TabOrder = 3
     OnClick = BtnXmlDirectWriteClick
   end
-  object BtnResaveWithDOM: TButton
-    Left = 224
-    Top = 16
-    Width = 177
-    Height = 25
-    Caption = 'Read/Write Performance Test'
-    TabOrder = 1
-    OnClick = BtnResaveWithDOMClick
-  end
-  object BtnTestXPath: TButton
-    Left = 16
-    Top = 16
-    Width = 193
-    Height = 25
-    Caption = 'XPath Test'
-    TabOrder = 0
-    OnClick = BtnTestXPathClick
-  end
-  object Memo1: TMemo
-    Left = 56
-    Top = 128
-    Width = 289
-    Height = 521
-    Lines.Strings = (
-      'Memo1')
-    ScrollBars = ssBoth
-    TabOrder = 11
-  end
-  object Memo2: TMemo
-    Left = 352
-    Top = 128
-    Width = 289
-    Height = 521
-    Lines.Strings = (
-      'Memo2')
-    ScrollBars = ssBoth
-    TabOrder = 12
-  end
   object BtnTestSAX: TButton
-    Left = 16
-    Top = 80
+    Left = 216
+    Top = 48
     Width = 193
     Height = 25
     Caption = 'Test SAX Read'
-    TabOrder = 8
+    TabOrder = 4
     OnClick = BtnTestSAXClick
   end
-  object BtnInterfaceCreate: TButton
-    Left = 224
+  object BtnDOMTest: TButton
+    Left = 415
     Top = 48
-    Width = 177
+    Width = 194
     Height = 25
-    Caption = 'Create DOM Performance Test'
+    Caption = 'DOM Level 1.0 Test'
     TabOrder = 5
-    OnClick = BtnInterfaceCreateClick
-  end
-  object BtnTestWriteInvalid: TButton
-    Left = 576
-    Top = 16
-    Width = 177
-    Height = 25
-    Caption = 'Test write invalid document'
-    TabOrder = 3
-    OnClick = BtnTestWriteInvalidClick
-  end
-  object BtnEncodingTest: TButton
-    Left = 224
-    Top = 80
-    Width = 177
-    Height = 25
-    Caption = 'Custom Encoding Test'
-    TabOrder = 9
-    OnClick = BtnEncodingTestClick
+    OnClick = BtnDOMTestClick
   end
   object BtnIterateTest: TButton
-    Left = 416
-    Top = 16
-    Width = 145
+    Left = 16
+    Top = 80
+    Width = 193
     Height = 25
     Caption = 'Iterate Test'
-    TabOrder = 2
+    TabOrder = 6
     OnClick = BtnIterateTestClick
   end
   object BtnSequentialTest: TButton
-    Left = 416
-    Top = 48
-    Width = 145
+    Left = 216
+    Top = 80
+    Width = 193
     Height = 25
     Caption = 'Sequential Test'
-    TabOrder = 6
+    TabOrder = 7
     OnClick = BtnSequentialTestClick
   end
-  object BtnTestReadInvalid: TButton
-    Left = 576
-    Top = 48
-    Width = 177
-    Height = 25
-    Caption = 'Test read invalid document'
-    TabOrder = 7
-    OnClick = BtnTestReadInvalidClick
-  end
-  object BtnDOMTest: TButton
+  object BtnTestXPath: TButton
     Left = 416
     Top = 80
-    Width = 145
+    Width = 193
     Height = 25
-    Caption = 'DOM Level 1.0 Test'
+    Caption = 'XPath Test'
+    TabOrder = 8
+    OnClick = BtnTestXPathClick
+  end
+  object BtnTestReadInvalid: TButton
+    Left = 16
+    Top = 112
+    Width = 193
+    Height = 25
+    Caption = 'Test read invalid document'
+    TabOrder = 9
+    OnClick = BtnTestReadInvalidClick
+  end
+  object BtnTestWriteInvalid: TButton
+    Left = 216
+    Top = 112
+    Width = 193
+    Height = 25
+    Caption = 'Test write invalid document'
     TabOrder = 10
-    OnClick = BtnDOMTestClick
+    OnClick = BtnTestWriteInvalidClick
+  end
+  object BtnEncodingTest: TButton
+    Left = 416
+    Top = 112
+    Width = 193
+    Height = 25
+    Caption = 'Custom Encoding Test'
+    TabOrder = 11
+    OnClick = BtnEncodingTestClick
+  end
+  object Memo1: TMemo
+    Left = 16
+    Top = 160
+    Width = 289
+    Height = 409
+    Lines.Strings = (
+      'Memo1')
+    ScrollBars = ssBoth
+    TabOrder = 12
+  end
+  object Memo2: TMemo
+    Left = 312
+    Top = 160
+    Width = 289
+    Height = 409
+    Lines.Strings = (
+      'Memo2')
+    ScrollBars = ssBoth
+    TabOrder = 13
   end
 end

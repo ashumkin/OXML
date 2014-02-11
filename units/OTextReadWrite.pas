@@ -42,7 +42,13 @@ unit OTextReadWrite;
 interface
 
 uses
-  SysUtils, Classes, OBufferedStreams, OEncoding, OWideSupp;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
+  {$ELSE}
+  SysUtils, Classes,
+  {$ENDIF}
+
+  OBufferedStreams, OEncoding, OWideSupp;
 
 type
 
@@ -60,6 +66,10 @@ type
     fStreamStartPosition: ONativeInt;
     fOwnsStream: Boolean;
 
+    fTextPosition: Integer;//character position, 1-based
+    fTextCharPosition: Integer;//character, 1-based
+    fTextLinePosition: Integer;//line, 1-based
+
     fEncoding: TEncoding;
     fOwnsEncoding: Boolean;
     fBOMFound: Boolean;
@@ -68,9 +78,6 @@ type
     //undo support
     fPreviousChar: OWideChar;
     fReadFromUndo: Boolean;
-
-    //custom buffer support
-    fCustomBuffer: Array[0..1] of TOTextBuffer;
 
     procedure SetEncoding(const Value: TEncoding);
 
@@ -124,31 +131,13 @@ type
     //read char-by-char, returns false if EOF is reached
     function ReadNextChar(var outChar: OWideChar): Boolean;
     //read text
-    function ReadString(const aMaxChars: Integer): OWideString;
+    function ReadString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): OWideString;
     //get text from temp buffer that has been already read
     //  -> it's not assured that some text can be read, use only as extra information
     //     e.g. for errors etc.
-    function ReadPreviousString(const aMaxChars: Integer): OWideString;
+    function ReadPreviousString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): OWideString;
     //go back 1 char. only 1 undo operation is supported
     procedure UndoRead;
-
-    //fast internal buffer support
-    //can be used for saving last read keyword etc.
-    //you may use up to 2 buffers
-      //write last read char to custom buffer
-    procedure WritePreviousCharToBuffer(const aBufferIndex: Byte = 0);
-      //write a char to custom buffer
-    procedure WriteCharToBuffer(const aChar: OWideChar; const aBufferIndex: Byte = 0);
-      //write a string to custom buffer
-    procedure WriteStringToBuffer(const aStr: OWideString; const aBufferIndex: Byte = 0);
-      //retrieve custom buffer
-    function GetCustomBuffer(const aBufferIndex: Byte = 0): OWideString;
-      //retrieve custom buffer length
-    function CustomBufferLength(const aBufferIndex: Byte = 0): Integer;
-      //clear custom buffer
-    procedure ClearCustomBuffer(const aBufferIndex: Byte = 0);
-      //remove last character from custom buffer
-    procedure RemovePreviousCharFromBuffer(const aBufferIndex: Byte = 0);
 
     //if your original stream does not allow seeking and you want to change encoding at some point
     //  (e.g. the encoding is read from the text itself) you have to block the temporary buffer
@@ -165,9 +154,15 @@ type
     //Returns true if end-of-file is reached
     property EOF: Boolean read fEOF;
 
-    //Approximate position in original read stream
+    //Approximate byte position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
     property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    //Character position in text
+    //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
+    //  -> in Delphi the position is always correct
+    property TextPosition: Integer read fTextPosition;//absolute character position in file, 1-based
+    property TextCharPosition: Integer read fTextCharPosition;//current character in line, 1-based
+    property TextLinePosition: Integer read fTextLinePosition;//current line, 1-based
     //size of original stream
     property StreamSize: ONativeInt read fStreamSize;
   end;
@@ -217,6 +212,7 @@ type
   public
     //write string
     procedure WriteString(const aString: OWideString);
+    procedure WriteChar(const aChar: OWideChar);
     //write the whole temporary buffer to the destination stream
     procedure EnsureTempStringWritten;
   public
@@ -291,11 +287,6 @@ begin
     TOBufferedReadStream(fStream).BlockFlushTempBuffer;
 end;
 
-procedure TOTextReader.ClearCustomBuffer(const aBufferIndex: Byte);
-begin
-  fCustomBuffer[aBufferIndex].Clear(False);
-end;
-
 constructor TOTextReader.Create(const aStream: TStream;
   const aDefaultSingleByteEncoding: TEncoding; const aBufferSize: Integer);
 begin
@@ -313,17 +304,8 @@ begin
   DoCreate(aBufferSize);
 end;
 
-function TOTextReader.CustomBufferLength(const aBufferIndex: Byte): Integer;
-begin
-  Result := fCustomBuffer[aBufferIndex].UsedLength;
-end;
-
 destructor TOTextReader.Destroy;
-var I: Integer;
 begin
-  for I := Low(fCustomBuffer) to High(fCustomBuffer) do
-    fCustomBuffer[I].Free;
-
   ReleaseDocument;
 
   if fOwnsEncoding then
@@ -333,18 +315,13 @@ begin
 end;
 
 procedure TOTextReader.DoCreate(const aBufferSize: Integer);
-var I: Integer;
 begin
   fBufferSize := aBufferSize;
-
-  for I := Low(fCustomBuffer) to High(fCustomBuffer) do
-    fCustomBuffer[I] := TOTextBuffer.Create;
 end;
 
 procedure TOTextReader.DoInit(const aNewStream: TStream;
   const aNewOwnsStream: Boolean; const aDefaultSingleByteEncoding: TEncoding);
 var
-  I: Integer;
   xStreamPosition: Integer;
 begin
   fEOF := False;
@@ -372,17 +349,9 @@ begin
   fPreviousChar := #0;
   fReadFromUndo := False;
 
-  for I := Low(fCustomBuffer) to High(fCustomBuffer) do
-    fCustomBuffer[I].Clear;
-end;
-
-function TOTextReader.GetCustomBuffer(const aBufferIndex: Byte): OWideString;
-var
-  xCurrentBuffer: TOTextBuffer;
-begin
-  xCurrentBuffer := fCustomBuffer[aBufferIndex];
-  xCurrentBuffer.GetBuffer({%H-}Result);
-  xCurrentBuffer.Clear;
+  fTextPosition := 0;
+  fTextCharPosition := 0;
+  fTextLinePosition := 1;
 end;
 
 function TOTextReader.GetApproxStreamPosition: ONativeInt;
@@ -545,44 +514,76 @@ begin
     outChar := fPreviousChar;
     fReadFromUndo := False;
     Result := True;
+    Inc(fTextCharPosition);
+    Inc(fTextPosition);
     Exit;
   end;
 
-  Result := fTempStringRemain > 0;
-  if not Result then
-  begin
+  if fTempStringRemain = 0 then
     LoadStringFromStream;
-    Result := fTempStringRemain > 0;
-  end;
 
-  if Result then begin
+  if fTempStringRemain > 0 then begin
     outChar := fTempString[fTempStringPosition];
+    case outChar of
+      #10: begin
+        if fPreviousChar <> #13 then
+          Inc(fTextLinePosition);
+        fTextCharPosition := 0;
+      end;
+      #13: begin
+        fTextCharPosition := 0;
+        Inc(fTextLinePosition);
+      end;
+    else
+      Inc(fTextCharPosition);
+    end;
+
     fPreviousChar := outChar;
     Inc(fTempStringPosition);
     Dec(fTempStringRemain);
+    Inc(fTextPosition);
     Result := True;
   end else begin
     fEOF := True;
     outChar := #0;
     ReleaseDocument;
+    Result := False;
   end;
 end;
 
-function TOTextReader.ReadPreviousString(const aMaxChars: Integer): OWideString;
+function TOTextReader.ReadPreviousString(const aMaxChars: Integer;
+  const aBreakAtNewLine: Boolean): OWideString;
 var
   xReadChars: Integer;
+  I: Integer;
 begin
   xReadChars := fTempStringPosition-1;
   if xReadChars > aMaxChars then
     xReadChars := aMaxChars;
 
   if xReadChars > 0 then
-    Result := Copy(fTempString, fTempStringPosition-xReadChars, xReadChars)
-  else
+  begin
+    Result := Copy(fTempString, fTempStringPosition-xReadChars, xReadChars);
+
+    if aBreakAtNewLine then
+    for I := Length(Result) downto 1 do
+    case Result[I] of
+      #13, #10: begin
+        //break at last new line
+        if I = Length(Result) then
+          Result := ''
+        else
+          Result := Copy(Result, I+1, Length(Result)-I);
+
+        Exit;
+      end;
+    end;
+  end else
     Result := '';
 end;
 
-function TOTextReader.ReadString(const aMaxChars: Integer): OWideString;
+function TOTextReader.ReadString(const aMaxChars: Integer;
+  const aBreakAtNewLine: Boolean): OWideString;
 var
   I, R: Integer;
   xC: OWideChar;
@@ -600,6 +601,14 @@ begin
   SetLength(Result, R);
   I := 0;
   while (I < aMaxChars) and ReadNextChar({%H-}xC) do begin
+    if aBreakAtNewLine then
+    case xC of
+      #10, #13: begin
+        UndoRead;
+        Break;
+      end;
+    end;
+
     Inc(I);
     if R = 0 then begin
       R := Length(Result);
@@ -619,11 +628,6 @@ begin
     fStream.Free;
 
   fStream := nil;
-end;
-
-procedure TOTextReader.RemovePreviousCharFromBuffer(const aBufferIndex: Byte);
-begin
-  fCustomBuffer[aBufferIndex].RemoveLastChar;
 end;
 
 procedure TOTextReader.SetEncoding(const Value: TEncoding);
@@ -656,26 +660,8 @@ begin
     raise EOTextReader.Create(OTextReadWrite_Undo2Times);
 
   fReadFromUndo := True;
-end;
-
-procedure TOTextReader.WriteCharToBuffer(const aChar: OWideChar; const aBufferIndex: Byte);
-begin
-  fCustomBuffer[aBufferIndex].WriteChar(aChar);
-end;
-
-procedure TOTextReader.WritePreviousCharToBuffer(const aBufferIndex: Byte);
-begin
-  if fPreviousChar <> #0 then
-    WriteCharToBuffer(fPreviousChar, aBufferIndex)
-end;
-
-procedure TOTextReader.WriteStringToBuffer(const aStr: OWideString;
-  const aBufferIndex: Byte);
-var
-  I: Integer;
-begin
-  for I := 1 to Length(aStr) do
-    WriteCharToBuffer(aStr[I], aBufferIndex);
+  Dec(fTextCharPosition);
+  Dec(fTextPosition);
 end;
 
 { TOTextWriter }
@@ -783,9 +769,22 @@ begin
   end;
 end;
 
+procedure TOTextWriter.WriteChar(const aChar: OWideChar);
+begin
+  if fTempStringPosition > fTempStringLength then begin
+    EnsureTempStringWritten;//WRITE TEMP BUFFER
+  end;
+
+  fTempString[fTempStringPosition] := aChar;
+  Inc(fTempStringPosition);
+end;
+
 procedure TOTextWriter.WriteString(const aString: OWideString);
 var
   xStringLength: Integer;
+  {$IFDEF O_DELPHI_2007_DOWN}
+  I: Integer;
+  {$ENDIF}
 begin
   xStringLength := Length(aString);
   if xStringLength = 0 then
@@ -798,7 +797,13 @@ begin
   if xStringLength > fTempStringLength then begin
     WriteStringToStream(aString, -1);
   end else begin
+    {$IFDEF O_DELPHI_2007_DOWN}
+    //Move() is extremly slow here in Delphi 7, copy char-by-char is faster also for long strings!!! (this may be a delphi bug)
+    for I := 0 to xStringLength-1 do
+      fTempString[fTempStringPosition+I] := aString[I+1];
+    {$ELSE}
     Move(aString[1], fTempString[fTempStringPosition], xStringLength*SizeOf(OWideChar));
+    {$ENDIF}
     fTempStringPosition := fTempStringPosition + xStringLength;
   end;
 end;

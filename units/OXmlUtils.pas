@@ -33,13 +33,23 @@ unit OXmlUtils;
 interface
 
 uses
-  SysUtils, Classes, OWideSupp, OEncoding
-  {$IFDEF O_GENERICS}
-    , Generics.Collections
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
   {$ELSE}
-    , OHashedStrings
+  SysUtils, Classes,
   {$ENDIF}
-  ;
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Collections,
+    {$ELSE}
+    Generics.Collections,
+    {$ENDIF}
+  {$ELSE}
+  OHashedStrings,
+  {$ENDIF}
+
+  OWideSupp, OEncoding;
 
 type
   TXMLNodeType = (ntDocument, ntDocType, ntXMLDeclaration, ntElement,
@@ -86,6 +96,8 @@ function OXmlIsDecimalChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}in
 function OXmlIsHexadecimalChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsSignChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsBreakChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsChar(const aChar: OWideChar): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlIsChar(const aChar: Integer): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsWhiteSpace(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -250,36 +262,42 @@ end;
 
 function OXmlIsBreakChar(const aChar: OWideChar): Boolean;
 begin
-  case aChar of
-    #$00..#$20,//0..space
-    '"',
-    '''',
-    '/',
-    '?',
-    '<',
-    '=',
-    '>': Result := True;
+  case Ord(aChar) of
+    $00..$20,//0..space
+    Ord('"'),
+    Ord(''''),
+    Ord('/'),
+    Ord('?'),
+    Ord('<'),
+    Ord('='),
+    Ord('>'): Result := True;
   else
     Result := False;
   end;
 end;
 
-function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;
+function OXmlIsChar(const aChar: Integer): Boolean;
 begin
-{$IF DEFINED(FPC)}
-  //UTF-8 characters!
   case aChar of
-    'A'..'Z',
-    'a'..'z',
-    ':',
-    '_',
-    #$C0..#$D6,
-    #$D8..#$F6,
-    #$F8..#$FF: Result := True;
+    09, 10, 13,
+    $20..$FF
+    {$IF NOT DEFINED(FPC)}
+    ,
+    $0100..$FFFD
+    {$IFEND}
+    : Result := True;
   else
     Result := False;
   end;
-{$ELSE}
+end;
+
+function OXmlIsChar(const aChar: OWideChar): Boolean;
+begin
+  Result := OXmlIsChar(Ord(aChar));
+end;
+
+function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;
+begin
   case Ord(aChar) of//MUST BE Ord(aChar) because some Delphi show "E2030 Duplicate case label" error - > the performance is the same
     Ord('A')..Ord('Z'),
     Ord('a')..Ord('z'),
@@ -287,7 +305,9 @@ begin
     Ord('_'),
     $C0..$D6,
     $D8..$F6,
-    $F8..$FF,
+    $F8..$FF
+    {$IF NOT DEFINED(FPC)}
+    ,
     $100..$2FF,
     $370..$37D,
     $37F..$1FFF,
@@ -296,17 +316,18 @@ begin
     $2C00..$2FEF,
     $3001..$D7FF,
     $F900..$FDCF,
-    $FDF0..$FFFD: Result := True;
+    $FDF0..$FFFD
+    {$IFEND}
+    : Result := True;
   else
     Result := False;
   end;
-{$IFEND}
 end;
 
 function OXmlIsWhiteSpaceChar(const aChar: OWideChar): Boolean;
 begin
-  case aChar of
-    #$09, #$0A, #$0D, #$20: Result := True;
+  case Ord(aChar) of
+    $09, $0A, $0D, $20: Result := True;
   else
     Result := False;
   end;
@@ -314,24 +335,6 @@ end;
 
 function OXmlIsNameChar(const aChar: OWideChar): Boolean;
 begin
-{$IF DEFINED(FPC)}
-  //UTF-8 characters!
-  case aChar of
-    'A'..'Z',
-    'a'..'z',
-    '0'..'9',
-    ':',
-    '_',
-    '-',
-    '.',
-    #$B7,
-    #$C0..#$D6,
-    #$D8..#$F6,
-    #$F8..#$FF: Result := True;
-  else
-    Result := False;
-  end;
-{$ELSE}
   case Ord(aChar) of//MUST BE Ord(aChar) because some Delphi show "E2030 Duplicate case label" error - > the performance is the same
     Ord('A')..Ord('Z'),
     Ord('a')..Ord('z'),
@@ -343,7 +346,9 @@ begin
     $B7,
     $C0..$D6,
     $D8..$F6,
-    $F8..$FF,
+    $F8..$FF
+    {$IFNDEF FPC}
+    ,
     $100..$2FF,
     $370..$37D,
     $37F..$1FFF,
@@ -354,11 +359,11 @@ begin
     $F900..$FDCF,
     $FDF0..$FFFD,
     $0300..$036F,
-    $203F..$2040: Result := True;
+    $203F..$2040
+    {$ENDIF}: Result := True;
   else
     Result := False;
   end;
-{$IFEND}
 end;
 
 { TVirtualMemoryStream }

@@ -41,6 +41,7 @@ var
   OXmlLng_InvalidAttributeName: String = '"%s" is not a valid attribute name.';
   OXmlLng_InvalidElementName: String = '"%s" is not a valid element name.';
   OXmlLng_InvalidCharacterInText: String = 'The character "%s" cannot occur in text.';
+  OXmlLng_InvalidCharacterInAttribute: String = 'The character "%s" cannot occur in attribute.';
   OXmlLng_InvalidStringInText: String = 'The string "%s" cannot occur in text.';
   OXmlLng_InvalidCharacterInElement: String = 'The character "%s" cannot occur in element header.';
   OXmlLng_InvalidAttributeStartChar: String = 'An attribute cannot start with the character "%s".';
@@ -49,7 +50,14 @@ var
   OXmlLng_TooManyElementsClosed: String = 'Too many elements closed.';
   OXmlLng_WrongElementClosed: String = 'Trying to close wrong element. Close="%s", open element="%s".';
   OXmlLng_InvalidEntity: String = '"%s" is not a valid entity.';
-  OXmlLng_ReadingAt: String = 'Reading at:'+sLineBreak+'%s';
+  OXmlLng_ReadingAt: String =
+    'Reading at:'+sLineBreak+
+    'Line: %d'+sLineBreak+
+    'Char: %d'+sLineBreak+
+    'XML token line: %d'+sLineBreak+
+    'XML token char: %d'+sLineBreak+
+    sLineBreak+
+    '%s';
 
   OXmlLng_XPathPredicateNotSupported: String = 'XPath predicate "%s" is not supported.'+sLineBreak+'XPath: %s';
   OXmlLng_XPathPredicateNotValid: String = 'XPath predicate "%s" is not valid.'+sLineBreak+'XPath: %s';

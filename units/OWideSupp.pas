@@ -59,14 +59,27 @@ unit OWideSupp;
 interface
 
 uses
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes
+  {$ELSE}
   SysUtils, Classes
+  {$ENDIF}
+
   {$IF DEFINED(O_DELPHI_2006_UP) AND DEFINED(O_DELPHI_2007_DOWN)}
   , WideStrUtils
   {$IFEND}
+
   {$IFDEF O_DELPHI_XE3_UP}
   , Character
   {$ENDIF}
-  {$IFDEF O_GENERICS}, Generics.Collections{$ENDIF}
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    , System.Generics.Collections
+    {$ELSE}
+    , Generics.Collections
+    {$ENDIF}
+  {$ENDIF}
   ;
 
 type
@@ -249,6 +262,7 @@ type
     function GetBuffer: OWideString; overload;
     procedure RemoveLastChar;
     procedure RemoveLastString(const aLength: Integer);
+
     procedure WriteChar(const aChar: OWideChar);
     procedure WriteString(const aString: OWideString); overload;//outPosition 1-based!
     procedure WriteString(const aString: OWideString; var outPosition, outLength: Integer); overload;//outPosition 1-based!
@@ -344,7 +358,8 @@ function OWSLength(const aOWS: OWideString): Integer; {$IFDEF O_INLINE}inline;{$
 //ofaststring to owidestring and back
 {$IFNDEF O_UNICODE}
 function OFastToWide(const aSourceFast: OFastString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
-function OWideToFast(const aSourceWide: OWideString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OWideToFast(const aSourceWide: OWideString): OFastString; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+procedure OWideToFast(const aSourceWide: OWideString; var outDestFast: OFastString); overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 {$ENDIF}
 
 //split a text to pieces with a delimiter
@@ -522,21 +537,44 @@ end;
 function OFastToWide(const aSourceFast: OFastString): OWideString;
 var
   xL: Integer;
+  xS: PWideChar;
+  I: Integer;
 begin
-  xL := Length(aSourceFast);
-  SetLength(Result, xL div SizeOf(OWideChar));
+  xL := Length(aSourceFast) div SizeOf(OWideChar);
+  SetLength(Result, xL);
   if xL > 0 then
-    Move(aSourceFast[1], Result[1], xL);
+  begin
+    xS := @aSourceFast[1];
+    for I := 1 to xL do
+    begin
+      Result[I] := xS^;
+      Inc(xS);
+    end;
+  end;
 end;
 
 function OWideToFast(const aSourceWide: OWideString): OFastString;
+begin
+  OWideToFast(aSourceWide, Result);
+end;
+
+procedure OWideToFast(const aSourceWide: OWideString; var outDestFast: OFastString);
 var
   xL: Integer;
+  xR: PWideChar;
+  I: Integer;
 begin
-  xL := Length(aSourceWide)*SizeOf(OWideChar);
-  SetLength(Result, xL);
+  xL := Length(aSourceWide);
+  SetLength(outDestFast, xL*SizeOf(OWideChar));
   if xL > 0 then
-    Move(aSourceWide[1], Result[1], xL);
+  begin
+    xR := @outDestFast[1];
+    for I := 1 to xL do
+    begin
+      xR^ := aSourceWide[I];
+      Inc(xR);
+    end;
+  end;
 end;
 {$ENDIF}
 
@@ -617,7 +655,7 @@ end;
 
 {$IF NOT DEFINED(O_DELPHI_2006_UP)}
 //Delphi 6, 7, (2005?)
-function WideStringReplace(const S, OldPattern, NewPattern: Widestring;
+function WideStringReplace(const S, OldPattern, NewPattern: WideString;
   Flags: TReplaceFlags): WideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 var
   SearchStr, Patt, NewStr: WideString;
@@ -1082,7 +1120,7 @@ var
   xNewItem: POWideStringStackItem;
 begin
   Result := fItemsUsedCount;
-  
+
   if fItemsUsedCount = fItemsAllocCount then
     Grow;
 
@@ -1236,7 +1274,6 @@ begin
 
   fUsedLength := 0;
   fRemaining := fAllocLength;
-
 end;
 
 constructor TOTextBuffer.Create(const aBufferLength: Integer);
@@ -1257,10 +1294,26 @@ end;
 
 procedure TOTextBuffer.GetBuffer(var outString: OWideString; const aPosition,
   aLength: Integer);
+{$IFDEF O_DELPHI_2007_DOWN}
+var
+  I: Integer;
+{$ENDIF}
 begin
   SetLength(outString, aLength);
   if aLength > 0 then
+  begin
+    {$IFDEF O_DELPHI_2007_DOWN}
+    //Move() is extremly slow here in Delphi 7, copy char-by-char is faster for short strings
+    if aLength < 5 then begin
+      for I := 0 to aLength-1 do
+        outString[I+1] := fBuffer[aPosition+I-1];
+    end else begin
+      Move(fBuffer[aPosition-1], outString[1], aLength*SizeOf(OWideChar));
+    end;
+    {$ELSE}
     Move(fBuffer[aPosition-1], outString[1], aLength*SizeOf(OWideChar));
+    {$ENDIF}
+  end;
 end;
 
 function TOTextBuffer.GetBuffer: OWideString;
@@ -1308,7 +1361,7 @@ begin
 
   Inc(fUsedLength);
   Dec(fRemaining);
-  Move(aChar, fBuffer[fUsedLength-1], SizeOf(OWideChar));
+  fBuffer[fUsedLength-1] := aChar;
 end;
 
 procedure TOTextBuffer.WriteString(const aString: OWideString);

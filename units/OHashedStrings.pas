@@ -17,10 +17,10 @@ unit OHashedStrings;
 
   TOHashedStrings
     - hashed unsorted string list
-    - always keeps original order of strings
+    - always keeps original order of strings (in contrary to TDictionary<,>)
     - every string is unique in the list
     - fast IndexOf() function
-    - an object can be assiciated with every string
+    - an object can be associated with every string
 
   TOHashedStringDictionary
     - a TDictionary<String,String> replacement for FPC and D6-2007
@@ -43,27 +43,61 @@ unit OHashedStrings;
 interface
 
 uses
-  Classes, SysUtils, OWideSupp
-  {$IFDEF FPC}, contnrs{$ELSE}, IniFiles{$ENDIF}
-  {$IFDEF O_GENERICS}, Generics.Collections{$ENDIF}
-  ;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
+  {$ELSE}
+  SysUtils, Classes,
+  {$ENDIF}
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Collections,
+    {$ELSE}
+    Generics.Collections,
+    {$ENDIF}
+  {$ENDIF}
+
+  OWideSupp;
 
 type
 
   OHashedStringsIndex = Integer;
+
+  POHashItem = ^TOHashItem;
+  TOHashItem = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fNext: POHashItem;
+    fTextFast: OFastString;
+    fIndex: OHashedStringsIndex;
+
+    {$IFNDEF O_UNICODE}
+    function GetText: OWideString;
+    {$ENDIF}
+  public
+    function SameText(const aText: OWideString): Boolean;
+  public
+    property TextFast: OFastString read fTextFast;
+    property Text: OWideString read {$IFDEF O_UNICODE}fTextFast{$ELSE}GetText{$ENDIF};
+  end;
+
   TOHashedStrings = class(TPersistent)
   private
-    {$IFDEF FPC}
-    fHashTable: TFPHashList;
-    {$ELSE}
-    fHashTable: TStringHash;
-    {$ENDIF}
-    fTextList: TStringList;
-    fMaxItemsBeforeGrow: OHashedStringsIndex;
-    fLastHashI: Integer;
+    fItems: Array of POHashItem;//array indexed by index
+    fObjects: Array of TObject;
+    fNextItemId: OHashedStringsIndex;//next list index to use
+    fItemLength: OHashedStringsIndex;//= "Count(fList)*1024" - count of allocated items in fList
+    fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
+    fBuckets: Array of POHashItem;//array indexed by hash
 
-    procedure Grow;
-    procedure RefreshHashTable;
+    fLastHashI: OHashedStringsIndex;
+  protected
+    function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POHashItem;
+    function HashOf(const aKey: OWideString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
+    function HashOfFast(const aKey: OFastString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
+    procedure AddItem(const aItem: POHashItem; const aHash: OHashedStringsIndex);
+
+    procedure GrowBuckets;
+    procedure ClearBuckets;
   protected
     procedure AssignTo(Dest: TPersistent); override;
   public
@@ -71,20 +105,18 @@ type
     destructor Destroy; override;
   public
     function IndexOf(const aText: OWideString): OHashedStringsIndex;
-    function IndexOfFast(const aText: OFastString): OHashedStringsIndex;
     function Add(const aText: OWideString): OHashedStringsIndex; overload;
     function Add(const aText: OWideString; var outNewEntry: Boolean): OHashedStringsIndex; overload;
-    function Get(const aIndex: OHashedStringsIndex): OWideString; overload;
-    procedure Get(const aIndex: OHashedStringsIndex; var outString: OWideString); overload;
+    function Get(const aIndex: OHashedStringsIndex): OWideString;
+    function GetItem(const aIndex: OHashedStringsIndex): POHashItem;
     procedure SetObject(const aIndex: OHashedStringsIndex; const aObject: TObject);
     function GetObject(const aIndex: OHashedStringsIndex): TObject;
     {$IFNDEF NEXTGEN}
     procedure SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
     {$ENDIF}
-    function Count: OHashedStringsIndex;
-    procedure Clear;
-    procedure Delete(const aIndex: OHashedStringsIndex);//Warning: the indexes are changed after delete!!!
+    property Count: OHashedStringsIndex read fNextItemId;
+    procedure Clear(const aFullClear: Boolean = True);
   end;
 
   TOHashedStringDictionaryEnum = class;
@@ -114,13 +146,12 @@ type
     destructor Destroy; override;
   public
     function IndexOf(const aKey: OWideString): OHashedStringsIndex;
-    function IndexOfFast(const aKey: OFastString): OHashedStringsIndex;
     function Add(const aKey, aValue: OWideString): OHashedStringsIndex;
     function TryGetValue(const aKey: OWideString; var outValue: OWideString): Boolean;
     function Count: OHashedStringsIndex;
     procedure Clear;
-    procedure Delete(const aIndex: OHashedStringsIndex);
-    procedure Remove(const aKey: OWideString);
+    {procedure Delete(const aIndex: OHashedStringsIndex);
+    procedure Remove(const aKey: OWideString);}
 
     property Keys[const aIndex: OHashedStringsIndex]: OWideString read GetKey;
     property Values[const aIndex: OHashedStringsIndex]: OWideString read GetValue write SetValue;
@@ -156,195 +187,6 @@ begin
   Result := aId <> OHASHEDSTRINGSINDEX_UNASSIGNED;
 end;
 
-{ TOHashedStrings }
-
-function TOHashedStrings.Add(const aText: OWideString;
-  var outNewEntry: Boolean): OHashedStringsIndex;
-var
-  {$IFNDEF O_UNICODE}
-  xStorageText: OFastString;
-  {$ENDIF}
-  {$IFDEF FPC}
-  xValue: ONativeInt;
-  {$ELSE}
-  xValue: OHashedStringsIndex;
-  {$ENDIF}
-begin
-  {$IFNDEF O_UNICODE}
-  xStorageText := OWideToFast(aText);
-  {$ENDIF}
-  xValue := IndexOfFast({$IFDEF O_UNICODE}aText{$ELSE}xStorageText{$ENDIF});
-
-  outNewEntry := (xValue < 0);
-  if outNewEntry then begin
-    xValue := fTextList.Add({$IFDEF O_UNICODE}aText{$ELSE}xStorageText{$ENDIF});
-
-    if fTextList.Count < fMaxItemsBeforeGrow then begin
-      fHashTable.Add(
-        {$IFDEF O_UNICODE}aText{$ELSE}xStorageText{$ENDIF},
-        {$IFDEF FPC}{%H-}Pointer(xValue){$ELSE}xValue{$ENDIF});
-    end else begin
-      Grow;
-    end;
-  end;
-  Result := xValue;
-end;
-
-procedure TOHashedStrings.AssignTo(Dest: TPersistent);
-var
-  xDest: TOHashedStrings;
-begin
-  if Dest is TOHashedStrings then begin
-    xDest := TOHashedStrings(Dest);
-
-    xDest.Clear;
-    xDest.fTextList.Assign(Self.fTextList);
-    xDest.fLastHashI := Self.fLastHashI;
-    xDest.RefreshHashTable;
-  end else
-    inherited;
-end;
-
-procedure TOHashedStrings.Clear;
-begin
-  if fTextList.Count > 0 then begin
-    fHashTable.Clear;
-    fTextList.Clear;
-  end;
-end;
-
-function TOHashedStrings.Count: OHashedStringsIndex;
-begin
-  Result := fTextList.Count;
-end;
-
-constructor TOHashedStrings.Create;
-begin
-  inherited Create;
-
-  fTextList := TStringList.Create;
-  RefreshHashTable;
-end;
-
-procedure TOHashedStrings.Delete(const aIndex: OHashedStringsIndex);
-begin
-  fTextList.Delete(aIndex);
-
-  RefreshHashTable;
-end;
-
-destructor TOHashedStrings.Destroy;
-begin
-  fHashTable.Free;
-  fTextList.Free;
-
-  inherited;
-end;
-
-function TOHashedStrings.Add(const aText: OWideString): OHashedStringsIndex;
-var
-  x: Boolean;
-begin
-  Result := Add(aText, {%H-}x);
-end;
-
-function TOHashedStrings.Get(const aIndex: OHashedStringsIndex): OWideString;
-begin
-  Result := {$IFNDEF O_UNICODE}OFastToWide{$ENDIF}(fTextList[aIndex]);
-end;
-
-procedure TOHashedStrings.Get(const aIndex: OHashedStringsIndex;
-  var outString: OWideString);
-begin
-  {$IFDEF O_UNICODE}
-  outString := fTextList[aIndex];
-  {$ELSE}
-  outString := OFastToWide(fTextList[aIndex]);
-  {$ENDIF}
-end;
-
-function TOHashedStrings.GetObject(const aIndex: OHashedStringsIndex): TObject;
-begin
-  Result := fTextList.Objects[aIndex];
-end;
-
-procedure TOHashedStrings.Grow;
-begin
-  Inc(fLastHashI);
-
-  RefreshHashTable;
-end;
-
-function TOHashedStrings.IndexOf(const aText: OWideString): OHashedStringsIndex;
-begin
-  Result := IndexOfFast({$IFNDEF O_UNICODE}OWideToFast{$ENDIF}(aText));
-end;
-
-function TOHashedStrings.IndexOfFast(
-  const aText: OFastString): OHashedStringsIndex;
-{$IFDEF FPC}
-var
-  xValue: ONativeInt;
-{$ENDIF}
-begin
-  {$IFDEF FPC}
-  xValue := fHashTable.FindIndexOf(aText);
-  if xValue >= 0 then
-    Result := {%H-}ONativeInt(fHashTable.Items[xValue])
-  else
-    Result := -1;
-  {$ELSE}
-  Result := fHashTable.ValueOf(aText);
-  {$ENDIF}
-end;
-
-procedure TOHashedStrings.RefreshHashTable;
-var
-  I: OHashedStringsIndex;
-  xTableSize: LongWord;
-const
-  cHashTable: Array[0..27] of LongWord =
-  ( 53,         97,         193,       389,       769,
-    1543,       3079,       6151,      12289,     24593,
-    49157,      98317,      196613,    393241,    786433,
-    1572869,    3145739,    6291469,   12582917,  25165843,
-    50331653,   100663319,  201326611, 402653189, 805306457,
-    1610612741, 3221225473, 4294967291 );
-begin
-  if Assigned(fHashTable) then
-    fHashTable.Free;
-
-  xTableSize := cHashTable[fLastHashI];
-
-  {$IFDEF FPC}
-  fHashTable := TFPHashList.Create;
-  fHashTable.Capacity := xTableSize;
-  {$ELSE}
-  fHashTable := TStringHash.Create(xTableSize);
-  {$ENDIF}
-  fMaxItemsBeforeGrow := (xTableSize * 2) div 3;
-
-  for I := 0 to fTextList.Count-1 do
-    fHashTable.Add(fTextList[I], {$IFDEF FPC}{%H-}Pointer(I){$ELSE}I{$ENDIF});
-end;
-
-procedure TOHashedStrings.SetObject(const aIndex: OHashedStringsIndex; const aObject: TObject);
-begin
-  fTextList.Objects[aIndex] := aObject;
-end;
-
-{$IFNDEF NEXTGEN}
-function TOHashedStrings.GetPObject(const aIndex: OHashedStringsIndex): Pointer;
-begin
-  Result := Pointer(fTextList.Objects[aIndex]);//unsave but fine
-end;
-
-procedure TOHashedStrings.SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
-begin
-  fTextList.Objects[aIndex] := TObject(aObject);//unsave but fine!
-end;
-{$ENDIF}
-
 { TOHashedStringDictionary }
 
 {$IFDEF O_ENUMERATORS}
@@ -356,7 +198,7 @@ end;
 
 function TOHashedStringDictionary.GetKey(const aIndex: OHashedStringsIndex): OWideString;
 begin
-  fKeys.Get(aIndex, {%H-}Result);
+  Result := fKeys.Get(aIndex);
 end;
 
 function TOHashedStringDictionary.GetPair(
@@ -383,20 +225,6 @@ begin
   Result := fKeys.IndexOf(aKey);
 end;
 
-function TOHashedStringDictionary.IndexOfFast(
-  const aKey: OFastString): OHashedStringsIndex;
-begin
-  Result := fKeys.IndexOfFast(aKey);
-end;
-
-procedure TOHashedStringDictionary.Remove(const aKey: OWideString);
-var
-  xIndex: OHashedStringsIndex;
-begin
-  xIndex := IndexOf(aKey);
-  Delete(xIndex);
-end;
-
 procedure TOHashedStringDictionary.SetValue(const aIndex: OHashedStringsIndex; aValue: OWideString
   );
 begin
@@ -415,12 +243,6 @@ begin
 
   fKeys := TOHashedStrings.Create;
   fValues := TOWideStringList.Create;
-end;
-
-procedure TOHashedStringDictionary.Delete(const aIndex: OHashedStringsIndex);
-begin
-  fKeys.Delete(aIndex);
-  fValues.Delete(aIndex);
 end;
 
 destructor TOHashedStringDictionary.Destroy;
@@ -478,7 +300,7 @@ procedure TOHashedStringDictionary.Clear;
 begin
   if fKeys.Count > 0 then begin
     fValues.Clear;
-    fKeys.Clear;
+    fKeys.Clear(True);
   end;
 end;
 
@@ -503,6 +325,274 @@ begin
   Result := (fIndex < fDictionary.Count - 1);
   if Result then
     Inc(fIndex);
+end;
+
+{ TOHashedStrings }
+
+function TOHashedStrings.Add(const aText: OWideString): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := Add(aText, {%H-}x);
+end;
+
+function TOHashedStrings.Add(const aText: OWideString;
+  var outNewEntry: Boolean): OHashedStringsIndex;
+var
+  xBucket: POHashItem;
+  xHash: OHashedStringsIndex;
+begin
+  xBucket := Find(aText, {%H-}xHash);
+  if Assigned(xBucket) then begin
+    Result := xBucket.fIndex;
+    outNewEntry := False;
+    Exit;
+  end;
+
+  if fNextItemId = fMaxItemsBeforeGrowBuckets then
+  begin
+    GrowBuckets;
+    xHash := HashOf(aText) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
+  end;
+
+  if fNextItemId = fItemLength then begin
+    New(fItems[fNextItemId]);
+    Inc(fItemLength);
+  end;
+
+  xBucket := fItems[fNextItemId];
+  {$IFDEF O_UNICODE}
+  xBucket.fTextFast := aText;
+  {$ELSE}
+  OWideToFast(aText, xBucket.fTextFast);
+  {$ENDIF}
+  xBucket.fIndex := fNextItemId;
+  fObjects[fNextItemId] := nil;
+  Result := fNextItemId;
+
+  AddItem(xBucket, xHash);
+
+  Inc(fNextItemId);
+
+  outNewEntry := True;
+end;
+
+procedure TOHashedStrings.AddItem(const aItem: POHashItem;
+  const aHash: OHashedStringsIndex);
+begin
+  aItem.fNext := fBuckets[aHash];
+  fBuckets[aHash] := aItem;
+end;
+
+procedure TOHashedStrings.AssignTo(Dest: TPersistent);
+var
+  xDest: TOHashedStrings;
+  I: Integer;
+  x: Boolean;
+begin
+  if Dest is TOHashedStrings then begin
+    xDest := TOHashedStrings(Dest);
+
+    xDest.Clear(False);
+    while xDest.fMaxItemsBeforeGrowBuckets < Self.Count do
+      xDest.GrowBuckets;
+
+    for I := 0 to Self.Count-1 do
+      xDest.Add(Self.fItems[I].Text, {%H-}x);
+  end else
+    inherited;
+end;
+
+procedure TOHashedStrings.Clear(const aFullClear: Boolean);
+var
+  I: OHashedStringsIndex;
+begin
+  fNextItemId := 0;
+
+  if aFullClear then
+  begin
+    for I := 0 to fItemLength-1 do
+      Dispose(POHashItem(fItems[I]));
+    fItemLength := 0;
+
+    fLastHashI := 0;
+    GrowBuckets;
+  end else begin
+    ClearBuckets;
+  end;
+end;
+
+procedure TOHashedStrings.ClearBuckets;
+var
+  I: OHashedStringsIndex;
+begin
+  for I := 0 to Length(fBuckets)-1 do
+    fBuckets[I] := nil;
+end;
+
+constructor TOHashedStrings.Create;
+begin
+  inherited;
+
+  GrowBuckets;
+end;
+
+destructor TOHashedStrings.Destroy;
+begin
+  Clear(True);
+
+  inherited;
+end;
+
+function TOHashedStrings.Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POHashItem;
+begin
+  outHash := HashOf(aKey) mod Cardinal(Length(fBuckets));
+  Result := fBuckets[outHash];
+  while Result <> nil do
+  begin
+    if Result.SameText(aKey) then
+      Exit
+    else
+      Result := Result.fNext;
+  end;
+end;
+
+function TOHashedStrings.Get(const aIndex: OHashedStringsIndex): OWideString;
+begin
+  Result := {$IFNDEF O_UNICODE}OFastToWide{$ENDIF}(fItems[aIndex].fTextFast);
+end;
+
+function TOHashedStrings.GetItem(const aIndex: OHashedStringsIndex): POHashItem;
+begin
+  Result := fItems[aIndex];
+end;
+
+function TOHashedStrings.GetObject(const aIndex: OHashedStringsIndex): TObject;
+begin
+  Result := fObjects[aIndex];
+end;
+
+procedure TOHashedStrings.GrowBuckets;
+var
+  I: OHashedStringsIndex;
+  xTableSize: LongWord;
+const
+  cHashTable: Array[0..27] of LongWord =
+  ( 53,         97,         193,       389,       769,
+    1543,       3079,       6151,      12289,     24593,
+    49157,      98317,      196613,    393241,    786433,
+    1572869,    3145739,    6291469,   12582917,  25165843,
+    50331653,   100663319,  201326611, 402653189, 805306457,
+    1610612741, 3221225473, 4294967291 );
+begin
+  ClearBuckets;
+
+  xTableSize := cHashTable[fLastHashI];
+
+  SetLength(fBuckets, xTableSize);
+  fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
+
+  SetLength(fItems, fMaxItemsBeforeGrowBuckets);
+  SetLength(fObjects, fMaxItemsBeforeGrowBuckets);
+
+  for I := 0 to fNextItemId-1 do
+    AddItem(fItems[I], HashOfFast(fItems[I].fTextFast) mod Cardinal(Length(fBuckets)));
+
+  Inc(fLastHashI);
+end;
+
+function TOHashedStrings.HashOf(const aKey: OWideString): Cardinal;
+{$IFDEF O_UNICODE}
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 1 to Length(aKey) do
+    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
+      Ord(aKey[I]);
+end;
+{$ELSE}
+var
+  I: Integer;
+  xK: PAnsiChar;
+begin
+  Result := 0;
+  xK := @aKey[1];
+  for I := 1 to Length(aKey) * 2 do begin
+    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
+      Ord(xK^);
+    Inc(xK);
+  end;
+end;
+{$ENDIF}
+
+function TOHashedStrings.HashOfFast(const aKey: OFastString): Cardinal;
+{$IFDEF O_UNICODE}
+begin
+  Result := HashOf(aKey);
+end;
+{$ELSE}
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 1 to Length(aKey) do
+    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
+      Ord(aKey[I]);
+end;
+{$ENDIF}
+
+function TOHashedStrings.IndexOf(
+  const aText: OWideString): OHashedStringsIndex;
+var
+  xP: POHashItem;
+  xH: OHashedStringsIndex;
+begin
+  xP := Find(aText, {%H-}xH);
+  if xP <> nil then
+    Result := xP.fIndex
+  else
+    Result := -1;
+end;
+
+procedure TOHashedStrings.SetObject(const aIndex: OHashedStringsIndex;
+  const aObject: TObject);
+begin
+  fObjects[aIndex] := aObject;
+end;
+
+{$IFNDEF NEXTGEN}
+function TOHashedStrings.GetPObject(
+  const aIndex: OHashedStringsIndex): Pointer;
+begin
+  Result := Pointer(fObjects[aIndex]);//unsave but fine
+end;
+
+procedure TOHashedStrings.SetPObject(const aIndex: OHashedStringsIndex;
+  const aObject: Pointer);
+begin
+  fObjects[aIndex] := TObject(aObject);//unsave but fine
+end;
+{$ENDIF}
+
+{ TOHashItem }
+
+{$IFNDEF O_UNICODE}
+function TOHashItem.GetText: OWideString;
+begin
+  Result := OFastToWide(fTextFast);
+end;
+{$ENDIF}
+
+function TOHashItem.SameText(const aText: OWideString): Boolean;
+begin
+  {$IFDEF O_UNICODE}
+  Result := (fTextFast = aText);
+  {$ELSE}
+  Result :=
+      (Length(fTextFast) = Length(aText)*SizeOf(OWideChar)) and
+      CompareMem(@fTextFast[1], @aText[1], Length(fTextFast));
+  {$ENDIF}
 end;
 
 end.

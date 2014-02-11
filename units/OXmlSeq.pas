@@ -39,15 +39,20 @@ unit OXmlSeq;
 interface
 
 uses
-  SysUtils, Classes, OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding,
-  OXmlPDOM;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
+  {$ELSE}
+  SysUtils, Classes,
+  {$ENDIF}
+
+  OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding, OXmlPDOM;
 
 type
 
   TXMLSeqParser = class(TObject)
   private
     fReader: TXMLReader;
-    fReaderToken: TXMLReaderToken;//performance boost when used instead of fReader.ReaderToken in D6-D2007
+    fReaderToken: PXMLReaderToken;
     fDataRead: Boolean;
     fTempReaderPath: TOWideStringList;
     fTempNodePath: TOWideStringList;
@@ -61,8 +66,6 @@ type
     function GetReaderSettings: TXMLReaderSettings;
     function GetApproxStreamPosition: ONativeInt;
     function GetStreamSize: ONativeInt;
-
-    procedure CheckNodePathHandling;
   protected
     procedure DoCreate; virtual;
     procedure DoInit; virtual;
@@ -122,7 +125,7 @@ type
     function ReadNextChildElementHeader(var outNode: PXMLNode;
       var outElementIsOpen: Boolean): Boolean;
     //the same as ReadNextChildElementHeader, but no information is returned
-    function PassNextChildElementHeader(var outElementIsOpen: Boolean): Boolean;
+    function SkipNextChildElementHeader(var outElementIsOpen: Boolean): Boolean;
 
     //seek to next child XML element and read the header, text nodes are ignored.
     //  (e.g. '<child attr="value">' will be read
@@ -137,7 +140,7 @@ type
     //    be set after the parent's closing element.
     function ReadNextChildNode(var outNode: PXMLNode): Boolean;
     //the same as ReadNextChildNode, but no information is returned
-    function PassNextChildNode: Boolean;
+    function SkipNextChildNode: Boolean;
 
   public
     //document whitespace handling
@@ -164,12 +167,6 @@ begin
   DoCreate;
 end;
 
-procedure TXMLSeqParser.CheckNodePathHandling;
-begin
-  if ReaderSettings.NodePathHandling <> npFull then//you must use cannot use npFull with TXMLSeqParser
-    ReaderSettings.NodePathHandling := npFull;
-end;
-
 constructor TXMLSeqParser.Create(const aStream: TStream;
   const aForceEncoding: TEncoding);
 begin
@@ -192,8 +189,6 @@ end;
 procedure TXMLSeqParser.DoCreate;
 begin
   fReader := TXMLReader.Create;
-  fReader.ReaderSettings.NodePathHandling := npFull;
-  fReaderToken := fReader.ReaderToken;
   fXmlDoc := TXMLDocument.Create;
   fTempNodePath := TOWideStringList.Create;
   fTempReaderPath := TOWideStringList.Create;
@@ -230,9 +225,7 @@ end;
 function TXMLSeqParser.GoToNextChildElement(
   var outElementName: OWideString): Boolean;
 begin
-  CheckNodePathHandling;
-
-  while fReader.ReadNextToken do
+  while fReader.ReadNextToken(fReaderToken) do
   begin
     case fReaderToken.TokenType of
       rtOpenElement: begin
@@ -252,8 +245,6 @@ end;
 
 function TXMLSeqParser.GoToPath(const aPath: OWideString): Boolean;
 begin
-  CheckNodePathHandling;
-
   OExplode(aPath, '/', fTempNodePath);
   fReader.NodePathAssignTo(fTempReaderPath);
   OExpandPath(fTempReaderPath, fTempNodePath);
@@ -263,7 +254,7 @@ begin
     Exit;
   end;
 
-  while fReader.ReadNextToken do
+  while fReader.ReadNextToken(fReaderToken) do
   if (fReaderToken.TokenType in [rtOpenElement, rtCloseElement, rtFinishOpenElementClose]) and
       fReader.NodePathMatch(fTempNodePath)
   then begin
@@ -313,7 +304,7 @@ begin
 end;
 {$ENDIF}
 
-function TXMLSeqParser.PassNextChildElementHeader(
+function TXMLSeqParser.SkipNextChildElementHeader(
   var outElementIsOpen: Boolean): Boolean;
 var
   x: PXMLNode;
@@ -321,7 +312,7 @@ begin
   Result := ReadNextChildElementHeader({%H-}x, outElementIsOpen);
 end;
 
-function TXMLSeqParser.PassNextChildNode: Boolean;
+function TXMLSeqParser.SkipNextChildNode: Boolean;
 var
   x: PXMLNode;
 begin
@@ -353,23 +344,23 @@ function TXMLSeqParser.ReadNextChildNode(var outNode: PXMLNode): Boolean;
 var
   x: Boolean;
 begin
-  Result := ReadNextChildNodeCustom(False, {%H-}x);
+  //Result := ReadNextChildNodeCustom(False, {%H-}x) and fXmlDoc.Node.HasChildNodes;       <--- strange D2009 bug that doesn't like HasChildNodes, rewritten with Assigned(FirstChild)!!!
+  Result := ReadNextChildNodeCustom(False, {%H-}x) and Assigned(fXmlDoc.Node.FirstChild);//<--- strange D2009 bug that doesn't like HasChildNodes, rewritten with Assigned(FirstChild)!!!
   if Result then
-    outNode := fXmlDoc.DocumentElement;
+    outNode := fXmlDoc.Node.FirstChild;
 end;
 
 function TXMLSeqParser.ReadNextChildNodeCustom(
   const aOnlyElementHeader: Boolean; var outElementIsOpen: Boolean): Boolean;
 var
   xLastNode: PXMLNode;
+  xBreakReading: TXMLBreakReading;
 begin
-  CheckNodePathHandling;
-
   Result := False;
 
   fXmlDoc.Loading := True;
   try
-    fXmlDoc.Clear;
+    fXmlDoc.Clear(False);
 
     if fReaderToken.TokenType = rtOpenElement then begin
       //last found was opening element (most probably from GoToPath()), write it down!
@@ -380,7 +371,7 @@ begin
 
       //go to next child
       if aOnlyElementHeader then begin
-        while fReader.ReadNextToken do begin
+        while fReader.ReadNextToken(fReaderToken) do begin
           case fReaderToken.TokenType of
             rtOpenElement://new element found
             begin
@@ -399,10 +390,16 @@ begin
 
     if not aOnlyElementHeader then begin
       //read whole element contents
-      Result := xLastNode.LoadFromReader(fReader);
+      xBreakReading := fReader.ReaderSettings.BreakReading;
+      fReader.ReaderSettings.BreakReading := brAfterDocumentElement;
+      try
+        Result := xLastNode.LoadFromReader(fReader, fReaderToken, fXmlDoc.Node);
+      finally
+        fReader.ReaderSettings.BreakReading := xBreakReading;
+      end;
     end else begin
       //read only element header
-      while fReader.ReadNextToken do begin
+      while fReader.ReadNextToken(fReaderToken) do begin
         case fReaderToken.TokenType of
           rtXMLDeclarationAttribute, rtAttribute:
             xLastNode.Attributes[fReaderToken.TokenName] := fReaderToken.TokenValue;

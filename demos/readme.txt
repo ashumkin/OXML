@@ -9,6 +9,13 @@ Delphi 2009+ VCL / Delphi 6-2007 VCL / Lazarus
 
 
 
+ErrorInfo
+---------
+  - a demo with XML errors converted from OmniXML.
+
+
+
+
 FileList
 --------
   - a "real world" demo converted from OmniXML.

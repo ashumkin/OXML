@@ -40,21 +40,58 @@ unit OXmlSAX;
 interface
 
 uses
-  SysUtils, Classes, OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding,
-  OHashedStrings;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
+  {$ELSE}
+  SysUtils, Classes,
+  {$ENDIF}
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Collections,
+    {$ELSE}
+    Generics.Collections,
+    {$ENDIF}
+  {$ENDIF}
+
+  OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding, OHashedStrings;
 
 type
-  TSAXParser = class;
-  TSAXAttribute = record
-    AttrName: OWideString;
-    AttrValue: OWideString;
-  end;
+  //The clue of TSAXAttribute is to reduce string operations to an minimum.
+  // -> therefore TSAXAttribute is just TXMLReaderToken
+  TSAXAttribute = TXMLReaderToken;
+  PSAXAttribute = PXMLReaderToken;
   TSAXAttributeEnum = class;
-  TSAXAttributes = class(TOHashedStringDictionary)
+  TSAXAttributes = class(TObject)
   private
-    function GetAttribute(const aIndex: OHashedStringsIndex): TSAXAttribute;
+    fAttributeTokens: TXMLReaderTokenList;
+
+    fIteratorCurrent: Integer;//for fast Next & Prev
+
+    function GetPrevNext(var ioAttrEnum: PSAXAttribute; const aInc: Integer): Boolean;
+    function GetAttributeItem(const aIndex: Integer): PSAXAttribute;
+    function GetCount: Integer;
   public
-    property Attributes[const aIndex: OHashedStringsIndex]: TSAXAttribute read GetAttribute;
+    constructor Create;
+    destructor Destroy; override;
+  public
+    function IndexOf(const aAttrName: OWideString): Integer;
+    function Has(const aAttrName: OWideString): Boolean;
+    //find attribute
+    function Find(const aAttrName: OWideString; var outAttrValue: OWideString): Boolean;
+    //get attribute
+    function Get(const aAttrName: OWideString): OWideString;
+    //get attribute, if attr does not exist, return aDefaultValue
+    function GetDef(const aAttrName, aDefaultValue: OWideString): OWideString;
+
+    function First: PSAXAttribute;
+    function Last: PSAXAttribute;
+    //iterate through all attributes from first to last (get first for aAttributeEnum=nil)
+    function GetNext(var ioAttrEnum: PSAXAttribute): Boolean;
+    function GetPrevious(var ioAttrEnum: PSAXAttribute): Boolean;
+
+    property Count: Integer read GetCount;
+    property Items[const aIndex: Integer]: PSAXAttribute read GetAttributeItem; default;
 
     {$IFDEF O_ENUMERATORS}
     function GetEnumerator: TSAXAttributeEnum;
@@ -66,29 +103,30 @@ type
     fSAXAttributes: TSAXAttributes;
   public
     constructor Create(aSAXAttributes: TSAXAttributes);
-    function GetCurrent: TSAXAttribute;
+    function GetCurrent: PSAXAttribute;
     function MoveNext: Boolean;
   public
-    property Current: TSAXAttribute read GetCurrent;
+    property Current: PSAXAttribute read GetCurrent;
   end;
 
+  TSAXParser = class;
+  {$IFDEF O_ANONYMOUS_METHODS}
+  TSAXNotifyEvent = reference to procedure(aSaxParser: TSAXParser);
+  TSAXTextEvent = reference to procedure(aSaxParser: TSAXParser;
+    const aText: OWideString);
+  TSAXStartElementEvent = reference to procedure(aSaxParser: TSAXParser;
+    const aName: OWideString; const aAttributes: TSAXAttributes);
+  TSAXEndElementEvent = reference to procedure(aSaxParser: TSAXParser;
+    const aName: OWideString);
+  TSAXProcessingInstructionEvent = reference to procedure(aSaxParser: TSAXParser;
+    const aTarget, aContent: OWideString);
+  {$ELSE}
   TSAXNotifyEvent = procedure(Sender: TSAXParser) of Object;
   TSAXTextEvent = procedure(Sender: TSAXParser; const aText: OWideString) of Object;
   TSAXStartElementEvent = procedure(Sender: TSAXParser; const aName: OWideString;
     const aAttributes: TSAXAttributes) of Object;
   TSAXEndElementEvent = procedure(Sender: TSAXParser; const aName: OWideString) of Object;
   TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString) of Object;
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  TSAXNotifyProc = reference to procedure(aSaxParser: TSAXParser);
-  TSAXTextProc = reference to procedure(aSaxParser: TSAXParser;
-    const aText: OWideString);
-  TSAXStartElementProc = reference to procedure(aSaxParser: TSAXParser;
-    const aName: OWideString; const aAttributes: TSAXAttributes);
-  TSAXElementProc = reference to procedure(aSaxParser: TSAXParser;
-    const aName: OWideString);
-  TSAXProcessingInstructionProc = reference to procedure(aSaxParser: TSAXParser;
-    const aTarget, aContent: OWideString);
   {$ENDIF}
 
   TSAXParser = class(TObject)
@@ -105,16 +143,6 @@ type
     fOnProcessingInstruction: TSAXProcessingInstructionEvent;
     fOnStartElement: TSAXStartElementEvent;
     fOnEndElement: TSAXEndElementEvent;
-
-    {$IFDEF O_ANONYMOUS_METHODS}
-    fStartDocumentProc: TSAXNotifyProc;
-    fEndDocumentProc: TSAXNotifyProc;
-    fCharactersProc: TSAXTextProc;
-    fCommentProc: TSAXTextProc;
-    fProcessingInstructionProc: TSAXProcessingInstructionProc;
-    fStartElementProc: TSAXStartElementProc;
-    fEndElementProc: TSAXElementProc;
-    {$ENDIF}
 
     procedure DoOnStartDocument;
     procedure DoOnEndDocument;
@@ -178,23 +206,6 @@ type
     //end of an element
     property OnEndElement: TSAXEndElementEvent read fOnEndElement write fOnEndElement;//element end </a> or <a />
 
-    {$IFDEF O_ANONYMOUS_METHODS}
-    //root element was found -> it's not possible to stop here!
-    property StartDocumentProc: TSAXNotifyProc read fStartDocumentProc write fStartDocumentProc;
-    //reached the end of the document
-    property EndDocumentProc: TSAXNotifyProc read fEndDocumentProc write fEndDocumentProc;
-    //text or CData
-    property CharactersProc: TSAXTextProc read fCharactersProc write fCharactersProc;
-    //comment
-    property CommentProc: TSAXTextProc read fCommentProc write fCommentProc;
-    //Processing Instruction
-    property ProcessingInstructionProc: TSAXProcessingInstructionProc read fProcessingInstructionProc write fProcessingInstructionProc;
-    //start of an element
-    property StartElementProc: TSAXStartElementProc read fStartElementProc write fStartElementProc;
-    //end of an element
-    property EndElementProc: TSAXElementProc read fEndElementProc write fEndElementProc;
-    {$ENDIF}
-
     //XML reader settings
     property ReaderSettings: TXMLReaderSettings read fReaderSettings;
   public
@@ -234,7 +245,6 @@ begin
   inherited Create;
 
   fReaderSettings := TXMLReaderSettings.Create;
-  fReaderSettings.NodePathHandling := npFull;
 end;
 
 destructor TSAXParser.Destroy;
@@ -248,44 +258,24 @@ procedure TSAXParser.DoOnCharacters(const aText: OWideString);
 begin
   if Assigned(fOnCharacters) then
     fOnCharacters(Self, aText);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fCharactersProc) then
-    fCharactersProc(Self, aText);
-  {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnComment(const aText: OWideString);
 begin
   if Assigned(fOnComment) then
     fOnComment(Self, aText);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fCommentProc) then
-    fCommentProc(Self, aText);
-  {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnEndDocument;
 begin
   if Assigned(fOnEndDocument) then
     fOnEndDocument(Self);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fEndDocumentProc) then
-    fEndDocumentProc(Self);
-  {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnEndElement(const aName: OWideString);
 begin
   if Assigned(fOnEndElement) then
     fOnEndElement(Self, aName);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fEndElementProc) then
-    fEndElementProc(Self, aName);
-  {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnProcessingInstruction(const aTarget,
@@ -293,22 +283,12 @@ procedure TSAXParser.DoOnProcessingInstruction(const aTarget,
 begin
   if Assigned(fOnProcessingInstruction) then
     fOnProcessingInstruction(Self, aTarget, aContent);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fProcessingInstructionProc) then
-    fProcessingInstructionProc(Self, aTarget, aContent);
-  {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnStartDocument;
 begin
   if Assigned(fOnStartDocument) then
     fOnStartDocument(Self);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fStartDocumentProc) then
-    fStartDocumentProc(Self);
-  {$ENDIF}
 end;
 
 procedure TSAXParser.DoOnStartElement(const aName: OWideString;
@@ -316,11 +296,6 @@ procedure TSAXParser.DoOnStartElement(const aName: OWideString;
 begin
   if Assigned(fOnStartElement) then
     fOnStartElement(Self, aName, aAttributes);
-
-  {$IFDEF O_ANONYMOUS_METHODS}
-  if Assigned(fStartElementProc) then
-    fStartElementProc(Self, aName, aAttributes);
-  {$ENDIF}
 end;
 
 function TSAXParser.GetApproxStreamPosition: ONativeInt;
@@ -457,36 +432,30 @@ end;
 function TSAXParser.StartParsing: Boolean;
 var
   xAttributes: TSAXAttributes;
-  xReaderToken: TXMLReaderToken;
+  xReaderToken: PXMLReaderToken;
 begin
   fDataRead := False;
   fStopParsing := False;
 
-  if fReader.ReaderSettings.NodePathHandling = npNo then//you cannot use npNo with SAXParser -> node names wouldn't be read
-    fReader.ReaderSettings.NodePathHandling := npLastPath;
-
   fStopParsing := False;
 
   xAttributes := TSAXAttributes.Create;
+  fReader.SetAttributeTokens(xAttributes.fAttributeTokens);
   try
-    xReaderToken := fReader.ReaderToken;
-    while (not fStopParsing) and fReader.ReadNextToken do begin
+    //xReaderToken := fReader.SetReaderToken(xLastElementReaderToken, False);
+    while (not fStopParsing) and fReader.ReadNextToken({%H-}xReaderToken) do begin
       case xReaderToken.TokenType of
         rtOpenElement: begin
-          xAttributes.Clear;
           if not fDataRead then begin
             DoOnStartDocument;
             fDataRead := True;
           end;
         end;
-        rtAttribute: begin
-          xAttributes.Add(xReaderToken.TokenName, xReaderToken.TokenValue);
-        end;
-        rtFinishOpenElementClose: begin
+        rtFinishOpenElementClose, rtFinishOpenElement: begin
           DoOnStartElement(xReaderToken.TokenName, xAttributes);
-          DoOnEndElement(xReaderToken.TokenName);
+          if xReaderToken.TokenType = rtFinishOpenElementClose then
+            DoOnEndElement(xReaderToken.TokenName);
         end;
-        rtFinishOpenElement: DoOnStartElement(xReaderToken.TokenName, xAttributes);
         rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
         rtText, rtCData:
           if fDataRead or not OXmlIsWhiteSpace(xReaderToken.TokenValue)
@@ -502,6 +471,7 @@ begin
       DoOnEndDocument;
     end;
   finally
+    fReader.SetAttributeTokens(nil);
     xAttributes.Free;
   end;
 
@@ -539,11 +509,144 @@ end;
 
 { TSAXAttributes }
 
-function TSAXAttributes.GetAttribute(
-  const aIndex: OHashedStringsIndex): TSAXAttribute;
+constructor TSAXAttributes.Create;
 begin
-  Result.AttrName := Keys[aIndex];
-  Result.AttrValue := Values[aIndex];
+  inherited;
+
+  fAttributeTokens := TXMLReaderTokenList.Create;
+end;
+
+destructor TSAXAttributes.Destroy;
+begin
+  fAttributeTokens.Free;
+
+  inherited;
+end;
+
+function TSAXAttributes.Find(const aAttrName: OWideString;
+  var outAttrValue: OWideString): Boolean;
+var
+  I: Integer;
+begin
+  I := IndexOf(aAttrName);
+  Result := I >= 0;
+  if Result then
+    outAttrValue := fAttributeTokens[I].TokenValue
+  else
+    outAttrValue := '';
+end;
+
+function TSAXAttributes.Has(const aAttrName: OWideString): Boolean;
+begin
+  Result := (IndexOf(aAttrName) >= 0);
+end;
+
+function TSAXAttributes.IndexOf(const aAttrName: OWideString): Integer;
+var
+  I: Integer;
+begin
+  for I := 0 to Count-1 do
+  if fAttributeTokens[I].TokenName = aAttrName then begin
+    Result := I;
+    Exit;
+  end;
+  Result := -1;
+end;
+
+function TSAXAttributes.First: PSAXAttribute;
+begin
+  if fAttributeTokens.Count >= 0 then
+    Result := fAttributeTokens[0]
+  else
+    Result := nil;
+end;
+
+function TSAXAttributes.GetAttributeItem(const aIndex: Integer): PSAXAttribute;
+begin
+  Result := fAttributeTokens[aIndex];
+end;
+
+function TSAXAttributes.Get(const aAttrName: OWideString): OWideString;
+begin
+  Find(aAttrName, {%H-}Result);
+end;
+
+function TSAXAttributes.GetCount: Integer;
+begin
+  Result := fAttributeTokens.Count;
+end;
+
+function TSAXAttributes.GetDef(const aAttrName,
+  aDefaultValue: OWideString): OWideString;
+var
+  I: Integer;
+begin
+  I := IndexOf(aAttrName);
+  if I >= 0 then
+    Result := fAttributeTokens[I].TokenValue
+  else
+    Result := aDefaultValue;
+end;
+
+function TSAXAttributes.GetNext(
+  var ioAttrEnum: PSAXAttribute): Boolean;
+begin
+  Result := GetPrevNext(ioAttrEnum, +1);
+end;
+
+function TSAXAttributes.GetPrevious(var ioAttrEnum: PSAXAttribute): Boolean;
+begin
+  Result := GetPrevNext(ioAttrEnum, -1);
+end;
+
+function TSAXAttributes.GetPrevNext(var ioAttrEnum: PSAXAttribute;
+  const aInc: Integer): Boolean;
+var
+  xCount: Integer;
+begin
+  //same code as TXMLResNodeList.GetPrevNext
+  Result := False;
+  xCount := Count;
+  if xCount = 0 then
+  begin
+    ioAttrEnum := nil;
+    Exit;
+  end;
+
+  if Assigned(ioAttrEnum) then begin
+    //get prev/next
+    if not(
+       (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount) and
+       (fAttributeTokens[fIteratorCurrent] = ioAttrEnum))
+    then//ioAttrEnum is NOT the last iterator -> we have to find it
+      fIteratorCurrent := fAttributeTokens.IndexOf(ioAttrEnum);
+
+    if (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount)
+    then begin
+      fIteratorCurrent := fIteratorCurrent + aInc;
+      Result := (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount);
+      if Result then
+        ioAttrEnum := fAttributeTokens[fIteratorCurrent]
+      else
+        ioAttrEnum := nil;
+    end;
+  end else begin
+    //return first or last element (list must not be not empty)
+    if aInc > 0 then
+      fIteratorCurrent := 0
+    else
+      fIteratorCurrent := xCount-1;
+    ioAttrEnum := fAttributeTokens[fIteratorCurrent];
+    Result := True;
+  end;
+end;
+
+function TSAXAttributes.Last: PSAXAttribute;
+begin
+  if fAttributeTokens.Count >= 0 then
+    Result := fAttributeTokens[fAttributeTokens.Count-1]
+  else
+    Result := nil;
 end;
 
 {$IFDEF O_ENUMERATORS}
@@ -563,9 +666,9 @@ begin
   fSAXAttributes := aSAXAttributes;
 end;
 
-function TSAXAttributeEnum.GetCurrent: TSAXAttribute;
+function TSAXAttributeEnum.GetCurrent: PSAXAttribute;
 begin
-  Result := fSAXAttributes.Attributes[fIndex];
+  Result := fSAXAttributes[fIndex];
 end;
 
 function TSAXAttributeEnum.MoveNext: Boolean;

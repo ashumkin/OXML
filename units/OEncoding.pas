@@ -35,7 +35,13 @@ unit OEncoding;
 interface
 
 uses
-  SysUtils, OWideSupp;
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils,
+  {$ELSE}
+  SysUtils,
+  {$ENDIF}
+
+  OWideSupp;
 
 const
   //see http://msdn.microsoft.com/en-us/library/windows/desktop/dd317756%28v=vs.85%29.aspx
@@ -626,8 +632,8 @@ end;
 function TUnicodeEncoding.GetPreamble: TEncodingBuffer;
 begin
   SetLength(Result, 2);
-  Result[1] := #$FF;
-  Result[2] := #$FE;
+  Result[TEncodingBuffer_FirstElement+0] := #$FF;
+  Result[TEncodingBuffer_FirstElement+1] := #$FE;
 end;
 
 function TUnicodeEncoding.GetString(const aBytes: TEncodingBuffer): OWideString;
@@ -690,9 +696,9 @@ end;
 function TUTF8Encoding.GetPreamble: TEncodingBuffer;
 begin
   SetLength(Result, 3);
-  Result[1] := #$EF;
-  Result[2] := #$BB;
-  Result[3] := #$BF;
+  Result[TEncodingBuffer_FirstElement+0] := #$EF;
+  Result[TEncodingBuffer_FirstElement+1] := #$BB;
+  Result[TEncodingBuffer_FirstElement+2] := #$BF;
 end;
 
 function TUTF8Encoding.GetString(const aBytes: TEncodingBuffer): OWideString;

@@ -18,8 +18,6 @@ unit OXmlReadWrite;
   Basic XML reader/writer. OXmlIntfDOM.pas, OXmlPDOM.pas and OXmlSAX.pas use
   this unit to read and write XML.
 
-  Use when performance is crucial for you.
-
   TXMLWriter
     - fast sequential XML writer
     - no real DOM validity checking - the programmer has to know what he is doing
@@ -29,6 +27,9 @@ unit OXmlReadWrite;
       -> default value for LineBreak is your OS line break (sLineBreak)
       -> if you don't want to process them, set LineBreak to lbDoNotProcess
     - supports automatic indentation of XML
+    - don't use it directly. If performance is crucial for you, use SAX
+      which has the same performance.
+
 
   TXMLReader
     - fast sequential XML reader/parser
@@ -57,11 +58,21 @@ unit OXmlReadWrite;
 interface
 
 uses
-  SysUtils, Classes, OWideSupp, OXmlUtils, OTextReadWrite, OEncoding
-  {$IFDEF O_GENERICS}
-    , Generics.Collections
+  {$IFDEF O_NAMESPACES}
+  System.SysUtils, System.Classes,
+  {$ELSE}
+  SysUtils, Classes,
   {$ENDIF}
-  ;
+
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Collections,
+    {$ELSE}
+    Generics.Collections,
+    {$ENDIF}
+  {$ENDIF}
+
+  OWideSupp, OXmlUtils, OTextReadWrite, OEncoding;
 
 type
   TXMLWriter = class;
@@ -83,7 +94,11 @@ type
   public
     // <aElementName ... >, <aElementName ... /> etc.
     procedure OpenElement(const aElementName: OWideString; const aMode: TXMLWriterElementMode = stOpenOnly);
-    function OpenElementR(const aElementName: OWideString; const aMode: TXMLWriterElementMode = stOpenOnly): TXMLWriterElement;
+    procedure OpenElementR(const aElementName: OWideString;
+      var outElement: TXMLWriterElement;
+      const aMode: TXMLWriterElementMode = stOpenOnly); overload;
+    function OpenElementR(const aElementName: OWideString;
+      const aMode: TXMLWriterElementMode = stOpenOnly): TXMLWriterElement; overload;
 
     // </fElementName> or "/>" if no children were written
     procedure CloseElement;
@@ -191,8 +206,11 @@ type
     // <aElementName ... >, <aElementName ... /> etc.
     procedure OpenElement(const aElementName: OWideString;
       const aMode: TXMLWriterElementMode = stOpenOnly);
+    procedure OpenElementR(const aElementName: OWideString;
+      var outElement: TXMLWriterElement;
+      const aMode: TXMLWriterElementMode = stOpenOnly); overload;
     function OpenElementR(const aElementName: OWideString;
-      const aMode: TXMLWriterElementMode = stOpenOnly): TXMLWriterElement;
+      const aMode: TXMLWriterElementMode = stOpenOnly): TXMLWriterElement; overload;
     // >
     procedure FinishOpenElement(const {%H-}aElementName: OWideString = '');//you may pass a ElementName just to make it clear for you which element you want to close
     // />
@@ -217,6 +235,7 @@ type
     procedure Text(const aText: OWideString; const aIndent: Boolean = True); overload;
     // write raw text, do not process it
     procedure RawText(const aText: OWideString);
+    procedure RawChar(const aChar: OWideChar);
   public
     //encoding of the text writer
     property Encoding: TEncoding read GetEncoding write SetEncoding;
@@ -246,21 +265,41 @@ type
     rtDocType//doctype: <!DOCTYPE value> -> value is not unescaped by reader!!!
     );
 
-  TXMLReaderToken = class
+  TXMLReaderToken = record
+    TokenName: OWideString;
+    TokenValue: OWideString;
+    TokenType: TXMLReaderTokenType;
+  end;
+  PXMLReaderToken = ^TXMLReaderToken;
+  TXMLReaderTokenList = class(TObject)
   private
-    fTokenType: TXMLReaderTokenType;
-    fTokenName: OWideString;
-    fTokenValue: OWideString;
+    {$IFDEF O_GENERICS}
+    fReaderTokens: TList<PXMLReaderToken>;
+    {$ELSE}
+    fReaderTokens: TList;
+    {$ENDIF}
+
+    fCount: Integer;
+
+    function GetToken(const aIndex: Integer): PXMLReaderToken;
+
+    procedure AddLast;
+    function CreateNew: PXMLReaderToken;
   public
-    property TokenType: TXMLReaderTokenType read fTokenType;
-    property TokenName: OWideString read fTokenName;
-    property TokenValue: OWideString read fTokenValue;
+    procedure Clear;
+    procedure DeleteLast;
+
+    function IndexOf(const aToken: PXMLReaderToken): Integer;
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    property Count: Integer read fCount;
+    property Items[const aIndex: Integer]: PXMLReaderToken read GetToken; default;
   end;
 
   TXMLReader = class;
   TXMLReaderSettings = class;
-
-  TXMLNodePathHandling = (npFull, npLastPath, npNo);
 
   TXMLReaderSettings = class(TPersistent)
   private
@@ -269,7 +308,6 @@ type
     fStrictXML: Boolean;
     fEntityList: TXMLReaderEntityList;
     fRecognizeXMLDeclaration: Boolean;
-    fNodePathHandling: TXMLNodePathHandling;
   protected
     procedure AssignTo(Dest: TPersistent); override;
   public
@@ -295,29 +333,30 @@ type
     //  if set to false, it will be handled as a normal processing instruction
     //   rtProcessingInstruction
     property RecognizeXMLDeclaration: Boolean read fRecognizeXMLDeclaration write fRecognizeXMLDeclaration;
-    //should nodepath handling be supported?
-    //  npFull - the parser stores complete XML path (slow)
-    //  npLastPath - the parser stores only last open element name
-    //  npNo - the parser does not store anything (fastest, default)
-    // -> for OXmlPDOM.pas, npNo is used regardless of your settings (node path is supported by OXmlPDOM directly).
-    // -> for OXmlSAX.pas, use ONLY npLastPath or npFull - with npNo element names won't be read!
-    // -> for OXmlSeq.pas, use ONLY npFull - otherwise parsing will fail!
-    property NodePathHandling: TXMLNodePathHandling read fNodePathHandling write fNodePathHandling;
   end;
 
   TXMLReader = class(TObject)
   private
     fReaderSettings: TXMLReaderSettings;
 
+    fAttributeTokens: TXMLReaderTokenList;//do not destroy!!!
+    fOpenElementTokens: TXMLReaderTokenList;//destroy
+
     fReader: TOTextReader;
     fAllowSetEncodingFromFile: Boolean;//internal, for external use ForceEncoding
 
-    fPreviousTokenType: TXMLReaderTokenType;
+    fLastTokenType: TXMLReaderTokenType;//must be used because fReaderToken can be replaced! -> do not replace it with fReaderToken.TokenType!!!
+    fLastTokenLinePosition: Integer;
+    fLastTokenCharPosition: Integer;
     fDocumentElementFound: Boolean;
     fForceEncoding: Boolean;
 
     fElementsToClose: Integer;
-    fReaderToken: TXMLReaderToken;
+    fReaderToken: PXMLReaderToken;//current reader
+    fOwnsReaderToken: Boolean;
+
+    fMainBuffer: TOTextBuffer;
+    fEntityBuffer: TOTextBuffer;
 
     function GetEncoding: TEncoding;
     procedure SetEncoding(const aEncoding: TEncoding);
@@ -326,10 +365,6 @@ type
     function GetApproxStreamPosition: ONativeInt;
     function GetStreamSize: ONativeInt;
   private
-    fNodePath: TOBufferWideStrings;
-    fNodePathLevel: Integer;
-    fLastOpenElementName: OWideString;
-
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
   private
@@ -349,13 +384,14 @@ type
     procedure Comment;
     procedure DocType;
     procedure ProcessingInstruction;
+    function GetTextCharPosition: Integer;
+    function GetTextLinePosition: Integer;
   protected
     procedure DoCreate;
     procedure DoDestroy;
     procedure DoInit(const aForceEncoding: TEncoding);
   protected
-    procedure AddToNodePath(const aNodeName: OWideString);
-    procedure RemoveLastFromNodePath(var ioNodeName: OWideString);
+    procedure RemoveLastFromNodePath(const aCheckPath: Boolean);
     function NodePathIsEmpty: Boolean;
   public
     //create
@@ -393,9 +429,10 @@ type
     procedure ReleaseDocument;
   public
     //use ReadNextToken for reading next XML token
-    function ReadNextToken: Boolean;
+    function ReadNextToken(var outToken: PXMLReaderToken): Boolean;
 
-    property ReaderToken: TXMLReaderToken read fReaderToken;
+    //create
+    procedure SetAttributeTokens(const aAttributeTokens: TXMLReaderTokenList);
   public
     //following are functions to work with the current path in the XML document
     function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
@@ -428,15 +465,49 @@ type
     property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
     //size of original stream
     property StreamSize: ONativeInt read GetStreamSize;
+
+    //Character position in text
+    //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
+    //  -> in Delphi the position is always correct
+    property TextCharPosition: Integer read GetTextCharPosition;//current character, 1-based
+    property TextLinePosition: Integer read GetTextLinePosition;//current line, 1-based
+    //Position where last token was read
+    property LastTokenLinePosition: Integer read fLastTokenLinePosition;
+    property LastTokenCharPosition: Integer read fLastTokenCharPosition;
   end;
 
   EXmlWriterException = class(Exception);
   EXmlWriterInvalidString = class(EXmlWriterException);
   EXmlReaderException = class(Exception)
+  private
+    fTextCharPosition: Integer;
+    fTextLinePosition: Integer;
+    fLastTokenLinePosition: Integer;
+    fLastTokenCharPosition: Integer;
+    fXMLSourceStub: OWideString;
+    fXMLSourceStubPosition: Integer;
+  protected
+    procedure DoCreate(aReader: TXMLReader);
   public
     constructor Create(aReader: TXMLReader; const aMsg: string);
     constructor CreateFmt(aReader: TXMLReader;
       const aMsg: string; const aArgs: array of const);
+  public
+    //formatted error text
+    function GetFormattedErrorText: OWideString;
+  public
+    //Character position in text (when error was detected)
+    //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
+    //  -> in Delphi the position is always correct
+    property TextCharPosition: Integer read fTextCharPosition;//current character, 1-based
+    property TextLinePosition: Integer read fTextLinePosition;//current line, 1-based
+    //Position where last token was read (before the error)
+    property LastTokenCharPosition: Integer read fLastTokenCharPosition;//1-based
+    property LastTokenLinePosition: Integer read fLastTokenLinePosition;//1-based
+    //Source code stub
+    property XMLSourceStub: OWideString read fXMLSourceStub;
+    //position of error in XMLSourceStub, 1-based
+    property XMLSourceStubPosition: Integer read fXMLSourceStubPosition;
   end;
   EXmlReaderInvalidString = class(EXmlReaderException);
   EXmlReaderInvalidCharacter = class(EXmlReaderException);
@@ -457,7 +528,9 @@ begin
 
   RawText('<![CDATA[');
   RawText(aText);//MUST BE RAWTEXT - must contain unescaped characters
-  RawText(']]>');
+  RawChar(']');
+  RawChar(']');
+  RawChar('>');
 end;
 
 procedure TXMLWriter.Comment(const aText: OWideString);
@@ -467,9 +540,14 @@ begin
 
   Indent;
 
-  RawText('<!--');
+  RawChar('<');
+  RawChar('!');
+  RawChar('-');
+  RawChar('-');
   RawText(aText);//MUST BE RAWTEXT - must contain unescaped characters
-  RawText('-->');
+  RawChar('-');
+  RawChar('-');
+  RawChar('>');
 end;
 
 constructor TXMLWriter.Create(const aStream: TStream);
@@ -523,7 +601,7 @@ begin
 
   RawText('<!DOCTYPE ');
   RawText(aDocTypeRawText);//MUST BE RAW ESCAPED TEXT - the programmer has to be sure that aDocTypeRawText is valid
-  RawText('>');
+  RawChar('>');
 end;
 
 procedure TXMLWriter.CloseElement(const aElementName: OWideString; const aIndent: Boolean);
@@ -531,9 +609,10 @@ begin
   DecIndentLevel;
   if aIndent then
     Indent;
-  RawText('</');
+  RawChar('<');
+  RawChar('/');
   RawText(aElementName);//can be rawtext, because validated (in OpenElement)!
-  RawText('>');
+  RawChar('>');
 end;
 
 function TXMLWriter.GetEncoding: TEncoding;
@@ -589,12 +668,21 @@ begin
 
   Indent;
 
-  RawText('<?');
+  RawChar('<');
+  RawChar('?');
   RawText(aTarget);
   if aTarget <> '' then
-    RawText(' ');
+    RawChar(' ');
   RawText(aContent);//MUST BE RAWTEXT - must contain unescaped characters
-  RawText('?>');
+  RawChar('?');
+  RawChar('>');
+end;
+
+procedure TXMLWriter.RawChar(const aChar: OWideChar);
+begin
+  fWritten := True;
+
+  fWriter.WriteChar(aChar);
 end;
 
 procedure TXMLWriter.RawText(const aText: OWideString);
@@ -614,11 +702,12 @@ begin
   if fWriterSettings.fStrictXML and not OXmlValidName(aAttrName) then
     raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidAttributeName, [aAttrName]);
 
-  RawText(' ');
+  RawChar(' ');
   RawText(aAttrName);//can be rawtext, because validated!
-  RawText('="');
+  RawChar('=');
+  RawChar('"');
   Text(aAttrValue, OWideChar('"'));
-  RawText('"');
+  RawChar('"');
 end;
 
 procedure TXMLWriter.SetEncoding(const aEncoding: TEncoding);
@@ -671,42 +760,52 @@ begin
 
   Indent;
 
-  RawText('<');
+  RawChar('<');
   RawText(aElementName);
   case aMode of
     stOpenOnly: IncIndentLevel;
     stFinish: begin
-      RawText('>');
+      RawChar('>');
       IncIndentLevel;
     end;
-    stFinishClose: RawText('/>');
+    stFinishClose: begin
+      RawChar('/');
+      RawChar('>');
+    end;
+  end;
+end;
+
+procedure TXMLWriter.OpenElementR(const aElementName: OWideString;
+  var outElement: TXMLWriterElement; const aMode: TXMLWriterElementMode);
+begin
+  OpenElement(aElementName, aMode);
+
+  if aMode = stFinishClose then begin
+    outElement.fOwner := nil;//do not use after close
+  end else begin
+    outElement.fOwner := Self;
+    outElement.fElementName := aElementName;
+    outElement.fOpenElementFinished := (aMode = stFinish);
+    outElement.fChildrenWritten := False;
   end;
 end;
 
 procedure TXMLWriter.FinishOpenElement(const aElementName: OWideString);
 begin
-  RawText('>');
+  RawChar('>');
 end;
 
 procedure TXMLWriter.FinishOpenElementClose(const aElementName: OWideString);
 begin
   DecIndentLevel;
-  RawText('/>');
+  RawChar('/');
+  RawChar('>');
 end;
 
 function TXMLWriter.OpenElementR(const aElementName: OWideString;
   const aMode: TXMLWriterElementMode): TXMLWriterElement;
 begin
-  OpenElement(aElementName, aMode);
-
-  if aMode = stFinishClose then begin
-    Result.fOwner := nil;//do not use after close
-  end else begin
-    Result.fOwner := Self;
-    Result.fElementName := aElementName;
-    Result.fOpenElementFinished := (aMode = stFinish);
-    Result.fChildrenWritten := False;
-  end;
+  OpenElementR(aElementName, {%H-}Result, aMode);
 end;
 
 procedure TXMLWriter.Text(const aText: OWideString; const aQuoteChar: OWideChar);
@@ -728,24 +827,24 @@ begin
         if aQuoteChar = '"' then
           RawText('&quot;')
         else
-          RawText(xC);
+          RawChar(xC);
       '''':
         if aQuoteChar = '''' then
           RawText('&apos;')
         else
-          RawText(xC);
+          RawChar(xC);
       #10:
         if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
-          RawText(xC)
+          RawChar(xC)
         else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
           RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
       #13:
         if fWriterSettings.fLineBreak = lbDoNotProcess then
-          RawText(xC)
+          RawChar(xC)
         else
           RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
     else
-      RawText(xC);
+      RawChar(xC);
     end;
   end;
 end;
@@ -817,6 +916,14 @@ begin
   fOwner.OpenElement(aElementName, aMode);
 end;
 
+procedure TXMLWriterElement.OpenElementR(const aElementName: OWideString;
+  var outElement: TXMLWriterElement; const aMode: TXMLWriterElementMode);
+begin
+  FinishOpenElement;
+  fChildrenWritten := True;
+  fOwner.OpenElementR(aElementName, outElement, aMode);
+end;
+
 procedure TXMLWriterElement.FinishOpenElement;
 begin
   if not fOpenElementFinished then begin
@@ -828,9 +935,7 @@ end;
 function TXMLWriterElement.OpenElementR(const aElementName: OWideString;
   const aMode: TXMLWriterElementMode): TXMLWriterElement;
 begin
-  FinishOpenElement;
-  fChildrenWritten := True;
-  Result := fOwner.OpenElementR(aElementName, aMode);
+  OpenElementR(aElementName, {%H-}Result, aMode);
 end;
 
 procedure TXMLWriterElement.Text(const aText: OWideString);
@@ -840,928 +945,50 @@ begin
   fOwner.Text(aText);
 end;
 
-procedure TXMLReader.FinishOpenElement;
-begin
-  fReaderToken.fTokenName := fLastOpenElementName;
-  fReaderToken.fTokenValue := '';
-  if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
-    fReaderToken.fTokenType := rtFinishXMLDeclarationClose
-  else
-    fReaderToken.fTokenType := rtFinishOpenElement;
-end;
-
-procedure TXMLReader.FinishOpenElementClose;
-var
-  xC: OWideChar;
-begin
-  //opened after a '?' for PI or '/' for an element.
-
-  fReader.ReadNextChar({%H-}xC);//must be '>'
-  if xC <> '>' then begin
-    if fReaderSettings.fStrictXML then begin
-      if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
-        raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInElement, ['?'])
-      else
-        raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInElement, ['/']);
-    end else begin
-      //let's be generous and go over this invalid character
-      fReader.UndoRead;
-      ReadNextToken;
-      Exit;
-    end;
-  end;
-
-  fReaderToken.fTokenValue := '';
-  if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then begin
-    fReaderToken.fTokenName := 'xml';
-    fReaderToken.fTokenType := rtFinishXMLDeclarationClose;
-  end else begin
-    fReaderToken.fTokenName := fLastOpenElementName;
-    fReaderToken.fTokenType := rtFinishOpenElementClose;
-
-    RemoveLastFromNodePath(fReaderToken.fTokenName);
-  end;
-end;
-
-procedure TXMLReader.Text(const aClearCustomBuffer: Boolean);
-var
-  xC: OWideChar;
-begin
-  if aClearCustomBuffer then
-    fReader.ClearCustomBuffer;
-  fReader.ReadNextChar({%H-}xC);
-
-  while True do begin
-    case xC of
-      #0, '<': break;
-      '&': ProcessEntity;
-      #10, #13: ProcessNewLineChar(xC);
-    else
-      fReader.WritePreviousCharToBuffer;
-    end;
-    fReader.ReadNextChar(xC);
-  end;
-
-  if xC <> #0 then
-    fReader.UndoRead;
-  fReaderToken.fTokenType := rtText;
-  fReaderToken.fTokenName := '';
-  fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-end;
-
-procedure TXMLReader.AddToNodePath(const aNodeName: OWideString);
-begin
-  Inc(fNodePathLevel);
-  if fReaderSettings.fNodePathHandling in [npFull, npLastPath] then begin
-    fLastOpenElementName := aNodeName;
-    if fReaderSettings.fNodePathHandling = npFull then
-      fNodePath.Add(fLastOpenElementName);
-  end;
-end;
-
-procedure TXMLReader.Attribute;
-var
-  xC: OWideChar;
-  xQuotationMark: OWideChar;
-begin
-  fReader.ClearCustomBuffer;
-  fReader.ReadNextChar({%H-}xC);
-
-  if fReaderSettings.fStrictXML and not OXmlIsNameStartChar(xC) then
-    raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidAttributeStartChar, [xC]);
-
-  if not fReaderSettings.fStrictXML then begin
-    //not StrictXML
-
-    repeat//read attribute name
-      fReader.WritePreviousCharToBuffer;
-      fReader.ReadNextChar(xC);
-    until OXmlIsBreakChar(xC);
-  end else begin
-    //StrictXML
-    while OXmlIsNameChar(xC) do begin//read attribute name
-      fReader.WritePreviousCharToBuffer;
-      fReader.ReadNextChar(xC);
-    end;
-  end;
-  fReaderToken.fTokenName := fReader.GetCustomBuffer;
-
-  if not fReaderSettings.fStrictXML then
-    while OXmlIsWhiteSpaceChar(xC) do//jump over spaces "attr ="
-      fReader.ReadNextChar(xC);
-
-  if xC <> '=' then begin
-    //let's be generous and allow attributes without values - even if they are not allowed by xml spec
-    if fReaderSettings.fStrictXML then begin
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_EqualSignMustFollowAttribute, [fReaderToken.TokenName]);
-    end else begin
-      fReaderToken.fTokenValue := '';
-      fReader.UndoRead;
-    end;
-  end else begin
-    fReader.ReadNextChar(xC);
-    if not fReaderSettings.fStrictXML then
-      while OXmlIsWhiteSpaceChar(xC) do//jump over spaces "= value"
-        fReader.ReadNextChar(xC);
-
-    xQuotationMark := xC;
-    if (xQuotationMark = '''') or (xQuotationMark = '"') then begin
-      //read attribute value in quotation marks
-      fReader.ClearCustomBuffer;
-      fReader.ReadNextChar(xC);
-      while xC <> xQuotationMark do begin
-        case xC of
-          #0: Break;
-          '&': ProcessEntity;
-          #10, #13: ProcessNewLineChar(xC);
-        else
-          fReader.WritePreviousCharToBuffer;
-        end;
-        fReader.ReadNextChar(xC);
-      end;
-    end else begin
-      if fReaderSettings.fStrictXML then begin
-        raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_AttributeValueMustBeEnclosed, [fReaderToken.TokenName]);
-      end else begin
-        //let's be generous and allow attribute values that are not enclosed in quotes
-        fReader.ClearCustomBuffer;
-        while not OXmlIsBreakChar(xC) do begin
-          case xC of
-            #0: Break;
-            '&': ProcessEntity;
-            #10, #13: ProcessNewLineChar(xC);
-          else
-            fReader.WritePreviousCharToBuffer;
-          end;
-          fReader.ReadNextChar(xC);
-        end;
-      end;
-    end;
-
-    fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-  end;
-
-  if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then begin
-    fReaderToken.fTokenType := rtXMLDeclarationAttribute;
-
-    if not fForceEncoding and fAllowSetEncodingFromFile and
-      (fReaderToken.TokenName = 'encoding')
-    then
-      ChangeEncoding(fReaderToken.TokenValue);
-  end else begin
-    fReaderToken.fTokenType := rtAttribute;
-  end;
-end;
-
-procedure TXMLReader.CData;
-begin
-  ExclamationNode(rtCData, '<![CDATA[', ']]>', False);
-end;
-
-procedure TXMLReader.ChangeEncoding(const aEncodingAlias: OWideString);
-var
-  xLastName: OWideString;
-  xEncoding: TEncoding;
-  xInXMLDeclaration: Boolean;
-begin
-  if
-    GetCreateCodePage(aEncodingAlias, {%H-}xEncoding) and
-    (fReader.Encoding <> xEncoding)
-  then begin
-    //reload document with new encoding
-    fReader.Encoding := xEncoding;
-    if fAllowSetEncodingFromFile then begin
-      fAllowSetEncodingFromFile := False;
-      fReader.UnblockFlushTempBuffer;//was blocked in TXMLReader.Create
-    end;
-    //go back to current position
-    xInXMLDeclaration := False;
-    xLastName := fReaderToken.TokenName;
-    fPreviousTokenType := rtDocumentStart;
-    //parse from beginning back to the encoding attribute
-    while ReadNextToken do begin
-      case fReaderToken.TokenType of
-        rtOpenXMLDeclaration: xInXMLDeclaration := True;
-        rtOpenElement: xInXMLDeclaration := False;
-        rtXMLDeclarationAttribute:
-        if xInXMLDeclaration and (fReaderToken.TokenName = xLastName) then begin
-          Exit;
-        end;
-      end;
-    end;
-  end;
-end;
-
-procedure TXMLReader.Comment;
-begin
-  ExclamationNode(rtComment, '<!--', '-->', False);
-end;
-
-constructor TXMLReader.Create;
-begin
-  inherited Create;
-
-  DoCreate;
-end;
-
-constructor TXMLReader.Create(const aStream: TStream;
-  const aForceEncoding: TEncoding = nil);
-begin
-  inherited Create;
-
-  DoCreate;
-
-  InitStream(aStream, aForceEncoding);
-end;
-
-procedure TXMLReader.DoInit(const aForceEncoding: TEncoding);
-begin
-  fAllowSetEncodingFromFile := True;
-  fDocumentElementFound := False;
-  fElementsToClose := 0;
-  fPreviousTokenType := rtDocumentStart;
-  fNodePath.Clear;
-
-  fReader.BlockFlushTempBuffer;//will be unblocked when fAllowSetEncodingFromFile is set to false
-  if Assigned(aForceEncoding) then
-    Self.Encoding := aForceEncoding
-  else
-    Self.fForceEncoding := False;
-end;
-
-destructor TXMLReader.Destroy;
-begin
-  DoDestroy;
-
-  inherited;
-end;
-
-procedure TXMLReader.DoCreate;
-begin
-  fReader := TOTextReader.Create;
-  fReaderToken := TXMLReaderToken.Create;
-  fReaderSettings := TXMLReaderSettings.Create;
-
-  fNodePath := TOBufferWideStrings.Create;
-end;
-
-procedure TXMLReader.DocType;
-begin
-  ExclamationNode(rtDocType, '<!DOCTYPE', '>', True);
-end;
-
-procedure TXMLReader.DoDestroy;
-begin
-  fReader.Free;
-  fReaderToken.Free;
-  fReaderSettings.Free;
-  fNodePath.Free;
-
-  inherited;
-end;
-
-procedure TXMLReader.SetEncoding(const aEncoding: TEncoding);
-begin
-  fReader.Encoding := aEncoding;
-  fForceEncoding := True;
-end;
-
-procedure TXMLReader.SetOwnsEncoding(const aSetOwnsEncoding: Boolean);
-begin
-  fReader.OwnsEncoding := aSetOwnsEncoding;
-end;
-
-procedure TXMLReader.ExclamationNode(
-  const aTokenType: TXMLReaderTokenType; const aBeginTag, aEndTag: OWideString;
-  const aWhiteSpaceAfterBeginTag: Boolean);
-var
-  I: Integer;
-  xC: OWideChar;
-  xPreviousC: OWideString;
-  xResult: Boolean;
-begin
-  fReader.ClearCustomBuffer;
-  fReader.WriteStringToBuffer('<!');
-  xResult := True;
-  for I := 3 to Length(aBeginTag) do begin
-    fReader.ReadNextChar({%H-}xC);
-    if aBeginTag[I] <> UpperCase(xC) then begin
-      xResult := False;
-      fReader.UndoRead;
-      Break;
-    end;
-    fReader.WritePreviousCharToBuffer;
-  end;
-
-  if aWhiteSpaceAfterBeginTag and xResult then begin
-    //must be followed by a whitespace character
-    fReader.ReadNextChar(xC);
-    fReader.WritePreviousCharToBuffer;
-    xResult := OXmlIsWhiteSpaceChar(xC);
-  end;
-
-  if not xResult then begin
-    //header not found
-    if fReaderSettings.fStrictXML then begin
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidCharacterInText, ['<']);
-    end else begin
-      //output as text
-      if xC <> '<' then begin
-        Text(False);
-      end else begin
-        fReaderToken.fTokenType := rtText;
-        fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-        fReaderToken.fTokenName := '';
-      end;
-      Exit;
-    end;
-  end else begin
-    fReader.ClearCustomBuffer;
-    SetLength(xPreviousC, Length(aEndTag));
-    FillChar(xPreviousC[1], Length(xPreviousC)*SizeOf(OWideChar), 0);
-    repeat
-      if Length(xPreviousC) > 1 then
-        Move(xPreviousC[2], xPreviousC[1], (Length(xPreviousC)-1)*SizeOf(OWideChar));
-      fReader.ReadNextChar(xC);
-      xPreviousC[Length(xPreviousC)] := xC;
-      fReader.WritePreviousCharToBuffer;
-    until ((xPreviousC = aEndTag) or (xC = #0));
-
-    for I := 1 to Length(aEndTag) do
-      fReader.RemovePreviousCharFromBuffer;
-
-    fReaderToken.fTokenType := aTokenType;
-    fReaderToken.fTokenName := '';
-    fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-  end;
-end;
-
-procedure TXMLReader.OpenElement;
-var
-  xC: OWideChar;
-begin
-  fReader.ClearCustomBuffer;
-  fReader.ReadNextChar({%H-}xC);
-
-  case xC of
-    '!': begin
-      //comment or cdata
-      fReader.ReadNextChar(xC);
-      fReader.UndoRead;
-      case xC of
-        '[': CData;
-        '-': Comment;
-        'D', 'd': DocType;
-      else
-        if fReaderSettings.fStrictXML then begin
-          raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInText, ['<']);
-        end else begin
-          fReader.WriteStringToBuffer('<!');
-          if xC <> '<' then begin
-            Text(False);
-          end else begin
-            fReaderToken.fTokenType := rtText;
-            fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-            fReaderToken.fTokenName := '';
-          end;
-          Exit;
-        end;
-      end;
-      Exit;
-    end;
-    '/': begin
-      //close element
-      CloseElement;
-      Exit;
-    end;
-    '?': begin
-      //processing instruction
-      ProcessingInstruction;
-      Exit;
-    end;
-  end;
-
-  if fAllowSetEncodingFromFile then begin
-    fAllowSetEncodingFromFile := False;// -> first Node found, encoding change is not allowed any more
-    fReader.UnblockFlushTempBuffer;//was blocked in TXMLReader.Create
-  end;
-
-  if fReaderSettings.fStrictXML then begin
-    if not OXmlIsNameStartChar(xC) then
-      raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInText, ['<']);
-
-    while OXmlIsNameChar(xC) do begin
-      fReader.WritePreviousCharToBuffer;
-      fReader.ReadNextChar(xC);
-    end;
-
-    if (xC = '/') or (xC = '>') then
-      fReader.UndoRead
-    else if not OXmlIsWhiteSpaceChar(xC) then
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidElementName, [fReader.GetCustomBuffer+xC]);
-  end else begin
-    if not OXmlIsNameChar(xC) then begin
-      fReader.WriteCharToBuffer('<');
-      fReader.UndoRead;
-      if xC <> '<' then begin
-        Text(False);
-      end else begin
-        fReaderToken.fTokenType := rtText;
-        fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-        fReaderToken.fTokenName := '';
-      end;
-      Exit;
-    end else begin
-      while not OXmlIsBreakChar(xC) do begin
-        fReader.WritePreviousCharToBuffer;
-        fReader.ReadNextChar(xC);
-      end;
-
-      if (xC = '/') or (xC = '>') then
-        fReader.UndoRead
-    end;
-  end;
-
-  fDocumentElementFound := True;
-  fReaderToken.fTokenName := fReader.GetCustomBuffer;
-  fReaderToken.fTokenValue := '';
-  fReaderToken.fTokenType := rtOpenElement;
-
-  AddToNodePath(fReaderToken.TokenName);
-end;
-
-function TXMLReader.ReadNextToken: Boolean;
-var
-  xC: OWideChar;
-begin
-  Result := True;
-
-  if fElementsToClose > 0 then begin
-    //close elements
-    fReaderToken.fTokenType := rtCloseElement;
-    if fNodePath.Count > 0 then
-      fNodePath.Get(fNodePath.Count-1, fReaderToken.fTokenName)
-    else
-      fReaderToken.fTokenName := '';
-    fReaderToken.fTokenValue := '';
-    RemoveLastFromNodePath(fReaderToken.fTokenName);
-    Dec(fElementsToClose);
-    fPreviousTokenType := fReaderToken.TokenType;
-    Exit;
-  end;
-
-  if (fReaderSettings.fBreakReading = brAfterDocumentElement) and
-     (fDocumentElementFound) and
-     NodePathIsEmpty
-  then begin
-    //end of root element is reached, release document and close
-    Result := False;
-    ReleaseDocument;
-    Exit;
-  end;
-
-  fReader.ReadNextChar({%H-}xC);
-  case xC of
-    #0: begin
-      //end of document
-      Result := False;
-      ReleaseDocument;
-      Exit;
-    end;
-    '<': begin
-      if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute] then
-      begin
-        if fReaderSettings.fStrictXML then begin
-          raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInElement, [xC]);
-        end else begin
-          fReader.UndoRead;
-          Attribute;
-        end;
-      end else begin
-        OpenElement;
-      end;
-    end;
-    '?': begin
-      if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
-      begin
-        FinishOpenElementClose
-      end
-      else
-      begin
-        //text
-        fReader.UndoRead;
-        Text;
-      end;
-    end;
-    '/': begin
-      if fPreviousTokenType in [rtOpenElement, rtAttribute] then
-      begin
-        FinishOpenElementClose
-      end
-      else
-      begin
-        //text
-        fReader.UndoRead;
-        Text;
-      end;
-    end;
-    '>': begin
-      if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute] then
-      begin
-        FinishOpenElement;
-      end else begin
-        if fReaderSettings.fStrictXML then begin
-          raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInText, [xC]);
-        end else begin
-          //text
-          fReader.UndoRead;
-          Text;
-        end;
-      end;
-    end;
-  else
-    if fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute]
-    then begin
-      while OXmlIsWhiteSpaceChar(xC) do
-        fReader.ReadNextChar(xC);
-
-      if ((xC = '/') and (fPreviousTokenType in [rtOpenElement, rtAttribute])) or
-         ((xC = '?') and (fPreviousTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute]))
-      then begin
-        FinishOpenElementClose;
-      end else if ((xC = '>') and (fPreviousTokenType in [rtOpenElement, rtAttribute])) then begin
-        FinishOpenElement;
-      end else begin
-        fReader.UndoRead;
-        Attribute;
-      end;
-    end else begin
-      //text
-      fReader.UndoRead;
-      Text;
-    end;
-  end;
-
-  fPreviousTokenType := fReaderToken.TokenType;
-end;
-
-procedure TXMLReader.CloseElement;
-var
-  xC: OWideChar;
-begin
-  fReader.ClearCustomBuffer;
-  fReader.ReadNextChar({%H-}xC);
-
-  if fReaderSettings.fStrictXML then begin
-    if not OXmlIsNameStartChar(xC) then
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['</'+xC]);
-
-    while OXmlIsNameChar(xC) do begin
-      fReader.WritePreviousCharToBuffer;
-      fReader.ReadNextChar(xC);
-    end;
-    while OXmlIsWhiteSpaceChar(xC) do begin
-      fReader.ReadNextChar(xC);
-    end;
-    if xC <> '>' then
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['</'+fReader.GetCustomBuffer]);
-  end else begin
-    if not OXmlIsNameChar(xC) then begin
-      fReader.WriteStringToBuffer('</');
-      fReader.UndoRead;
-      if xC <> '<' then begin
-        Text(False);
-      end else begin
-        fReaderToken.fTokenType := rtText;
-        fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-        fReaderToken.fTokenName := '';
-      end;
-      Exit;
-    end else begin
-      while not OXmlIsBreakChar(xC) do begin
-        fReader.WritePreviousCharToBuffer;
-        fReader.ReadNextChar(xC);
-      end;
-      while not((xC = '>') or (xC = #0)) do begin
-        fReader.ReadNextChar(xC);
-      end;
-    end;
-  end;
-
-  fReaderToken.fTokenName := fReader.GetCustomBuffer;
-  fReaderToken.fTokenValue := '';
-  fReaderToken.fTokenType := rtCloseElement;
-
-  RemoveLastFromNodePath(fReaderToken.fTokenName);
-end;
-
-function TXMLReader.GetApproxStreamPosition: ONativeInt;
-begin
-  Result := fReader.ApproxStreamPosition;
-end;
-
-function TXMLReader.GetEncoding: TEncoding;
-begin
-  Result := fReader.Encoding;
-end;
-
-function TXMLReader.GetOwnsEncoding: Boolean;
-begin
-  Result := fReader.OwnsEncoding;
-end;
-
-function TXMLReader.GetStreamSize: ONativeInt;
-begin
-  Result := fReader.StreamSize;
-end;
-
-{$IFDEF O_GENERICBYTES}
-procedure TXMLReader.InitBuffer(const aBuffer: TBytes;
-  const aForceEncoding: TEncoding);
-begin
-  fReader.InitBuffer(aBuffer);
-  DoInit(aForceEncoding);
-end;
-{$ENDIF}
-
-procedure TXMLReader.InitFile(const aFileName: String;
-  const aForceEncoding: TEncoding);
-begin
-  fReader.InitFile(aFileName);
-  DoInit(aForceEncoding);
-end;
-
-procedure TXMLReader.InitStream(const aStream: TStream;
-  const aForceEncoding: TEncoding);
-begin
-  fReader.InitStream(aStream);
-  DoInit(aForceEncoding);
-end;
-
-procedure TXMLReader.InitXML(const aXML: OWideString);
-begin
-  fReader.InitString(aXML);
-  DoInit(TEncoding.OWideStringEncoding);
-end;
-
-function TXMLReader.NodePathIsEmpty: Boolean;
-begin
-  Result := (fNodePathLevel = 0);
-end;
-
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLReader.InitXML_UTF8(const aXML: ORawByteString);
-begin
-  fReader.InitString_UTF8(aXML);
-  DoInit(TEncoding.UTF8);
-end;
-{$ENDIF}
-
-procedure TXMLReader.ProcessEntity;
-  procedure _EntityError(bCustomEntityString: OWideString = '');
-  begin
-    if fReaderSettings.fStrictXML then begin
-      if bCustomEntityString = '' then begin
-        fReader.WritePreviousCharToBuffer(1);
-        bCustomEntityString := fReader.GetCustomBuffer(1);
-      end;
-      raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidEntity, ['&'+bCustomEntityString]);
-    end else begin
-      if bCustomEntityString = '' then
-        bCustomEntityString := fReader.GetCustomBuffer(1);
-
-      fReader.UndoRead;
-      fReader.WriteStringToBuffer('&'+bCustomEntityString, 0);
-    end;
-  end;
-var
-  xC: OWideChar;
-  xEntityString: OWideString;
-  xOutputChar: Integer;
-  xIsHex: Boolean;
-  xOutputEntity: OWideString;
-begin
-  xOutputEntity := '';
-  xOutputChar := 0;
-  fReader.ClearCustomBuffer(1);
-
-  fReader.ReadNextChar({%H-}xC);
-  if xC = '#' then begin
-    fReader.ReadNextChar(xC);
-    xIsHex := (xC = 'x');
-    if xIsHex then begin
-      fReader.ReadNextChar(xC);
-      while OXmlIsHexadecimalChar(xC) do begin
-        fReader.WritePreviousCharToBuffer(1);
-        fReader.ReadNextChar(xC);
-      end;
-
-      if xC <> ';' then begin
-        _EntityError;
-        Exit;
-      end;
-
-      xEntityString := fReader.GetCustomBuffer(1);
-      if not TryStrToInt('$'+xEntityString, xOutputChar) then begin
-        _EntityError(xEntityString);
-        Exit;
-      end;
-    end else begin
-      while OXmlIsDecimalChar(xC) do begin
-        fReader.WritePreviousCharToBuffer(1);
-        fReader.ReadNextChar(xC);
-      end;
-
-      if xC <> ';' then begin
-        _EntityError;
-        Exit;
-      end;
-
-      xEntityString := fReader.GetCustomBuffer(1);
-      if not TryStrToInt(xEntityString, xOutputChar) then begin
-        _EntityError(xEntityString);
-        Exit;
-      end;
-    end;
-
-  end else begin
-    if not OXmlIsNameStartChar(xC) then begin
-      _EntityError;
-      Exit;
-    end;
-
-    while OXmlIsNameChar(xC) do begin
-      fReader.WritePreviousCharToBuffer(1);
-      fReader.ReadNextChar(xC);
-    end;
-
-    if xC <> ';' then begin
-      _EntityError;
-      Exit;
-    end;
-
-    xEntityString := fReader.GetCustomBuffer(1);
-    if not fReaderSettings.fEntityList.TryGetValue(xEntityString, xOutputEntity) then begin
-      _EntityError(xEntityString);
-      Exit;
-    end;
-  end;
-
-  if (xOutputChar > 0) and (xOutputEntity = '') then begin
-    {$IFDEF FPC}
-    xOutputEntity := UTF8Encode(WideString(WideChar(xOutputChar)));
-    {$ELSE}
-    xOutputEntity := OWideString(OWideChar(xOutputChar));
-    {$ENDIF}
-  end;
-
-  if xOutputEntity <> '' then
-    fReader.WriteStringToBuffer(xOutputEntity, 0);
-end;
-
-procedure TXMLReader.ProcessingInstruction;
-var
-  xC: OWideChar;
-  xPreviousC: OWideChar;
-begin
-  fReader.ClearCustomBuffer;
-  fReader.ReadNextChar({%H-}xC);
-
-  if fReaderSettings.fStrictXML then begin
-    if not OXmlIsNameStartChar(xC) then
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['<?'+xC]);
-
-    while OXmlIsNameChar(xC) do begin
-      fReader.WritePreviousCharToBuffer;
-      fReader.ReadNextChar(xC);
-    end;
-
-    if not OXmlIsWhiteSpaceChar(xC) then begin
-      //must be followed by a whitespace character
-      fReader.WritePreviousCharToBuffer;
-      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['<?'+fReader.GetCustomBuffer]);
-    end;
-  end else begin
-    while not OXmlIsBreakChar(xC) do begin
-      fReader.WritePreviousCharToBuffer;
-      fReader.ReadNextChar(xC);
-    end;
-  end;
-
-  fReaderToken.fTokenName := fReader.GetCustomBuffer;
-  if (fPreviousTokenType = rtDocumentStart) and
-    fReaderSettings.fRecognizeXMLDeclaration and
-    SameText(fReaderToken.TokenName, 'xml')
-  then begin
-    //xml declaration: <?xml attr="value"?>
-    fReaderToken.fTokenType := rtOpenXMLDeclaration;
-    fReaderToken.fTokenValue := '';
-    Exit;
-  end;
-
-  //custom processing instruction
-  fReaderToken.fTokenType := rtProcessingInstruction;
-  fReader.ClearCustomBuffer;
-  if not fReaderSettings.fStrictXML and (fReaderToken.TokenName = '') then
-    fReader.UndoRead;
-
-  xPreviousC := #0;
-  fReader.ReadNextChar(xC);
-  while
-    not((xPreviousC = '?') and (xC = '>')) and
-    not(xC = #0)
-  do begin
-    fReader.WritePreviousCharToBuffer;
-    xPreviousC := xC;
-    fReader.ReadNextChar(xC);
-  end;
-  fReader.RemovePreviousCharFromBuffer;
-
-  fReaderToken.fTokenValue := fReader.GetCustomBuffer;
-end;
-
-procedure TXMLReader.ProcessNewLineChar(const aLastChar: OWideChar);
-var
-  xC: OWideChar;
-begin
-  if fReaderSettings.fLineBreak <> lbDoNotProcess then begin
-    if aLastChar = #13 then begin
-      fReader.ReadNextChar({%H-}xC);
-      if xC <> #10 then
-        fReader.UndoRead;
-    end;
-
-    fReader.WriteStringToBuffer(XmlLineBreak[fReaderSettings.fLineBreak]);
-  end else begin
-    fReader.WriteCharToBuffer(aLastChar);
-  end;
-end;
-
-procedure TXMLReader.ReleaseDocument;
-begin
-  fReader.ReleaseDocument;
-end;
-
-procedure TXMLReader.RemoveLastFromNodePath(var ioNodeName: OWideString);
-var
-  I: Integer;
-begin
-  Dec(fNodePathLevel);
-  if fReaderSettings.fNodePathHandling <> npFull then
-    Exit;
-
-  if (fNodePath.Count = 0) then begin
-    //there is no open element
-    if fReaderSettings.fStrictXML then
-      raise EXmlReaderInvalidStructure.Create(Self, OXmlLng_TooManyElementsClosed);
-  end else begin
-    if
-       (ioNodeName <> '') and
-       (fNodePath.Get(fNodePath.Count-1) <> ioNodeName)
-    then begin
-      //element names do not match
-      if fReaderSettings.fStrictXML then begin
-        raise EXmlReaderInvalidStructure.CreateFmt(Self, OXmlLng_WrongElementClosed, [ioNodeName, fNodePath.Get(fNodePath.Count-1)]);
-      end else begin
-        //trying to close parent element
-        for I := fNodePath.Count-2 downto 0 do
-        if (fNodePath.Get(I) = ioNodeName) then begin
-          //parent element with the same name found, we have to close more elements in the future!!!
-          fElementsToClose := (fNodePath.Count - I - 1);
-          Break;
-        end;
-
-        //delete the last one from fNodePath
-        //  + rename the element if names differ
-        if ioNodeName <> '' then
-          ioNodeName := fNodePath.Get(fNodePath.Count-1);
-        fNodePath.DeleteLast;
-      end;
-    end else begin
-      //everything is fine -> delete last from fNodePath
-      fNodePath.DeleteLast;
-    end;
-  end;
-end;
-
 { EXmlReaderException }
 
 constructor EXmlReaderException.Create(aReader: TXMLReader;
   const aMsg: string);
 begin
+  DoCreate(aReader);
+
   inherited Create(
     aMsg+
     sLineBreak+sLineBreak+
-    Format(OXmlLng_ReadingAt, [aReader.fReader.ReadPreviousString(10)+aReader.fReader.ReadString(30)]));
+    GetFormattedErrorText);
 end;
 
 constructor EXmlReaderException.CreateFmt(aReader: TXMLReader;
   const aMsg: string; const aArgs: array of const);
 begin
+  DoCreate(aReader);
+
   inherited Create(
     Format(aMsg, aArgs)+
     sLineBreak+sLineBreak+
-    Format(OXmlLng_ReadingAt, [aReader.fReader.ReadPreviousString(10)+aReader.fReader.ReadString(30)]));
+    GetFormattedErrorText);
+end;
+
+procedure EXmlReaderException.DoCreate(aReader: TXMLReader);
+begin
+  fTextCharPosition := aReader.TextCharPosition;
+  fLastTokenLinePosition := aReader.LastTokenLinePosition;
+  fTextLinePosition := aReader.TextLinePosition;
+  fLastTokenCharPosition := aReader.LastTokenCharPosition;
+  fXMLSourceStub := aReader.fReader.ReadPreviousString(30, True);
+  fXMLSourceStubPosition := Length(fXMLSourceStub);
+  fXMLSourceStub := fXMLSourceStub + aReader.fReader.ReadString(10, True);
+end;
+
+function EXmlReaderException.GetFormattedErrorText: OWideString;
+begin
+  Result :=
+    Format(OXmlLng_ReadingAt, [
+      TextLinePosition,
+      TextCharPosition,
+      LastTokenLinePosition,
+      LastTokenCharPosition,
+      XMLSourceStub]);
 end;
 
 { TXMLWriterSettings }
@@ -1815,7 +1042,6 @@ begin
     xDest.BreakReading := Self.BreakReading;
     xDest.LineBreak := Self.LineBreak;
     xDest.StrictXML := Self.StrictXML;
-    xDest.NodePathHandling := Self.NodePathHandling;
     {$IFDEF O_GENERICS}
     xDest.EntityList.Clear;
     for xEntity in Self.EntityList do
@@ -1838,7 +1064,6 @@ begin
   fEntityList.Add('lt', '<');
   fEntityList.Add('gt', '>');
 
-  fNodePathHandling := npFull;
   fBreakReading := brAfterDocumentElement;
   fLineBreak := XmlDefaultLineBreak;
   fStrictXML := True;
@@ -1854,36 +1079,997 @@ end;
 
 { TXMLReader }
 
+procedure TXMLReader.FinishOpenElement;
+begin
+  fReaderToken := fOpenElementTokens.GetToken(fOpenElementTokens.Count-1);//has TokenName already set
+  fReaderToken.TokenValue := '';
+  if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
+    fReaderToken.TokenType := rtFinishXMLDeclarationClose
+  else
+    fReaderToken.TokenType := rtFinishOpenElement;
+end;
+
+procedure TXMLReader.FinishOpenElementClose;
+var
+  xC: OWideChar;
+  x: PXMLReaderToken;
+begin
+  //opened after a '?' for PI or '/' for an element.
+
+  fReader.ReadNextChar({%H-}xC);//must be '>'
+  if xC <> '>' then begin
+    if fReaderSettings.fStrictXML then begin
+      if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
+        raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInElement, ['?'])
+      else
+        raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInElement, ['/']);
+    end else begin
+      //let's be generous and go over this invalid character
+      fReader.UndoRead;
+      ReadNextToken({%H-}x);
+      Exit;
+    end;
+  end;
+
+  fReaderToken := fOpenElementTokens.GetToken(fOpenElementTokens.Count-1);//has TokenName already set
+  fReaderToken.TokenValue := '';
+  if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then begin
+    fReaderToken.TokenType := rtFinishXMLDeclarationClose;
+  end else begin
+    fReaderToken.TokenType := rtFinishOpenElementClose;
+  end;
+  RemoveLastFromNodePath(False);
+end;
+
+procedure TXMLReader.Text(const aClearCustomBuffer: Boolean);
+var
+  xC: OWideChar;
+begin
+  if aClearCustomBuffer then
+    fMainBuffer.Clear(False);
+  fReader.ReadNextChar({%H-}xC);
+
+  while True do begin
+    case xC of
+      #0, '<': break;
+      '&': ProcessEntity;
+      #10, #13: ProcessNewLineChar(xC);
+    else
+      fMainBuffer.WriteChar(xC);
+    end;
+    fReader.ReadNextChar(xC);
+  end;
+
+  if xC <> #0 then
+    fReader.UndoRead;
+  fReaderToken.TokenType := rtText;
+  fReaderToken.TokenName := '';
+  fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+end;
+
+procedure TXMLReader.Attribute;
+var
+  xC: OWideChar;
+  xQuotationMark: OWideChar;
+begin
+  if Assigned(fAttributeTokens) then
+  begin
+    fReaderToken := fAttributeTokens.CreateNew;
+    fAttributeTokens.AddLast;
+  end;
+
+  fMainBuffer.Clear(False);
+  fReader.ReadNextChar({%H-}xC);
+
+  if fReaderSettings.fStrictXML and not OXmlIsNameStartChar(xC) then
+    raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidAttributeStartChar, [xC]);
+
+  if not fReaderSettings.fStrictXML then begin
+    //not StrictXML
+
+    repeat//read attribute name
+      fMainBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    until OXmlIsBreakChar(xC);
+  end else begin
+    //StrictXML
+    while OXmlIsNameChar(xC) do begin//read attribute name
+      fMainBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    end;
+  end;
+  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+
+  while OXmlIsWhiteSpaceChar(xC) do//jump over spaces "attr ="
+    fReader.ReadNextChar(xC);
+
+  if xC <> '=' then begin
+    //let's be generous and allow attributes without values - even if they are not allowed by xml spec
+    if fReaderSettings.fStrictXML then begin
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_EqualSignMustFollowAttribute, [fReaderToken.TokenName]);
+    end else begin
+      fReaderToken.TokenValue := '';
+      fReader.UndoRead;
+    end;
+  end else begin
+    fReader.ReadNextChar(xC);
+    while OXmlIsWhiteSpaceChar(xC) do//jump over spaces "= value"
+      fReader.ReadNextChar(xC);
+
+    xQuotationMark := xC;
+    if (xQuotationMark = '''') or (xQuotationMark = '"') then begin
+      //read attribute value in quotation marks
+      fMainBuffer.Clear(False);
+      fReader.ReadNextChar(xC);
+      while xC <> xQuotationMark do begin
+        case xC of
+          #0: Break;
+          '&': ProcessEntity;
+          #10, #13: ProcessNewLineChar(xC);
+          '>', '<':
+            if fReaderSettings.fStrictXML then
+              raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidCharacterInAttribute, [OWideString(xC)])
+            else
+              fMainBuffer.WriteChar(xC);
+        else
+          fMainBuffer.WriteChar(xC);
+        end;
+        fReader.ReadNextChar(xC);
+      end;
+    end else begin
+      if fReaderSettings.fStrictXML then begin
+        raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_AttributeValueMustBeEnclosed, [fReaderToken.TokenName]);
+      end else begin
+        //let's be generous and allow attribute values that are not enclosed in quotes
+        fMainBuffer.Clear(False);
+        while not OXmlIsBreakChar(xC) do begin
+          case xC of
+            #0: Break;
+            '&': ProcessEntity;
+            #10, #13: ProcessNewLineChar(xC);
+          else
+            fMainBuffer.WriteChar(xC);
+          end;
+          fReader.ReadNextChar(xC);
+        end;
+      end;
+    end;
+
+    fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+  end;
+
+  if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then begin
+    fReaderToken.TokenType := rtXMLDeclarationAttribute;
+
+    if not fForceEncoding and fAllowSetEncodingFromFile and
+      (fReaderToken.TokenName = 'encoding')
+    then
+      ChangeEncoding(fReaderToken.TokenValue);
+  end else begin
+    fReaderToken.TokenType := rtAttribute;
+  end;
+end;
+
+procedure TXMLReader.CData;
+begin
+  ExclamationNode(rtCData, '<![CDATA[', ']]>', False);
+end;
+
+procedure TXMLReader.ChangeEncoding(const aEncodingAlias: OWideString);
+var
+  xLastName: OWideString;
+  xEncoding: TEncoding;
+  xInXMLDeclaration: Boolean;
+  xReaderToken: PXMLReaderToken;
+begin
+  if
+    GetCreateCodePage(aEncodingAlias, {%H-}xEncoding) and
+    (fReader.Encoding <> xEncoding)
+  then begin
+    //reload document with new encoding
+    fReader.Encoding := xEncoding;
+    if fAllowSetEncodingFromFile then begin
+      fAllowSetEncodingFromFile := False;
+      fReader.UnblockFlushTempBuffer;//was blocked in TXMLReader.Create
+    end;
+    //go back to current position
+    xInXMLDeclaration := False;
+    xLastName := fReaderToken.TokenName;
+    fLastTokenType := rtDocumentStart;
+    fOpenElementTokens.Clear;
+    //parse from beginning back to the encoding attribute
+    while ReadNextToken({%H-}xReaderToken) do begin
+      case xReaderToken.TokenType of
+        rtOpenXMLDeclaration: xInXMLDeclaration := True;
+        rtOpenElement: xInXMLDeclaration := False;
+        rtXMLDeclarationAttribute:
+        if xInXMLDeclaration and (xReaderToken.TokenName = xLastName) then begin
+          Exit;
+        end;
+      end;
+    end;
+  end;
+end;
+
+procedure TXMLReader.Comment;
+begin
+  ExclamationNode(rtComment, '<!--', '-->', False);
+end;
+
+constructor TXMLReader.Create;
+begin
+  inherited Create;
+
+  DoCreate;
+end;
+
+constructor TXMLReader.Create(const aStream: TStream;
+  const aForceEncoding: TEncoding = nil);
+begin
+  inherited Create;
+
+  DoCreate;
+
+  InitStream(aStream, aForceEncoding);
+end;
+
+procedure TXMLReader.DoInit(const aForceEncoding: TEncoding);
+begin
+  fAllowSetEncodingFromFile := not fReader.BOMFound;
+  fDocumentElementFound := False;
+  fElementsToClose := 0;
+  fLastTokenType := rtDocumentStart;
+  fOpenElementTokens.Clear;
+  fReaderToken := fOpenElementTokens.CreateNew;
+  if Assigned(fAttributeTokens) then
+    fAttributeTokens.Clear;
+
+  fReader.BlockFlushTempBuffer;//will be unblocked when fAllowSetEncodingFromFile is set to false
+  if Assigned(aForceEncoding) then
+    Self.Encoding := aForceEncoding
+  else
+    Self.fForceEncoding := False;
+end;
+
+destructor TXMLReader.Destroy;
+begin
+  DoDestroy;
+
+  inherited;
+end;
+
+procedure TXMLReader.DoCreate;
+begin
+  fReader := TOTextReader.Create;
+  fOwnsReaderToken := True;
+  fReaderSettings := TXMLReaderSettings.Create;
+
+  fOpenElementTokens := TXMLReaderTokenList.Create;
+  fReaderToken := fOpenElementTokens.CreateNew;
+
+  fMainBuffer := TOTextBuffer.Create;
+  fEntityBuffer := TOTextBuffer.Create(16);
+end;
+
+procedure TXMLReader.DocType;
+begin
+  ExclamationNode(rtDocType, '<!DOCTYPE', '>', True);
+end;
+
+procedure TXMLReader.DoDestroy;
+begin
+  fReader.Free;
+  fReaderSettings.Free;
+  fOpenElementTokens.Free;
+
+  fMainBuffer.Free;
+  fEntityBuffer.Free;
+  //do not destroy fAttributeTokens here!!!
+end;
+
+procedure TXMLReader.SetAttributeTokens(
+  const aAttributeTokens: TXMLReaderTokenList);
+begin
+  fAttributeTokens := aAttributeTokens;
+  fReaderToken := fOpenElementTokens.CreateNew;//in case fReaderToken was in old fAttributeTokens
+end;
+
+procedure TXMLReader.SetEncoding(const aEncoding: TEncoding);
+begin
+  fReader.Encoding := aEncoding;
+  fForceEncoding := True;
+end;
+
+procedure TXMLReader.SetOwnsEncoding(const aSetOwnsEncoding: Boolean);
+begin
+  fReader.OwnsEncoding := aSetOwnsEncoding;
+end;
+
+procedure TXMLReader.ExclamationNode(
+  const aTokenType: TXMLReaderTokenType; const aBeginTag, aEndTag: OWideString;
+  const aWhiteSpaceAfterBeginTag: Boolean);
+var
+  I: Integer;
+  xC: OWideChar;
+  xPreviousC: OWideString;
+  xResult: Boolean;
+begin
+  fMainBuffer.Clear(False);
+  fMainBuffer.WriteChar('<');
+  fMainBuffer.WriteChar('!');
+  xResult := True;
+  for I := 3 to Length(aBeginTag) do begin
+    fReader.ReadNextChar({%H-}xC);
+    if aBeginTag[I] <> UpperCase(xC) then begin
+      xResult := False;
+      fReader.UndoRead;
+      Break;
+    end;
+    fMainBuffer.WriteChar(xC);
+  end;
+
+  if aWhiteSpaceAfterBeginTag and xResult then begin
+    //must be followed by a whitespace character
+    fReader.ReadNextChar(xC);
+    fMainBuffer.WriteChar(xC);
+    xResult := OXmlIsWhiteSpaceChar(xC);
+  end;
+
+  if not xResult then begin
+    //header not found
+    if fReaderSettings.fStrictXML then begin
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidCharacterInText, ['<']);
+    end else begin
+      //output as text
+      if xC <> '<' then begin
+        Text(False);
+      end else begin
+        fReaderToken.TokenType := rtText;
+        fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+        fReaderToken.TokenName := '';
+      end;
+      Exit;
+    end;
+  end else begin
+    fMainBuffer.Clear(False);
+    SetLength(xPreviousC, Length(aEndTag));
+    for I := 1 to Length(xPreviousC) do
+      xPreviousC[I] := #0;
+
+    repeat
+      if Length(xPreviousC) > 1 then
+        Move(xPreviousC[2], xPreviousC[1], (Length(xPreviousC)-1)*SizeOf(OWideChar));
+      fReader.ReadNextChar(xC);
+      xPreviousC[Length(xPreviousC)] := xC;
+      fMainBuffer.WriteChar(xC);
+    until ((xPreviousC = aEndTag) or (xC = #0));
+
+    for I := 1 to Length(aEndTag) do
+      fMainBuffer.RemoveLastChar;
+
+    fReaderToken.TokenType := aTokenType;
+    fReaderToken.TokenName := '';
+    fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+  end;
+end;
+
+procedure TXMLReader.OpenElement;
+var
+  xC: OWideChar;
+begin
+  fMainBuffer.Clear(False);
+  fReader.ReadNextChar({%H-}xC);
+
+  case xC of
+    '!': begin
+      //comment or cdata
+      fReader.ReadNextChar(xC);
+      fReader.UndoRead;
+      case xC of
+        '[': CData;
+        '-': Comment;
+        'D', 'd': DocType;
+      else
+        if fReaderSettings.fStrictXML then begin
+          raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInText, ['<']);
+        end else begin
+          fMainBuffer.WriteChar('<');
+          fMainBuffer.WriteChar('!');
+          if xC <> '<' then begin
+            Text(False);
+          end else begin
+            fReaderToken.TokenType := rtText;
+            fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+            fReaderToken.TokenName := '';
+          end;
+          Exit;
+        end;
+      end;
+      Exit;
+    end;
+    '/': begin
+      //close element
+      CloseElement;
+      Exit;
+    end;
+    '?': begin
+      //processing instruction
+      ProcessingInstruction;
+      Exit;
+    end;
+  end;
+
+  if fReaderSettings.fStrictXML then begin
+    if not OXmlIsNameStartChar(xC) then
+      raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInText, ['<']);
+
+    while OXmlIsNameChar(xC) do begin
+      fMainBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    end;
+
+    if (xC = '/') or (xC = '>') then
+      fReader.UndoRead
+    else if not OXmlIsWhiteSpaceChar(xC) then
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidElementName, [fMainBuffer.GetBuffer+xC]);
+  end else begin
+    if not OXmlIsNameChar(xC) then begin
+      fMainBuffer.WriteChar('<');
+      fReader.UndoRead;
+      if xC <> '<' then begin
+        Text(False);
+      end else begin
+        fReaderToken.TokenType := rtText;
+        fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+        fReaderToken.TokenName := '';
+      end;
+      Exit;
+    end else begin
+      while not OXmlIsBreakChar(xC) do begin
+        fMainBuffer.WriteChar(xC);
+        fReader.ReadNextChar(xC);
+      end;
+
+      if (xC = '/') or (xC = '>') then
+        fReader.UndoRead
+    end;
+  end;
+
+  if fAllowSetEncodingFromFile then begin
+    fAllowSetEncodingFromFile := False;// -> first Node found, encoding change is not allowed any more
+    fReader.UnblockFlushTempBuffer;//was blocked in TXMLReader.Create
+  end;
+
+  fDocumentElementFound := True;
+  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  fReaderToken.TokenValue := '';
+  fReaderToken.TokenType := rtOpenElement;
+  fOpenElementTokens.AddLast;
+  if Assigned(fAttributeTokens) then
+    fAttributeTokens.Clear;
+end;
+
+function TXMLReader.ReadNextToken(var outToken: PXMLReaderToken): Boolean;
+var
+  xC: OWideChar;
+begin
+  Result := True;
+
+  fLastTokenLinePosition := fReader.TextLinePosition;
+  fLastTokenCharPosition := fReader.TextCharPosition;
+
+  if fElementsToClose > 0 then begin
+    //close elements
+    fReaderToken := fOpenElementTokens.GetToken(fOpenElementTokens.Count-1);//has TokenName already set
+    fReaderToken.TokenValue := '';
+    fReaderToken.TokenType := rtCloseElement;
+    RemoveLastFromNodePath(False);
+    fLastTokenType := fReaderToken.TokenType;
+    outToken := fReaderToken;
+    Dec(fElementsToClose);
+    Exit;
+  end;
+
+  if (fReaderSettings.fBreakReading = brAfterDocumentElement) and
+     (fDocumentElementFound) and
+     NodePathIsEmpty
+  then begin
+    //end of root element is reached, but do not release document!!!
+    Result := False;
+    outToken := fReaderToken;
+    Exit;
+  end;
+
+  fReaderToken := fOpenElementTokens.CreateNew;//must be here and not in the beggining of the function -> due to attributes and open elements and sequential parser
+
+  fReader.ReadNextChar({%H-}xC);
+  case xC of
+    #0: begin
+      //end of document
+      Result := False;
+      ReleaseDocument;
+      Exit;
+    end;
+    '<': begin
+      if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute] then
+      begin
+        if fReaderSettings.fStrictXML then begin
+          raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInElement, [xC]);
+        end else begin
+          fReader.UndoRead;
+          Attribute;
+        end;
+      end else begin
+        OpenElement;
+      end;
+    end;
+    '?': begin
+      if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
+      begin
+        FinishOpenElementClose
+      end
+      else
+      begin
+        //text
+        fReader.UndoRead;
+        Text;
+      end;
+    end;
+    '/': begin
+      if fLastTokenType in [rtOpenElement, rtAttribute] then
+      begin
+        FinishOpenElementClose
+      end
+      else
+      begin
+        //text
+        fReader.UndoRead;
+        Text;
+      end;
+    end;
+    '>': begin
+      if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute] then
+      begin
+        FinishOpenElement;
+      end else begin
+        if fReaderSettings.fStrictXML then begin
+          raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidCharacterInText, [xC]);
+        end else begin
+          //text
+          fReader.UndoRead;
+          Text;
+        end;
+      end;
+    end;
+  else//case
+    if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute]
+    then begin
+      while OXmlIsWhiteSpaceChar(xC) do
+        fReader.ReadNextChar(xC);
+
+      if ((xC = '/') and (fLastTokenType in [rtOpenElement, rtAttribute])) or
+         ((xC = '?') and (fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute]))
+      then begin
+        FinishOpenElementClose;
+      end else if ((xC = '>') and (fLastTokenType in [rtOpenElement, rtAttribute])) then begin
+        FinishOpenElement;
+      end else begin
+        fReader.UndoRead;
+        Attribute;
+      end;
+    end else begin
+      //text
+      fReader.UndoRead;
+      Text;
+    end;
+  end;
+
+  outToken := fReaderToken;
+  fLastTokenType := fReaderToken.TokenType;
+end;
+
+procedure TXMLReader.CloseElement;
+var
+  xC: OWideChar;
+begin
+  fMainBuffer.Clear(False);
+  fReader.ReadNextChar({%H-}xC);
+
+  if fReaderSettings.fStrictXML then begin
+    if not OXmlIsNameStartChar(xC) then
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['</'+xC]);
+
+    while OXmlIsNameChar(xC) do begin
+      fMainBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    end;
+    while OXmlIsWhiteSpaceChar(xC) do begin
+      fReader.ReadNextChar(xC);
+    end;
+    if xC <> '>' then
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['</'+fMainBuffer.GetBuffer]);
+  end else begin
+    if not OXmlIsNameChar(xC) then begin
+      fMainBuffer.WriteChar('<');
+      fMainBuffer.WriteChar('/');
+      fReader.UndoRead;
+      if xC <> '<' then begin
+        Text(False);
+      end else begin
+        fReaderToken.TokenType := rtText;
+        fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+        fReaderToken.TokenName := '';
+      end;
+      Exit;
+    end else begin
+      while not OXmlIsBreakChar(xC) do begin
+        fMainBuffer.WriteChar(xC);
+        fReader.ReadNextChar(xC);
+      end;
+      while not((xC = '>') or (xC = #0)) do begin
+        fReader.ReadNextChar(xC);
+      end;
+    end;
+  end;
+
+  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  fReaderToken.TokenValue := '';
+  fReaderToken.TokenType := rtCloseElement;
+
+  RemoveLastFromNodePath(True);
+end;
+
+function TXMLReader.GetApproxStreamPosition: ONativeInt;
+begin
+  Result := fReader.ApproxStreamPosition;
+end;
+
+function TXMLReader.GetEncoding: TEncoding;
+begin
+  Result := fReader.Encoding;
+end;
+
+function TXMLReader.GetOwnsEncoding: Boolean;
+begin
+  Result := fReader.OwnsEncoding;
+end;
+
+function TXMLReader.GetStreamSize: ONativeInt;
+begin
+  Result := fReader.StreamSize;
+end;
+
+function TXMLReader.GetTextCharPosition: Integer;
+begin
+  Result := fReader.TextCharPosition;
+end;
+
+function TXMLReader.GetTextLinePosition: Integer;
+begin
+  Result := fReader.TextLinePosition;
+end;
+
+{$IFDEF O_GENERICBYTES}
+procedure TXMLReader.InitBuffer(const aBuffer: TBytes;
+  const aForceEncoding: TEncoding);
+begin
+  fReader.InitBuffer(aBuffer);
+  DoInit(aForceEncoding);
+end;
+{$ENDIF}
+
+procedure TXMLReader.InitFile(const aFileName: String;
+  const aForceEncoding: TEncoding);
+begin
+  fReader.InitFile(aFileName);
+  DoInit(aForceEncoding);
+end;
+
+procedure TXMLReader.InitStream(const aStream: TStream;
+  const aForceEncoding: TEncoding);
+begin
+  fReader.InitStream(aStream);
+  DoInit(aForceEncoding);
+end;
+
+procedure TXMLReader.InitXML(const aXML: OWideString);
+begin
+  fReader.InitString(aXML);
+  DoInit(TEncoding.OWideStringEncoding);
+end;
+
+function TXMLReader.NodePathIsEmpty: Boolean;
+begin
+  Result := fOpenElementTokens.Count = 0;
+end;
+
+{$IFDEF O_RAWBYTESTRING}
+procedure TXMLReader.InitXML_UTF8(const aXML: ORawByteString);
+begin
+  fReader.InitString_UTF8(aXML);
+  DoInit(TEncoding.UTF8);
+end;
+{$ENDIF}
+
+procedure TXMLReader.ProcessEntity;
+const
+  cEntityPrefix: Array[0..2] of OWideString = ('&', '&#', '&#x');
+  cEntityText = 0;
+  cEntityDec = 1;
+  cEntityHex = 2;
+var
+  xEntityType: Byte;
+
+  procedure _EntityError(bC: OWideChar; bCustomEntityString: OWideString = '');
+  begin
+    if fReaderSettings.fStrictXML then begin
+      if bCustomEntityString = '' then begin
+        fEntityBuffer.WriteChar(bC);
+        fEntityBuffer.GetBuffer(bCustomEntityString);
+      end;
+      raise EXmlReaderInvalidCharacter.CreateFmt(Self, OXmlLng_InvalidEntity, [cEntityPrefix[xEntityType]+bCustomEntityString]);
+    end else begin
+      if bCustomEntityString = '' then
+        fEntityBuffer.GetBuffer(bCustomEntityString);
+
+      fReader.UndoRead;
+      fMainBuffer.WriteString(cEntityPrefix[xEntityType]+bCustomEntityString);
+    end;
+  end;
+var
+  xC: OWideChar;
+  xEntityString: OWideString;
+  xOutputChar: Integer;
+  xIsHex: Boolean;
+  xOutputEntity: OWideString;
+begin
+  xOutputEntity := '';
+  xOutputChar := 0;
+  fEntityBuffer.Clear(False);
+
+  fReader.ReadNextChar({%H-}xC);
+  if xC = '#' then begin
+    fReader.ReadNextChar(xC);
+    xIsHex := (xC = 'x');
+    if xIsHex then begin
+      xEntityType := cEntityHex;
+
+      fReader.ReadNextChar(xC);
+      while OXmlIsHexadecimalChar(xC) do begin
+        fEntityBuffer.WriteChar(xC);
+        fReader.ReadNextChar(xC);
+      end;
+
+      if xC <> ';' then begin
+        _EntityError(xC);
+        Exit;
+      end;
+
+      fEntityBuffer.GetBuffer({%H-}xEntityString);
+      if not TryStrToInt('$'+xEntityString, xOutputChar)
+      then begin
+        _EntityError(xC, xEntityString+';');
+        Exit;
+      end;
+    end else begin
+      xEntityType := cEntityDec;
+
+      while OXmlIsDecimalChar(xC) do begin
+        fEntityBuffer.WriteChar(xC);
+        fReader.ReadNextChar(xC);
+      end;
+
+      if xC <> ';' then begin
+        _EntityError(xC);
+        Exit;
+      end;
+
+      fEntityBuffer.GetBuffer(xEntityString);
+      if not TryStrToInt(xEntityString, xOutputChar) then begin
+        _EntityError(xC, xEntityString+';');
+        Exit;
+      end;
+    end;
+
+  end else begin
+    xEntityType := cEntityText;
+
+    if not OXmlIsNameStartChar(xC) then begin
+      _EntityError(xC);
+      Exit;
+    end;
+
+    while OXmlIsNameChar(xC) do begin
+      fEntityBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    end;
+
+    if xC <> ';' then begin
+      _EntityError(xC);
+      Exit;
+    end;
+
+    fEntityBuffer.GetBuffer(xEntityString);
+    if not fReaderSettings.fEntityList.TryGetValue(xEntityString, xOutputEntity) then begin
+      _EntityError(xC, xEntityString+';');
+      Exit;
+    end;
+  end;
+
+  if (xOutputChar > 0) and (xOutputEntity = '') then begin
+    if not OXmlIsChar(xOutputChar) then begin
+      _EntityError(xC, xEntityString+';');
+      Exit;
+    end else begin
+      {$IFDEF FPC}
+      xOutputEntity := UTF8Encode(WideString(WideChar(xOutputChar)));//MUST BE WideString + WideChar (convert utf16 to utf8)
+      {$ELSE}
+      xOutputEntity := OWideString(OWideChar(xOutputChar));
+      {$ENDIF}
+    end;
+  end;
+
+  if xOutputEntity <> '' then
+    fMainBuffer.WriteString(xOutputEntity);
+end;
+
+procedure TXMLReader.ProcessingInstruction;
+var
+  xC: OWideChar;
+  xPreviousC: OWideChar;
+begin
+  fMainBuffer.Clear(False);
+  fReader.ReadNextChar({%H-}xC);
+
+  if fReaderSettings.fStrictXML then begin
+    if not OXmlIsNameStartChar(xC) then
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['<?'+xC]);
+
+    while OXmlIsNameChar(xC) do begin
+      fMainBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    end;
+
+    if not OXmlIsWhiteSpaceChar(xC) then begin
+      //must be followed by a whitespace character
+      fMainBuffer.WriteChar(xC);
+      raise EXmlReaderInvalidString.CreateFmt(Self, OXmlLng_InvalidStringInText, ['<?'+fMainBuffer.GetBuffer]);
+    end;
+  end else begin
+    while not OXmlIsBreakChar(xC) do begin
+      fMainBuffer.WriteChar(xC);
+      fReader.ReadNextChar(xC);
+    end;
+  end;
+
+  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  if
+    not fDocumentElementFound and
+    fReaderSettings.fRecognizeXMLDeclaration and
+    SameText(fReaderToken.TokenName, 'xml')
+  then begin
+    //xml declaration: <?xml attr="value"?>
+    fReaderToken.TokenType := rtOpenXMLDeclaration;
+    fReaderToken.TokenValue := '';
+    fOpenElementTokens.AddLast;
+    Exit;
+  end;
+
+  //custom processing instruction
+  fReaderToken.TokenType := rtProcessingInstruction;
+  fMainBuffer.Clear(False);
+  if not fReaderSettings.fStrictXML and (fReaderToken.TokenName = '') then
+    fReader.UndoRead;
+
+  xPreviousC := #0;
+  fReader.ReadNextChar(xC);
+  while
+    not((xPreviousC = '?') and (xC = '>')) and
+    not(xC = #0)
+  do begin
+    fMainBuffer.WriteChar(xC);
+    xPreviousC := xC;
+    fReader.ReadNextChar(xC);
+  end;
+  fMainBuffer.RemoveLastChar;
+
+  fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+end;
+
+procedure TXMLReader.ProcessNewLineChar(const aLastChar: OWideChar);
+var
+  xC: OWideChar;
+begin
+  if fReaderSettings.fLineBreak <> lbDoNotProcess then begin
+    if aLastChar = #13 then begin
+      fReader.ReadNextChar({%H-}xC);
+      if xC <> #10 then
+        fReader.UndoRead;
+    end;
+
+    fMainBuffer.WriteString(XmlLineBreak[fReaderSettings.fLineBreak]);
+  end else begin
+    fMainBuffer.WriteChar(aLastChar);
+  end;
+end;
+
+procedure TXMLReader.ReleaseDocument;
+begin
+  fReader.ReleaseDocument;
+end;
+
+procedure TXMLReader.RemoveLastFromNodePath(const aCheckPath: Boolean);
+var
+  I: Integer;
+begin
+  if (fOpenElementTokens.Count = 0) then begin
+    //there is no open element
+    if fReaderSettings.fStrictXML then
+      raise EXmlReaderInvalidStructure.Create(Self, OXmlLng_TooManyElementsClosed);
+  end else begin
+    if aCheckPath and
+       (fReaderToken.TokenName <> '') and
+       (fOpenElementTokens.GetToken(fOpenElementTokens.Count-1).TokenName <> fReaderToken.TokenName)
+    then begin
+      //element names do not match
+      if fReaderSettings.fStrictXML then begin
+        raise EXmlReaderInvalidStructure.CreateFmt(Self, OXmlLng_WrongElementClosed, [fReaderToken.TokenName, fOpenElementTokens.GetToken(fOpenElementTokens.Count-1).TokenName]);
+      end else begin
+        //trying to close parent element
+        for I := fOpenElementTokens.Count-2 downto 0 do
+        if (fOpenElementTokens.GetToken(I).TokenName = fReaderToken.TokenName) then begin
+          //parent element with the same name found, we have to close more elements in the future!!!
+          fElementsToClose := (fOpenElementTokens.Count - I - 1);
+          Break;
+        end;
+
+        //delete the last one from fNodePath
+        //  + rename the element if names differ
+        if fReaderToken.TokenName <> '' then
+          fReaderToken.TokenName := fOpenElementTokens.GetToken(fOpenElementTokens.Count-1).TokenName;
+        fOpenElementTokens.DeleteLast;
+      end;
+    end else begin
+      //everything is fine -> delete last from fNodePath
+      fOpenElementTokens.DeleteLast;
+    end;
+  end;
+end;
+
 function TXMLReader.GetNodePath(
   const aIndex: Integer): OWideString;
 begin
-  Result := fNodePath.Get(aIndex);
+  Result := fOpenElementTokens.GetToken(aIndex).TokenName;
 end;
 
 function TXMLReader.GetNodePathCount: Integer;
 begin
-  Result := fNodePath.Count;
+  Result := fOpenElementTokens.Count;
 end;
 
 procedure TXMLReader.NodePathAssignTo(
   const aNodePath: TOWideStringList);
+var
+  I: Integer;
 begin
-  aNodePath.Assign(fNodePath);
+  aNodePath.Clear;
+  for I := 0 to fOpenElementTokens.Count-1 do
+    aNodePath.Add(fOpenElementTokens.GetToken(I).TokenName);
 end;
 
 function TXMLReader.NodePathAsString: OWideString;
 var
   I: Integer;
 begin
-  if fNodePath.Count = 0 then
+  if fOpenElementTokens.Count = 0 then
   begin
     Result := '';
     Exit;
   end;
 
-  Result := fNodePath.Get(0);
-  for I := 1 to fNodePath.Count-1 do
-    Result := Result + '/' + fNodePath.Get(I);
+  Result := fOpenElementTokens.GetToken(0).TokenName;
+  for I := 1 to fOpenElementTokens.Count-1 do
+    Result := Result + '/' + fOpenElementTokens.GetToken(0).TokenName;
 end;
 
 function TXMLReader.NodePathMatch(
@@ -1891,12 +2077,12 @@ function TXMLReader.NodePathMatch(
 var
   I: Integer;
 begin
-  Result := Length(aNodePath) = fNodePath.Count;
+  Result := Length(aNodePath) = fOpenElementTokens.Count;
   if not Result then
     Exit;
 
   for I := 0 to Length(aNodePath)-1 do
-  if aNodePath[I] <> fNodePath.Get(I) then begin
+  if aNodePath[I] <> fOpenElementTokens.GetToken(I).TokenName then begin
     Result := False;
     Exit;
   end;
@@ -1909,12 +2095,12 @@ function TXMLReader.NodePathMatch(
 var
   I: Integer;
 begin
-  Result := aNodePath.Count = fNodePath.Count;
+  Result := aNodePath.Count = fOpenElementTokens.Count;
   if not Result then
     Exit;
 
   for I := 0 to aNodePath.Count-1 do
-  if aNodePath[I] <> fNodePath.Get(I) then begin
+  if aNodePath[I] <> fOpenElementTokens.GetToken(I).TokenName then begin
     Result := False;
     Exit;
   end;
@@ -1942,12 +2128,12 @@ function TXMLReader.RefIsChildOfNodePath(
 var
   I: Integer;
 begin
-  Result := Length(aRefNodePath) = fNodePath.Count-1;
+  Result := Length(aRefNodePath) = fOpenElementTokens.Count-1;
   if not Result then
     Exit;
 
   for I := 0 to Length(aRefNodePath)-1 do
-  if aRefNodePath[I] <> fNodePath.Get(I) then begin
+  if aRefNodePath[I] <> fOpenElementTokens.GetToken(I).TokenName then begin
     Result := False;
     Exit;
   end;
@@ -1960,12 +2146,12 @@ function TXMLReader.RefIsChildOfNodePath(
 var
   I: Integer;
 begin
-  Result := aRefNodePath.Count = fNodePath.Count-1;
+  Result := aRefNodePath.Count = fOpenElementTokens.Count-1;
   if not Result then
     Exit;
 
   for I := 0 to aRefNodePath.Count-1 do
-  if aRefNodePath[I] <> fNodePath.Get(I) then begin
+  if aRefNodePath[I] <> fOpenElementTokens.GetToken(I).TokenName then begin
     Result := False;
     Exit;
   end;
@@ -1978,12 +2164,12 @@ function TXMLReader.RefIsParentOfNodePath(
 var
   I: Integer;
 begin
-  Result := Length(aRefNodePath) = fNodePath.Count+1;
+  Result := Length(aRefNodePath) = fOpenElementTokens.Count+1;
   if not Result then
     Exit;
 
-  for I := 0 to fNodePath.Count-1 do
-  if aRefNodePath[I] <> fNodePath.Get(I) then begin
+  for I := 0 to fOpenElementTokens.Count-1 do
+  if aRefNodePath[I] <> fOpenElementTokens.GetToken(I).TokenName then begin
     Result := False;
     Exit;
   end;
@@ -1996,17 +2182,84 @@ function TXMLReader.RefIsParentOfNodePath(
 var
   I: Integer;
 begin
-  Result := aRefNodePath.Count = fNodePath.Count+1;
+  Result := aRefNodePath.Count = fOpenElementTokens.Count+1;
   if not Result then
     Exit;
 
-  for I := 0 to fNodePath.Count-1 do
-  if aRefNodePath[I] <> fNodePath.Get(I) then begin
+  for I := 0 to fOpenElementTokens.Count-1 do
+  if aRefNodePath[I] <> fOpenElementTokens.GetToken(I).TokenName then begin
     Result := False;
     Exit;
   end;
 
   Result := True;
+end;
+
+{ TXMLReaderTokenList }
+
+procedure TXMLReaderTokenList.AddLast;
+begin
+  Inc(fCount);
+end;
+
+procedure TXMLReaderTokenList.Clear;
+begin
+  fCount := 0;
+end;
+
+constructor TXMLReaderTokenList.Create;
+begin
+  inherited Create;
+
+  {$IFDEF O_GENERICS}
+  fReaderTokens := TList<PXMLReaderToken>.Create;
+  {$ELSE}
+  fReaderTokens := TList.Create;
+  {$ENDIF}
+end;
+
+function TXMLReaderTokenList.CreateNew: PXMLReaderToken;
+begin
+  if fCount = fReaderTokens.Count then begin
+    New(Result);
+    fReaderTokens.Add(Result);
+  end else
+    Result := GetToken(fCount);
+end;
+
+procedure TXMLReaderTokenList.DeleteLast;
+begin
+  Dec(fCount);
+  if fCount < 0 then
+    fCount := 0;
+end;
+
+destructor TXMLReaderTokenList.Destroy;
+var
+  I: Integer;
+begin
+  for I := 0 to fReaderTokens.Count-1 do
+    Dispose(PXMLReaderToken(fReaderTokens[I]));
+  fReaderTokens.Free;
+
+  inherited;
+end;
+
+function TXMLReaderTokenList.GetToken(const aIndex: Integer): PXMLReaderToken;
+begin
+  Result := PXMLReaderToken(fReaderTokens[aIndex]);
+end;
+
+function TXMLReaderTokenList.IndexOf(const aToken: PXMLReaderToken): Integer;
+var
+  I: Integer;
+begin
+  for I := 0 to Count-1 do
+  if fReaderTokens[I] = aToken then begin
+    Result := I;
+    Exit;
+  end;
+  Result := -1;
 end;
 
 end.

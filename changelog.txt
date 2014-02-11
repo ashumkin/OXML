@@ -1,6 +1,18 @@
 OXml Change Log
 ---------------
 
+Version 0.6 [SVN commit: 10, https://sourceforge.net/p/oxml/code/10/]
+  - Renamed TXMLNode.SelectNodeNull to SelectNodeDummy
+  - Renamed TXMLSeqParser.PassNextChildElementHeader to SkipNextChildElementHeader
+  - Renamed TXMLSeqParser.PassNextChildNode to SkipNextChildNode
+  - D2009+: Deleted all anonymous events from TSAXParser. Old classic events were
+    replaced with anonymous events (they can be used as anonymous methods or
+    normal events).
+  - Completely reworked the TSAXAttributes list and TSAXAttribute, please see 
+    the source code or the demo if you need more information.
+  - Fixed bug in reading attributes with space before or after the equal sign.
+  
+
 Version 0.5 [SVN commit: 9, https://sourceforge.net/p/oxml/code/9/]
   Comment in the beginning:
   This is a commit with big changes to make OXml simpler and easier to use. I renamed

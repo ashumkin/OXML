@@ -26,5 +26,7 @@ begin
     xTest.Free;
   end;
 
+  Writeln;
+  Write('Press enter to close.');
   Readln;
 end.
