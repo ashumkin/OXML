@@ -1,7 +1,7 @@
 unit OXmlTestUnit;
 
-{.$DEFINE USE_DELPHIXML}//define/undefine to compare OXml with Delphi XML
-{.$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
+{$DEFINE USE_DELPHIXML}//define/undefine to compare OXml with Delphi XML
+{$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
 {.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
 {.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
 {.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML: http://blog.spreendigital.de/2011/11/10/verysimplexml-a-lightweight-delphi-xml-reader-and-writer/
@@ -10,10 +10,14 @@ unit OXmlTestUnit;
 {.$DEFINE USE_LAZARUSDOMXML}//define/undefine to compare OXml with Lazarus DOM XML
 
 {$IFDEF FPC}
-  {$DEFINE USE_GENERICS}
+  {$DEFINE USE_FORIN}
 {$ELSE}
   {$IF CompilerVersion >= 20}//D2009
-    {$DEFINE USE_GENERICS}
+    {$DEFINE USE_FORIN}
+    {$DEFINE USE_ANONYMOUS_METHODS}
+  {$IFEND}
+  {$IF CompilerVersion >= 23}//DXE2
+    {$DEFINE USE_ADOM}
   {$IFEND}
 {$ENDIF}
 
@@ -21,12 +25,12 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ODictionary,
+  Dialogs, StdCtrls,
   {$IFDEF USE_DELPHIXML}
-  XMLIntf, XMLDoc,
+  XMLIntf, XMLDoc, xmldom, msxmldom, {$IFDEF USE_ADOM}adomxmldom,{$ENDIF} OXmlDOMVendor,
   {$ENDIF}
   {$IFDEF USE_MSXML}
-  msxmldom, msxml,
+  msxml, {$IFNDEF USE_DELPHIXML}msxmldom,{$ENDIF}
   {$ENDIF}
   {$IFDEF USE_OMNIXML}
   OmniXML,
@@ -46,8 +50,7 @@ uses
   {$IFDEF USE_LAZARUSDOMXML}
   XMLRead, XMLWrite, DOM,
   {$ENDIF}
-  OEncoding, OBufferedStreams, OHashedStrings,
-  OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
+  OEncoding, OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
   OXmlPDOM, OXmlSAX, OXmlSeq;
 
 type
@@ -114,7 +117,7 @@ implementation
 
 procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
   {$IFDEF USE_DELPHIXML}
-  procedure TestDelphiXmlDOM;
+  procedure TestDelphiXmlDOM(const aVendorName: String);
     procedure _Navigate(const aNode: XMLIntf.IXmlNode);
     var
       I: Integer;
@@ -136,24 +139,30 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
       end;
     end;
   var
-    xXml: XMLIntf.IXMLDocument;
+    xXml: XMLDoc.TXMLDocument;
+    xXmlIntf: XMLIntf.IXMLDocument;
     xT1, xT2, xT3: Cardinal;
   begin
     xT1 := GetTickCount;
+
     xXml := XMLDoc.TXMLDocument.Create(nil);
+    xXmlIntf := xXml;
+
+    xXml.DOMVendor := xmldom.GetDOMVendor(aVendorName);
+    xXml := xXml;
     xXml.LoadFromFile(DocDir+'sheet1.xml');
     xXml.Active := True;
     xT2 := GetTickCount;
 
     _Navigate(xXml.Node);
 
-    xXml := nil;
+    xXmlIntf := nil;
 
     xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
-      'DELPHI XML DOM'+sLineBreak+
+      'DELPHI XML with "'+aVendorName+'" vendor'+sLineBreak+
       'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
       'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
       'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
@@ -709,7 +718,11 @@ begin
 
 
   {$IFDEF USE_DELPHIXML}
-  TestDelphiXmlDOM;
+  TestDelphiXmlDOM(SMSXML);
+  {$IFDEF USE_ADOM}
+  TestDelphiXmlDOM(sAdom4XmlVendor);
+  {$ENDIF}
+  TestDelphiXmlDOM(sOXmlDOMVendor);
   {$ENDIF}
 
   {$IFDEF USE_MSXML}
@@ -725,7 +738,7 @@ begin
   {$ENDIF}
 
   {$IFDEF USE_VERYSIMPLE}
-  //TestVerySimpleXmlDOM;  <- FAIL!!!
+  //TestVerySimpleXmlDOM;  <- ALWAYS FAILS!!!
   {$ENDIF}
 
   {$IFDEF USE_SIMPLEXML}
@@ -1042,7 +1055,7 @@ procedure TForm1.BtnTestWriteInvalidClick(Sender: TObject);
     xRoot.AddComment('te--st');//invalid comment (a comment cannot contain "--" string
     xRoot.AddCDATASection('te]]>st');//invalid cdata (a cdata section cannot contain "]]>" string
 
-    Memo2.Lines.Text := xXML.XML;
+    Memo1.Lines.Text := xXML.XML;
   end;
 begin
   Memo1.Lines.Clear;
@@ -1419,9 +1432,9 @@ const
     xXml.LoadFromXML(cXML);
 
     for xNode in xXML.DocumentElement.ChildNodes do
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
   {$ENDIF}
 
@@ -1437,10 +1450,10 @@ const
     xRoot := xXML.DocumentElement;
     for I := 0 to xRoot.ChildNodes.Count-1 do begin
       xNode := xRoot.ChildNodes[I];
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
     end;
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMForDownTo;
@@ -1455,10 +1468,10 @@ const
     xRoot := xXML.DocumentElement;
     for I := xRoot.ChildNodes.Count-1 downto 0 do begin
       xNode := xRoot.ChildNodes[I];
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
     end;
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMNextChild;
@@ -1472,9 +1485,9 @@ const
     xRoot := xXML.DocumentElement;
     xNode := nil;
     while xRoot.GetNextChild(xNode) do
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMPreviousChild;
@@ -1488,9 +1501,9 @@ const
     xRoot := xXML.DocumentElement;
     xNode := nil;
     while xRoot.GetPreviousChild(xNode) do
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMNextSibling;
@@ -1503,11 +1516,11 @@ const
 
     xNode := xXML.DocumentElement.FirstChild;
     while Assigned(xNode) do begin
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
       xNode := xNode.NextSibling;
     end;
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMPreviousSibling;
@@ -1520,11 +1533,11 @@ const
 
     xNode := xXML.DocumentElement.LastChild;
     while Assigned(xNode) do begin
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.Text);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.Text);
       xNode := xNode.PreviousSibling;
     end;
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   {$IFDEF USE_FORIN}
@@ -1537,9 +1550,9 @@ const
     xXml.LoadFromXML(cXML);
 
     for xNode in xXML.DocumentElement.AttributeNodes do
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
   {$ENDIF}
 
@@ -1555,10 +1568,10 @@ const
     xRoot := xXML.DocumentElement;
     for I := 0 to xRoot.AttributeNodes.Count-1 do begin
       xNode := xRoot.AttributeNodes[I];
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
     end;
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMAttributesForDownTo;
@@ -1573,10 +1586,10 @@ const
     xRoot := xXML.DocumentElement;
     for I := xRoot.AttributeNodes.Count-1 downto 0 do begin
       xNode := xRoot.AttributeNodes[I];
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
     end;
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
   procedure TestOXmlPDOMNextAttribute;
@@ -1590,9 +1603,9 @@ const
     xRoot := xXML.DocumentElement;
     xNode := nil;
     while xRoot.GetNextAttribute(xNode) do
-      Memo2.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
+      Memo1.Lines.Add(xNode.NodeName+': '+xNode.NodeValue);
 
-    Memo2.Lines.Add('');
+    Memo1.Lines.Add('');
   end;
 
 begin
@@ -1653,7 +1666,7 @@ procedure TForm1.BtnDOMTestClick(Sender: TObject);
     xChild4 := xXML.CreateElement('child4');
     xRoot.InsertBefore(xChild4, xRoot.FirstChild);
 
-    Memo2.Lines.Text := xXML.XML;
+    Memo1.Lines.Text := xXML.XML;
   end;
 begin
   Memo1.Lines.Clear;
@@ -1676,7 +1689,7 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
     xXML.SaveToFile(DocDir+'1251.xml');
 
     xXML.WriterSettings.IndentType := itIndent;
-    Memo2.Lines.Text := xXML.XML;
+    Memo1.Lines.Text := xXML.XML;
   end;
 begin
   Memo1.Lines.Clear;
@@ -1778,22 +1791,31 @@ end;
 
 procedure TForm1.BtnWritePerformanceTestClick(Sender: TObject);
   {$IFDEF USE_DELPHIXML}
-  procedure DelphiXmlTest;
+  procedure DelphiXmlTest(const aVendorName: String; const aFullExport: Boolean);
   var
-    I: Integer;
+    I, xLimit: Integer;
     xT1, xT2, xT3: Cardinal;
-    xXML: XmlIntf.IXMLDocument;
+    xXML: XMLDoc.TXMLDocument;
+    xXMLIntf: XmlIntf.IXMLDocument;
     xRootNode, xNode: XmlIntf.IXMLNode;
   begin
     xT1 := GetTickCount;
 
     xXML := XMLDoc.TXMLDocument.Create(nil);
+    xXMLIntf := xXml;
+
+    xXML.DOMVendor := xmldom.GetDOMVendor(aVendorName);
     xXML.Active := True;
+    xXML.Encoding := 'utf-8';
     xXML.DocumentElement := xXML.CreateElement('root', '');
     xRootNode := xXML.DocumentElement;
 
+    if aFullExport then
+      xLimit := 100*1000
+    else
+      xLimit := 10*1000;
 
-    for I := 1 to 10*1000 do begin
+    for I := 1 to xLimit do begin
       xNode := xRootNode.AddChild('text');
       xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').Text := 'afg';
       xNode.SetAttribute('attr1', 'A'+IntToStr(I));
@@ -1807,19 +1829,26 @@ procedure TForm1.BtnWritePerformanceTestClick(Sender: TObject);
 
     xRootNode := nil;
     xNode := nil;
-    xXML := nil;
+    xXMLIntf := nil;
+
 
     xT3 := GetTickCount;
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
-      'DELPHI XML DOM'+sLineBreak+
+      'DELPHI XML with "'+aVendorName+'" vendor'+sLineBreak+
       'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
       'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
-      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
-      'IMPORTANT: The Delphi XML performance is so horrible'+sLineBreak+
-      'that it''s not possible to create the nodes within a reasonable'+sLineBreak+
-      'time limit. Therefore only 1/10 of the nodes are created!'+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak;
+    if not aFullExport then
+      Memo1.Lines.Text :=
+        Memo1.Lines.Text+
+        'IMPORTANT: The Delphi XML with '+aVendorName+' vendor performance is so horrible'+sLineBreak+
+        'that it''s not possible to create the nodes within a reasonable'+sLineBreak+
+        'time limit. Therefore only 1/10 of the nodes are created!'+sLineBreak;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
@@ -2333,8 +2362,14 @@ begin
   Memo2.Lines.Clear;
 
   {$IFDEF USE_DELPHIXML}
-  DelphiXmlTest;
-  //_MatchTestFiles; <- do not test on matching DelphiXmlTest
+  DelphiXmlTest(SMSXML, False);
+  //_MatchTestFiles; <- do not test on matching DelphiXmlTest, only 1/10 nodes were created!
+  {$IFDEF USE_ADOM}
+  DelphiXmlTest(sAdom4XmlVendor, True);
+  _MatchTestFiles;
+  {$ENDIF}
+  DelphiXmlTest(sOXmlDOMVendor, True);
+  _MatchTestFiles;
   {$ENDIF}
   {$IFDEF USE_MSXML}
   MSXmlTest;
@@ -2366,10 +2401,10 @@ begin
   {$ENDIF}
 
   OXmlPDOMTest;
-  //_MatchTestFiles;
+  _MatchTestFiles;
 
   OXmlDirectTest;
-  //_MatchTestFiles;
+  _MatchTestFiles;
 end;
 
 procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
@@ -2423,7 +2458,7 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
     xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.LoadFromFile(DocDir+'simple.xml');
     xXML.WriterSettings.IndentType := itIndent;
-    Memo2.Lines.Text :=
+    Memo1.Lines.Text :=
       xXml.XML+sLineBreak+sLineBreak+
       '------'+sLineBreak+
       xXml.DocumentElement.Text;
@@ -2450,6 +2485,7 @@ begin
   {$IFEND}{$ENDIF}
 end;
 
+{$IFNDEF USE_ANONYMOUS_METHODS}
 procedure TForm1.SAXCharacters(Sender: TSAXParser; const aText: OWideString);
 begin
   Memo1.Lines.Add('characters("'+SAXEscapeString(aText)+'")');
@@ -2507,6 +2543,7 @@ begin
 
   Memo1.Lines.Add('startElement("'+SAXEscapeString(aName)+'", '+xAttrStr+')');
 end;
+{$ENDIF}
 
 procedure TForm1.DoNothing(const aStr1, aStr2: OWideString);
 begin

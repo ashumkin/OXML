@@ -658,7 +658,6 @@ type
     function GetParentNode: IXMLNode;
     function GetPreviousSibling: IXMLNode;
     procedure SetNodeValue(const Value: XmlString); virtual;
-    procedure InternalWrite(const Stream: TStream; Text: XmlString); virtual;
     procedure InternalWriteToStream(const OutputStream: IUnicodeStream); virtual;
     procedure ReadFromStream(const Parent: TXMLNode; const InputStream: IUnicodeStream); virtual;
     procedure SetParentNode(const Parent: IXMLNode);
@@ -2437,11 +2436,6 @@ begin
   InternalWriteToStream(OutputStream);
 end;
 
-procedure TXMLNode.InternalWrite(const Stream: TStream; Text: XmlString);
-begin
-  Stream.WriteBuffer(Text[1], Length(Text) * 2);
-end;
-
 function TXMLNode.GetXML: XmlString;
 var
   Stream: TMemoryStream;
@@ -3726,15 +3720,16 @@ begin
         if E is EXMLException then
         begin
           FParseError.SetErrorCode(EXMLException(E).XMLCode);
-          FParseError.SetFilePos(XTS.FReader.TextPosition);
-          FParseError.SetLine(XTS.FReader.TextLinePosition);//TextLinePosition is 0-based
-          FParseError.SetLinePos(XTS.FReader.TextCharPosition);//TextCharPosition is 0-based
+          FParseError.SetFilePos(XTS.FReader.FilePosition);
+          FParseError.SetLine(XTS.FReader.Line);
+          FParseError.SetLinePos(XTS.FReader.LinePosition);
           FParseError.SetReason(E.Message);
           xPreviousText := XTS.FReader.ReadPreviousString(30, True);
           xNextText := XTS.FReader.ReadString(10, True);
           FParseError.SetSrcText(xPreviousText, xNextText);//do not write ReadPreviousStringInLine() and ReadString() directly here because due to some Delphi optimizations, ReadString would be called first
           FParseError.SetURL(Self.FURL);
 
+          ClearChildNodes;
           Result := False;
         end
         else

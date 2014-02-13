@@ -34,7 +34,8 @@ interface
 uses
   Classes, SysUtils,
   {$IFDEF OmniXML_D2009_UP}Types, Generics.Collections,{$ENDIF}
-  OTextReadWrite, OEncoding, OmniXML_Types, OmniXML_Dictionary;
+  OTextReadWrite, OEncoding, OmniXML_Types, OmniXML_Dictionary,
+  OWideSupp;
 
 const
   DEFAULT_DECIMALSEPARATOR  = '.';        // don't change!
@@ -317,9 +318,7 @@ type
   TXMLReadStream = class(TInterfacedObject, IUnicodeReadStream)
   private
     fReader: TOTextReader;
-
-    //output
-    fPreviousOutBuffer: XmlString;
+    fBuffer: TOTextBuffer;
 
     function GetEncoding: TEncoding;
     procedure SetEncoding(const {%H-}aEncoding: TEncoding);
@@ -338,8 +337,6 @@ type
     function GetOutputBuffer: XmlString;
     function OutputBufferLen: Integer;
     procedure ClearOutputBuffer;
-
-    function GetPreviousOutputBuffer: XmlString;
   public
     property Encoding: TEncoding read GetEncoding write SetEncoding;
   end;
@@ -4301,20 +4298,12 @@ begin
           with FParseError do
           begin
             SetErrorCode(EXMLException(E).XMLCode);
-            SetSrcText(XTS.GetPreviousOutputBuffer);
-            {xxx
-            SetFilePos(XTS.GetPosition);//xxxCodePage
-            SetLine(XTS.FLine + 1);
-            SetLinePos(XTS.FLinePos);
+            SetFilePos(XTS.fReader.FilePosition);
+            SetLine(XTS.fReader.Line);
+            SetLinePos(XTS.fReader.LinePosition);
             SetReason(E.Message);
-            SetSrcText(XTS.GetLastLine);
-            if SrcText = '' then
-              // try to get source text from previously completed buffer
-              SetSrcText(XTS.GetPreviousOutputBuffer);
-            if SrcText = '' then
-              // try to get source text from previously read character
-              SetSrcText(XTS.PreviousChar);
-            SetURL(Self.FURL);}
+            SetSrcText(XTS.fReader.ReadPreviousString(30, True)+XTS.fReader.ReadString(10, True));
+            SetURL(Self.FURL);
           end;
           Result := False;
         end
@@ -4540,7 +4529,7 @@ end;
 
 procedure TXMLReadStream.ClearOutputBuffer;
 begin
-  fReader.ClearCustomBuffer;
+  fBuffer.Clear;
 end;
 
 constructor TXMLReadStream.Create(const aStream: TStream);
@@ -4548,11 +4537,13 @@ begin
   inherited Create;
 
   fReader := TOTextReader.Create(aStream);
+  fBuffer := TOTextBuffer.Create;
 end;
 
 destructor TXMLReadStream.Destroy;
 begin
   fReader.Free;
+  fBuffer.Free;
 
   inherited;
 end;
@@ -4580,18 +4571,13 @@ end;
 
 function TXMLReadStream.GetOutputBuffer: XmlString;
 begin
-  Result := fReader.GetCustomBuffer;
-  FPreviousOutBuffer := Result;
-end;
-
-function TXMLReadStream.GetPreviousOutputBuffer: XmlString;
-begin
-  Result := fPreviousOutBuffer;
+  Result := fBuffer.GetBuffer;
+  fBuffer.Clear;
 end;
 
 function TXMLReadStream.OutputBufferLen: Integer;
 begin
-  Result := fReader.CustomBufferLength;
+  Result := fBuffer.UsedLength;
 end;
 
 function TXMLReadStream.ReadChar(var aReadChar: XmlChar): Boolean;
@@ -4616,7 +4602,7 @@ end;
 
 procedure TXMLReadStream.WriteOutputChar(const OutChar: XmlChar);
 begin
-  fReader.WriteCharToBuffer(OutChar);
+  fBuffer.WriteChar(OutChar);
 end;
 
 { TXMLWriteStream }

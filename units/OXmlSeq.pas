@@ -57,6 +57,7 @@ type
     fTempReaderPath: TOWideStringList;
     fTempNodePath: TOWideStringList;
     fXmlDoc: IXMLDocument;
+    fParseError: IXMLParseError;
 
     function ReadNextChildNodeCustom(const aOnlyElementHeader: Boolean;
       var outElementIsOpen: Boolean): Boolean;
@@ -154,6 +155,8 @@ type
     property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
     //size of original stream
     property StreamSize: ONativeInt read GetStreamSize;
+
+    property ParseError: IXMLParseError read fParseError;
   end;
 
 implementation
@@ -225,6 +228,8 @@ end;
 function TXMLSeqParser.GoToNextChildElement(
   var outElementName: OWideString): Boolean;
 begin
+  fParseError := nil;
+
   while fReader.ReadNextToken(fReaderToken) do
   begin
     case fReaderToken.TokenType of
@@ -239,12 +244,17 @@ begin
     end;
   end;
 
+  if Assigned(fReader.ParseError) then
+    fParseError := fReader.ParseError;
+
   outElementName := '';
   Result := False;
 end;
 
 function TXMLSeqParser.GoToPath(const aPath: OWideString): Boolean;
 begin
+  fParseError := nil;
+
   OExplode(aPath, '/', fTempNodePath);
   fReader.NodePathAssignTo(fTempReaderPath);
   OExpandPath(fTempReaderPath, fTempNodePath);
@@ -262,6 +272,9 @@ begin
     Result := True;
     Exit;
   end;
+
+  if Assigned(fReader.ParseError) then
+    fParseError := fReader.ParseError;
 
   Result := False;
   ReleaseDocument;
@@ -357,6 +370,7 @@ var
   xBreakReading: TXMLBreakReading;
 begin
   Result := False;
+  fParseError := nil;
 
   fXmlDoc.Loading := True;
   try
@@ -419,6 +433,9 @@ begin
       end;//while
     end;//if
   finally
+    if Assigned(fReader.ParseError) then
+      fParseError := fReader.ParseError;
+
     fXmlDoc.Loading := False;
   end;
 end;

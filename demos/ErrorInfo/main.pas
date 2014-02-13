@@ -77,6 +77,7 @@ end;
 procedure TfMain.FormCreate(Sender: TObject);
 begin
   xmlDoc := CreateXMLDoc;
+  xmlDoc.ReaderSettings.ErrorHandling := ehSilent;
   FECL := TErrorCaseList.Create;
 
   OriginalXML := reXML.Text;
@@ -142,18 +143,23 @@ end;
 
 procedure TfMain.bTestClick(Sender: TObject);
 begin
-  mErrorInfo.Text := 'No errors found.';
-  try
-    xmlDoc.LoadFromXML(WideString(reXML.Text));
-  except
-    on xError: EXmlReaderException do
-    begin
-      mErrorInfo.Lines.Text :=
-        'Loading failed :'+sLineBreak+
-        xError.Message+sLineBreak+
-        StringOfChar('-', xError.XMLSourceStubPosition - 1) + '^';
-    end else
-      Raise;
+  with mErrorInfo.Lines do begin
+    Clear;
+    if not xmlDoc.LoadFromXML(reXML.Text) then begin
+      Add('Loading failed :(');
+      Add(Format('Error code: %d', [xmlDoc.ParseError.ErrorCode]));
+      Add(Format('FilePos: %d', [xmlDoc.ParseError.FilePos]));
+      Add(Format('Line: %d', [xmlDoc.ParseError.Line]));
+      Add(Format('LinePos: %d', [xmlDoc.ParseError.LinePos]));
+      Add(Format('Reason: %s', [xmlDoc.ParseError.Reason]));
+      Add(Format('URL: %s', [xmlDoc.ParseError.URL]));
+      Add(Format('SrcText: %s', [xmlDoc.ParseError.SrcText]));
+      Add(StringOfChar(' ', 9) + StringOfChar('-', xmlDoc.ParseError.SrcTextPos - 1) + '^');
+    end
+    else begin
+      Text := 'No errors found.';
+//      Add(#13#10 + 'XML document:' + #13#10 + xmlDoc.XML);
+    end;
   end;
 end;
 
@@ -179,6 +185,7 @@ begin
 
   if Node.Data = nil then begin
     reXML.Text := OriginalXML;
+    mErrorInfo.Text := '';
     Exit;
   end;
 

@@ -30,7 +30,8 @@ package OXml_RXE5;
 {$IMPLICITBUILD OFF}
 
 requires
-  rtl;
+  rtl,
+  xmlrtl;
 
 contains
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
@@ -45,6 +46,7 @@ contains
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
+  OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas';
 
 end.

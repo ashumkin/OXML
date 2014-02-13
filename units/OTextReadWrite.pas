@@ -66,9 +66,9 @@ type
     fStreamStartPosition: ONativeInt;
     fOwnsStream: Boolean;
 
-    fTextPosition: Integer;//character position, 1-based
-    fTextCharPosition: Integer;//character, 1-based
-    fTextLinePosition: Integer;//line, 1-based
+    fFilePosition: Integer;//current character in file (in character units, not bytes!), 1-based
+    fLinePosition: Integer;//current character in line, 1-based
+    fLine: Integer;//current line in file, 1-based
 
     fEncoding: TEncoding;
     fOwnsEncoding: Boolean;
@@ -160,9 +160,9 @@ type
     //Character position in text
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
-    property TextPosition: Integer read fTextPosition;//absolute character position in file, 1-based
-    property TextCharPosition: Integer read fTextCharPosition;//current character in line, 1-based
-    property TextLinePosition: Integer read fTextLinePosition;//current line, 1-based
+    property FilePosition: Integer read fFilePosition;//absolute character position in file, 1-based
+    property LinePosition: Integer read fLinePosition;//current character in line, 1-based
+    property Line: Integer read fLine;//current line, 1-based
     //size of original stream
     property StreamSize: ONativeInt read fStreamSize;
   end;
@@ -236,12 +236,12 @@ function GetEncodingFromStream(const aStream: TStream;
 
 implementation
 
-{$IFDEF FPC}
-uses LazUTF8;
-{$ENDIF}
 
-resourcestring
-  OTextReadWrite_Undo2Times = 'The aStream parameter must be assigned when creating a buffered stream.';
+uses
+  {$IFDEF FPC}
+  LazUTF8,
+  {$ENDIF}
+  OXmlLNG;
 
 function GetEncodingFromStream(const aStream: TStream;
   var ioTempStringPosition: ONativeInt;
@@ -349,9 +349,9 @@ begin
   fPreviousChar := #0;
   fReadFromUndo := False;
 
-  fTextPosition := 0;
-  fTextCharPosition := 0;
-  fTextLinePosition := 1;
+  fFilePosition := 0;
+  fLinePosition := 0;
+  fLine := 1;
 end;
 
 function TOTextReader.GetApproxStreamPosition: ONativeInt;
@@ -514,8 +514,8 @@ begin
     outChar := fPreviousChar;
     fReadFromUndo := False;
     Result := True;
-    Inc(fTextCharPosition);
-    Inc(fTextPosition);
+    Inc(fLinePosition);
+    Inc(fFilePosition);
     Exit;
   end;
 
@@ -527,21 +527,21 @@ begin
     case outChar of
       #10: begin
         if fPreviousChar <> #13 then
-          Inc(fTextLinePosition);
-        fTextCharPosition := 0;
+          Inc(fLine);
+        fLinePosition := 0;
       end;
       #13: begin
-        fTextCharPosition := 0;
-        Inc(fTextLinePosition);
+        fLinePosition := 0;
+        Inc(fLine);
       end;
     else
-      Inc(fTextCharPosition);
+      Inc(fLinePosition);
     end;
 
     fPreviousChar := outChar;
     Inc(fTempStringPosition);
     Dec(fTempStringRemain);
-    Inc(fTextPosition);
+    Inc(fFilePosition);
     Result := True;
   end else begin
     fEOF := True;
@@ -657,11 +657,11 @@ end;
 procedure TOTextReader.UndoRead;
 begin
   if fReadFromUndo then
-    raise EOTextReader.Create(OTextReadWrite_Undo2Times);
+    raise EOTextReader.Create(OXmlLng_CannotUndo2Times);
 
   fReadFromUndo := True;
-  Dec(fTextCharPosition);
-  Dec(fTextPosition);
+  Dec(fLinePosition);
+  Dec(fFilePosition);
 end;
 
 { TOTextWriter }

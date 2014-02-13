@@ -182,6 +182,9 @@ const
 
 implementation
 
+uses
+  OXmlLng;
+
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
 begin
   Result := aId <> OHASHEDSTRINGSINDEX_UNASSIGNED;
@@ -459,6 +462,9 @@ end;
 
 function TOHashedStrings.Get(const aIndex: OHashedStringsIndex): OWideString;
 begin
+  if (aIndex < 0) or (aIndex >= fNextItemId) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
   Result := {$IFNDEF O_UNICODE}OFastToWide{$ENDIF}(fItems[aIndex].fTextFast);
 end;
 

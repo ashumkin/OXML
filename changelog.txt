@@ -1,7 +1,17 @@
 OXml Change Log
 ---------------
 
-Version 0.6 2014-02-11 [SVN commit: 10, https://sourceforge.net/p/oxml/code/10/]
+Version 0.7 2014-02-13 [SVN commit: 12, https://sourceforge.net/p/oxml/code/12/]
+  - New unit OXmlDOMVendor.pas: a DOM vendor for Delphi's own TXMLDocument
+    based on OXml - the fastest DOM vendor available for Delphi.
+  - Error handling rewritten: see the ReaderSettings.ErrorHandling property.
+    OXml can simulate MSXML's, OmniXML's or DelphiXML's error handling.
+  - Added new overloaded functions:
+      * TXMLNode.XML(const aIndentType: TXMLIndentType);
+      * IXMLDocument.XML(const aIndentType: TXMLIndentType);
+
+
+Version 0.6 2014-02-11 [SVN commit: 11, https://sourceforge.net/p/oxml/code/11/]
   - Renamed TXMLNode.SelectNodeNull to SelectNodeDummy
   - Renamed TXMLSeqParser.PassNextChildElementHeader to SkipNextChildElementHeader
   - Renamed TXMLSeqParser.PassNextChildNode to SkipNextChildNode

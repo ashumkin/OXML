@@ -1,8 +1,8 @@
 unit OXmlUnitTests;
 
-{$ifdef fpc}
-  {$mode delphi}{$H+}
-{$endif}
+{$IFDEF FPC}
+  {$MODE DELPHI}{$H+}
+{$ENDIF}
 
 {$IFNDEF FPC}
   {$IF CompilerVersion >= 25}
@@ -19,9 +19,13 @@ type
   TObjFunc = function(): Boolean of object;
 
   TOXmlUnitTest = class(TObject)
+  private const
+    cTestCount = 9;
   private
     fPassNameIfFalse: TStringList;
+    fPassedCount: Integer;
 
+    function GetAllTestCount: Integer;
     procedure FunctionPassed(const aFunction: TObjFunc; const aFunctionName: String);
   private
     //OXmlReadWrite.pas
@@ -30,7 +34,10 @@ type
   private
     //OXmlPDOM.pas
     function Test_TXMLNode_SelectNodeCreate_Attribute: Boolean;
+    function Test_TXMLNode_Clone: Boolean;
+    function Test_TXMLNode_Normalize: Boolean;
     function Test_TXMLDocument_InvalidDocument1: Boolean;
+    function Test_TXMLDocument_WhiteSpaceHandling: Boolean;
   private
     //OWideSupp.pas
     function Test_TOTextBuffer: Boolean;
@@ -67,7 +74,14 @@ procedure TOXmlUnitTest.FunctionPassed(const aFunction: TObjFunc;
   const aFunctionName: String);
 begin
   if not aFunction() then
-    fPassNameIfFalse.Add(aFunctionName);
+    fPassNameIfFalse.Add(aFunctionName)
+  else
+    Inc(fPassedCount);
+end;
+
+function TOXmlUnitTest.GetAllTestCount: Integer;
+begin
+  Result := fPassNameIfFalse.Count + fPassedCount;
 end;
 
 procedure TOXmlUnitTest.OXmlTestAll(const aStrList: TStrings);
@@ -81,22 +95,34 @@ begin
   FunctionPassed(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
   FunctionPassed(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
   FunctionPassed(Test_TXMLNode_SelectNodeCreate_Attribute, 'Test_TXMLNode_SelectNodeCreate_Attribute');
+  FunctionPassed(Test_TXMLNode_Clone, 'Test_TXMLNode_Clone');
+  FunctionPassed(Test_TXMLNode_Normalize, 'Test_TXMLNode_Normalize');
   FunctionPassed(Test_TXMLDocument_InvalidDocument1, 'Test_TXMLDocument_InvalidDocument1');
+  FunctionPassed(Test_TXMLDocument_WhiteSpaceHandling, 'Test_TXMLDocument_WhiteSpaceHandling');
   FunctionPassed(Test_TOTextBuffer, 'Test_TOTextBuffer');
   FunctionPassed(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
 
+  aStrList.Clear;
 
   if fPassNameIfFalse.Count = 0 then
-    aStrList.Text := 'OXml: all tests passed'
+    aStrList.Add(Format('OXml: all tests from %d passed.', [GetAllTestCount]))
   else
   begin
-    aStrList.Clear;
     aStrList.Add('');
-    aStrList.Add(Format('ERROR OXml: %d test(s) not passed:', [fPassNameIfFalse.Count]));
+    aStrList.Add(Format('ERROR OXml: %d from %d test(s) not passed:', [fPassNameIfFalse.Count, GetAllTestCount]));
 
     for I := 0 to fPassNameIfFalse.Count-1 do
       aStrList.Add(fPassNameIfFalse[I]);
   end;
+
+  if (GetAllTestCount <> cTestCount) then
+  begin
+    aStrList.Add('');
+    aStrList.Add('ERROR OXmlUnitTest: test count is invalid.');
+    aStrList.Add(Format('tests runned: %d, tests expected: %d',
+      [GetAllTestCount, cTestCount]));
+  end;
+
 end;
 
 function TOXmlUnitTest.Test_TOHashedStrings_Grow: Boolean;
@@ -160,7 +186,7 @@ begin
     xReader.InitXML('<root attribute="1" />');
 
     xResult := '';
-    while xReader.ReadNextToken(xReaderToken) do
+    while xReader.ReadNextToken({%H-}xReaderToken) do
     begin
       xResult := xResult + Format('%d:%s:%s;', [Ord(xReaderToken.TokenType), xReaderToken.TokenName, xReaderToken.TokenValue]);
     end;
@@ -228,6 +254,65 @@ begin
   xXML.LoadFromXML(inXML);
 
   Result := (xXML.XML = outXML);
+end;
+
+function TOXmlUnitTest.Test_TXMLDocument_WhiteSpaceHandling: Boolean;
+const
+  inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
+  outXML: OWideString = '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default">default<p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p></text>  </root>';
+var
+  xXML: IXMLDocument;
+begin
+  xXML := CreateXMLDoc;
+
+  xXML.WhiteSpaceHandling := wsAutoTag;
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = outXML);
+end;
+
+function TOXmlUnitTest.Test_TXMLNode_Clone: Boolean;
+const
+  inXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone></root>';
+  outXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone><clone attr="value"/><clone attr="value"><n>text</n><m/></clone></root>';
+var
+  xXML: IXMLDocument;
+  xCloneNode: PXMLNode;
+begin
+  xXML := CreateXMLDoc;
+  xXML.LoadFromXML(inXML);
+  xCloneNode := xXML.DocumentElement.SelectNode('clone');
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(False));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
+
+  Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_TXMLNode_Normalize: Boolean;
+const
+  outXML: OWideString = '<root><test/>my  text<b>hello<clone/></b></root>';
+var
+  xXML: IXMLDocument;
+  xDocElement, xNodeB: PXMLNode;
+begin
+  xXML := CreateXMLDoc('root');
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xDocElement := xXML.DocumentElement;
+  xDocElement.AddText(sLineBreak+'   '+sLineBreak+#9);
+  xDocElement.AddChild('test');
+  xDocElement.AddText(#9'my  text '+sLineBreak);
+  xDocElement.AddText(sLineBreak);
+  xNodeB := xDocElement.AddChild('b');
+  xNodeB.AddText('  ');
+  xNodeB.AddText('hello');
+  xNodeB.AddText(sLineBreak);
+  xNodeB.AddText('  ');
+  xNodeB.AddChild('clone');
+  xNodeB.AddText('  ');
+
+  xDocElement.Normalize;
+
+  Result := xXML.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_TXMLNode_SelectNodeCreate_Attribute: Boolean;

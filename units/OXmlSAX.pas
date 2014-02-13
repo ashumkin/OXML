@@ -135,6 +135,7 @@ type
     fReaderSettings: TXMLReaderSettings;
     fDataRead: Boolean;
     fStopParsing: Boolean;
+    fURL: String;
 
     fOnStartDocument: TSAXNotifyEvent;
     fOnEndDocument: TSAXNotifyEvent;
@@ -143,6 +144,8 @@ type
     fOnProcessingInstruction: TSAXProcessingInstructionEvent;
     fOnStartElement: TSAXStartElementEvent;
     fOnEndElement: TSAXEndElementEvent;
+
+    fParseError: IXMLParseError;
 
     procedure DoOnStartDocument;
     procedure DoOnEndDocument;
@@ -232,6 +235,12 @@ type
     property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
     //size of original stream
     property StreamSize: ONativeInt read GetStreamSize;
+
+    //determines if parsing has been stopped with the StopParsing procedure
+    property ParsingStopped: Boolean read fStopParsing;
+
+    //ParseError has information about the error that occured when parsing a document
+    property ParseError: IXMLParseError read fParseError;
   end;
 
   ESAXParserException = class(Exception);
@@ -343,6 +352,8 @@ function TSAXParser.ParseFile(const aFileName: String;
 var
   xStream: TFileStream;
 begin
+  fURL := aFileName;
+
   xStream := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
   try
     Result := ParseStream(xStream, aForceEncoding);
@@ -434,15 +445,14 @@ var
   xAttributes: TSAXAttributes;
   xReaderToken: PXMLReaderToken;
 begin
+  fParseError := nil;
+  Result := True;
   fDataRead := False;
-  fStopParsing := False;
-
   fStopParsing := False;
 
   xAttributes := TSAXAttributes.Create;
   fReader.SetAttributeTokens(xAttributes.fAttributeTokens);
   try
-    //xReaderToken := fReader.SetReaderToken(xLastElementReaderToken, False);
     while (not fStopParsing) and fReader.ReadNextToken({%H-}xReaderToken) do begin
       case xReaderToken.TokenType of
         rtOpenElement: begin
@@ -470,12 +480,19 @@ begin
     begin
       DoOnEndDocument;
     end;
+
+    if Assigned(fReader.ParseError) then
+    begin
+      fParseError := fReader.ParseError;
+
+      Result := False;
+    end;
   finally
     fReader.SetAttributeTokens(nil);
     xAttributes.Free;
-  end;
 
-  Result := not fStopParsing;
+    fURL := '';
+  end;
 end;
 
 function TSAXParser.RefIsChildOfNodePath(

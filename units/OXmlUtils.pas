@@ -65,6 +65,11 @@ type
   TXMLBreakReading = (brNone, brAfterDocumentElement);
   TXMLLineBreak = (lbLF, lbCR, lbCRLF, lbDoNotProcess);
   TXMLChildType = (ctChild, ctAttribute);
+  //wsInherit: inherit from parent element
+  //wsPreserve: preserve white space
+  //wsDefault: default handlign (do not preserve)
+  TXMLPreserveWhiteSpace = (pwInherit, pwPreserve, pwDefault);
+  TXMLReaderErrorHandling = (ehSilent, ehRaiseAndEat, ehRaise);
 
 const
   {$IFDEF MSWINDOWS}
@@ -73,6 +78,28 @@ const
   XMLDefaultLineBreak = lbLF;
   {$ENDIF}
   XMLLineBreak: Array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
+
+  // W3C DOM Level 1 :: http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html
+  // index or size is negative, or greater than the allowed value
+  INDEX_SIZE_ERR = 1;
+  // the specified range of text does not fit into a DOMString
+  DOMSTRING_SIZE_ERR = 2;
+  // any node is inserted somewhere it doesn't belong
+  HIERARCHY_REQUEST_ERR = 3;
+  // a node is used in a different document than the one that created it (that doesn't support it)
+  WRONG_DOCUMENT_ERR = 4;
+  // an invalid character is specified, such as in a name
+  INVALID_CHARACTER_ERR = 5;
+  // data is specified for a node which does not support data
+  NO_DATA_ALLOWED_ERR = 6;
+  // an attempt is made to modify an object where modifications are not allowed
+  NO_MODIFICATION_ALLOWED_ERR = 7;
+  // an attempt was made to reference a node in a context where it does not exist
+  NOT_FOUND_ERR = 8;
+  // the implementation does not support the type of object requested
+  NOT_SUPPORTED_ERR = 9;
+  // an attempt is made to add an attribute that is already in use elsewhere
+  INUSE_ATTRIBUTE_ERR = 10;
 type
 
   {$IFDEF O_GENERICS}
@@ -109,23 +136,25 @@ function OXmlValidPIContent(const aText: OWideString): Boolean; {$IFDEF O_INLINE
 
 function OXmlValidName(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
-function OXmlPreserveToStr(const aPreserveWhiteSpace: Boolean): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
-function OXmlStrToPreserve(const aStr: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlPreserveToStr(const aPreserveWhiteSpace: TXMLPreserveWhiteSpace): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 implementation
 
-resourcestring
-  OXmlLng_CannotWriteToVirtualMemoryStream = 'You cannot write to a TVirtualMemoryStream.';
+uses
+  OXmlLng;
 
-
-function OXmlStrToPreserve(const aStr: OWideString): Boolean;
+function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace;
 begin
-  Result := (aStr <> '') and ((aStr[1] = 'p') or (aStr[1] = 'P'));//preserve = true
+  if (aStr <> '') and ((aStr[1] = 'p') or (aStr[1] = 'P')) then//preserve = true
+    Result := pwPreserve
+  else
+    Result := pwDefault;
 end;
 
-function OXmlPreserveToStr(const aPreserveWhiteSpace: Boolean): OWideString;
+function OXmlPreserveToStr(const aPreserveWhiteSpace: TXMLPreserveWhiteSpace): OWideString;
 begin
-  if aPreserveWhiteSpace then
+  if aPreserveWhiteSpace = pwPreserve then
     Result := 'preserve'
   else
     Result := 'default';

@@ -56,7 +56,8 @@ var
     'Char: %d'+sLineBreak+
     'XML token line: %d'+sLineBreak+
     'XML token char: %d'+sLineBreak+
-    sLineBreak+
+    'Position in source stub: %d'+sLineBreak+
+    'Source stub:'+sLineBreak+
     '%s';
 
   OXmlLng_XPathPredicateNotSupported: String = 'XPath predicate "%s" is not supported.'+sLineBreak+'XPath: %s';
@@ -79,6 +80,8 @@ var
   OXmlLng_CannotSetIndentLevelAfterWrite: String = 'You can''t set the IndentLevel after something has been already written to the document.';
   OXmlLng_NodeNameCannotBeEmpty: String = 'Node name cannot be empty.';
   OXmlLng_XPathCannotBeEmpty: String = 'XPath cannot be empty.';
+  OXmlLng_CannotWriteToVirtualMemoryStream: String = 'You cannot write to a TVirtualMemoryStream.';
+  OXmlLng_CannotUndo2Times: String = 'Unsupported: you tried to run the undo function two times in a row.';
 
 implementation
 

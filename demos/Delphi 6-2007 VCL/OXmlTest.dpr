@@ -15,7 +15,8 @@ uses
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
+  OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas';
 
 {$R *.res}
 
