@@ -27,7 +27,8 @@ package OXml_R2009;
 {$IMPLICITBUILD OFF}
 
 requires
-  rtl;
+  rtl,
+  xmlrtl;
 
 contains
   OXmlSeq in '..\..\units\OXmlSeq.pas',

@@ -386,7 +386,6 @@ begin
       ntProcessingInstruction: xNewClass := TOXmlDOMProcessingInstruction;
     else
       raise Exception.Create('TOXmlDOMNode.get_nodeType: wrong implementation');
-      xNewClass := nil;
     end;
     Result := xNewClass.Create(Node)
   end

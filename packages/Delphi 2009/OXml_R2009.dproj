@@ -51,6 +51,7 @@
 				<MainSource>MainSource</MainSource>
 			</DelphiCompile>
 			<DCCReference Include="rtl.dcp"/>
+			<DCCReference Include="xmlrtl.dcp"/>
 			<DCCReference Include="..\..\units\OXmlSeq.pas"/>
 			<DCCReference Include="..\..\units\OTextReadWrite.pas"/>
 			<DCCReference Include="..\..\units\OWideSupp.pas"/>
