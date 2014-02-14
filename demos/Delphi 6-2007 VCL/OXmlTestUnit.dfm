@@ -48,13 +48,22 @@ object Form1: TForm1
     TabOrder = 2
     OnClick = BtnResaveTestClick
   end
+  object BtnAttributeTest: TButton
+    Left = 616
+    Top = 16
+    Width = 193
+    Height = 25
+    Caption = 'Attribute Performance Test'
+    TabOrder = 3
+    OnClick = BtnAttributeTestClick
+  end
   object BtnXmlDirectWrite: TButton
     Left = 16
     Top = 48
     Width = 193
     Height = 25
     Caption = 'Xml Direct Write - simple.xml'
-    TabOrder = 3
+    TabOrder = 4
     OnClick = BtnXmlDirectWriteClick
   end
   object BtnTestSAX: TButton
@@ -63,7 +72,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Test SAX Read'
-    TabOrder = 4
+    TabOrder = 5
     OnClick = BtnTestSAXClick
   end
   object BtnDOMTest: TButton
@@ -72,7 +81,7 @@ object Form1: TForm1
     Width = 194
     Height = 25
     Caption = 'DOM Level 1.0 Test'
-    TabOrder = 5
+    TabOrder = 6
     OnClick = BtnDOMTestClick
   end
   object BtnIterateTest: TButton
@@ -81,7 +90,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Iterate Test'
-    TabOrder = 6
+    TabOrder = 7
     OnClick = BtnIterateTestClick
   end
   object BtnSequentialTest: TButton
@@ -90,7 +99,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Sequential Test'
-    TabOrder = 7
+    TabOrder = 8
     OnClick = BtnSequentialTestClick
   end
   object BtnTestXPath: TButton
@@ -99,7 +108,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'XPath Test'
-    TabOrder = 8
+    TabOrder = 9
     OnClick = BtnTestXPathClick
   end
   object BtnTestReadInvalid: TButton
@@ -108,7 +117,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Test read invalid document'
-    TabOrder = 9
+    TabOrder = 10
     OnClick = BtnTestReadInvalidClick
   end
   object BtnTestWriteInvalid: TButton
@@ -117,7 +126,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Test write invalid document'
-    TabOrder = 10
+    TabOrder = 11
     OnClick = BtnTestWriteInvalidClick
   end
   object BtnEncodingTest: TButton
@@ -126,7 +135,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Custom Encoding Test'
-    TabOrder = 11
+    TabOrder = 12
     OnClick = BtnEncodingTestClick
   end
   object Memo1: TMemo
@@ -137,7 +146,7 @@ object Form1: TForm1
     Lines.Strings = (
       'Memo1')
     ScrollBars = ssBoth
-    TabOrder = 12
+    TabOrder = 13
   end
   object Memo2: TMemo
     Left = 312
@@ -147,6 +156,6 @@ object Form1: TForm1
     Lines.Strings = (
       'Memo2')
     ScrollBars = ssBoth
-    TabOrder = 13
+    TabOrder = 14
   end
 end

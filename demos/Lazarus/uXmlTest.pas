@@ -60,6 +60,7 @@ type
   { TForm1 }
 
   TForm1 = class(TForm)
+    BtnAttributeTest: TButton;
     BtnDOMTest: TButton;
     BtnEncodingTest: TButton;
     BtnIterateTest: TButton;
@@ -75,6 +76,7 @@ type
     LblTimeInfo: TLabel;
     Memo1: TMemo;
     Memo2: TMemo;
+    procedure BtnAttributeTestClick(Sender: TObject);
     procedure BtnDOMTestClick(Sender: TObject);
     procedure BtnIterateTestClick(Sender: TObject);
     procedure BtnResaveTestClick(Sender: TObject);
@@ -1642,6 +1644,60 @@ begin
   end;
 end;
 
+procedure TForm1.BtnAttributeTestClick(Sender: TObject);
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xRoot: OXmlPDOM.PXMLNode;
+  I: Integer;
+  xT1, xT2, xT3: Cardinal;
+const
+  cAttrCount = 1*1000;// << play around
+begin
+  {
+    About this test:
+    Because OXmlPDOM doesn't use indexed attribute list, somebody may think that
+    the GetAttribute(aName) function should be slow. This example code tests
+    this issue.
+
+    As you can see, a lot of unique attributes of the same element are created
+    (exactly cAttrCount). Then all of those attributes are retrieved back from
+    the XML document.
+
+    The limit of "pretty good" performance (= "no time needed") is somewhere
+    around 1'000 attributes, which is reasonable as 1000*(1000+1)/2 ~= 500'000
+    cycles are needed to go through all attributes, which is nothing for
+    an 1 GHz PC.
+
+    The limit of "acceptable" performance is about 10'000 attributes. Above
+    this limit, the performance is getting from "bad" to "fail".
+
+    To my mind, this performance is absolutely OK - have you ever seen an XML
+    document with more than 100 attributes in one element?
+
+    (Creating an indexed list for every element would be much slower overall!)
+  }
+
+  xXML := OXmlPDOM.CreateXMLDoc('root');
+  xRoot := xXML.DocumentElement;
+
+  xT1 := GetTickCount;
+  for I := 1 to cAttrCount do
+    xRoot.AddAttribute(IntToStr(I), '');
+
+  xT2 := GetTickCount;
+  for I := 1 to cAttrCount do
+    xRoot.GetAttribute(IntToStr(I));
+
+  xT3 := GetTickCount;
+
+  Memo1.Lines.Text :=
+    'Attribute performance test"'+sLineBreak+
+    'Attribute count: '+IntToStr(cAttrCount)+sLineBreak+
+    'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+    'Get: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak;
+  Memo2.Lines.Clear;
+end;
+
 procedure TForm1.BtnDOMTestClick(Sender: TObject);
   procedure TestOXmlPDOM;
   var
@@ -1688,7 +1744,6 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
     xXML := OXmlPDOM.CreateXMLDoc;
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
-    xXML.DocumentElement.NodeName := 'rootnode';
     xXML.DocumentElement.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');

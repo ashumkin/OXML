@@ -27,8 +27,7 @@ package OXml_R2007;
 {$IMPLICITBUILD OFF}
 
 requires
-  rtl,
-  xmlrtl;
+  rtl;
 
 contains
   ODictionary in '..\..\units\ODictionary.pas',
@@ -43,7 +42,6 @@ contains
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   OEncoding in '..\..\units\OEncoding.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
-  OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas';
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
 
 end.
