@@ -519,15 +519,19 @@ begin
 end;
 {$ELSE}
 var
-  I: Integer;
+  I, xLen: Integer;
   xK: PAnsiChar;
 begin
   Result := 0;
-  xK := @aKey[1];
-  for I := 1 to Length(aKey) * 2 do begin
-    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
-      Ord(xK^);
-    Inc(xK);
+  xLen := Length(aKey);
+  if xLen > 0 then
+  begin
+    xK := @aKey[1];
+    for I := 1 to xLen*2 do begin
+      Result := ((Result shl 2) or (Result shr (SizeOf(Result)*8 - 2))) xor
+        Ord(xK^);
+      Inc(xK);
+    end;
   end;
 end;
 {$ENDIF}
@@ -597,7 +601,8 @@ begin
   {$ELSE}
   Result :=
       (Length(fTextFast) = Length(aText)*SizeOf(OWideChar)) and
-      CompareMem(@fTextFast[1], @aText[1], Length(fTextFast));
+      ((fTextFast = '') or //must be here, otherwise @fTextFast[1] causes range check error
+        CompareMem(@fTextFast[1], @aText[1], Length(fTextFast)));
   {$ENDIF}
 end;
 

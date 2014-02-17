@@ -197,8 +197,6 @@ type
     procedure DeleteChildren(const aDestroyList: Boolean = True);
     procedure DeleteSelf;
     procedure RemoveSelfFromParent;
-    //clear: delete all attributes and child nodes, set name and value to empty string
-    procedure Clear;
 
     //insert a node before another
     //  Inserts the node aNewChild before the existing child node aRefChild.
@@ -519,11 +517,11 @@ type
     procedure SetDocumentElement(const aDocumentElement: PXMLNode);
     function GetWriterSettings: TXMLWriterSettings;
     function GetReaderSettings: TXMLReaderSettings;
-
-    procedure ClearNodes(const aFullClear: Boolean);
     function GetParseError: IXMLParseError;
   protected
-    procedure FreeNode(const aNode: PXMLNode);
+    procedure FreeNode(const aNode: PXMLNode); virtual;
+    procedure ClearNodes(const aFullClear: Boolean); virtual;
+
     procedure CreateNode(const aNodeType: TXmlNodeType;
       const aNodeName, aNodeValue: OWideString; var outNode: PXMLNode); overload;
     procedure CreateNode(const aNodeType: TXmlNodeType;
@@ -947,17 +945,6 @@ end;
 procedure TXMLNode.AssignProperties(const aFromNode: PXMLNode);
 begin
   Self.fPreserveWhiteSpace := aFromNode.fPreserveWhiteSpace;
-end;
-
-procedure TXMLNode.Clear;
-begin
-  DeleteAttributes(True);
-  DeleteChildren(True);
-  fNodeNameId := -1;
-  fNodeValueId := -1;
-  fParentNode := nil;
-
-  //do not set fNextSibling and fPrevSibling to nil, it's not necessary and also e.g. GetNextChild() has to work also after the node has been deleted!!!
 end;
 
 function TXMLNode.CloneNode(const aDeep: Boolean): PXMLNode;
@@ -2395,15 +2382,19 @@ end;
 
 procedure TXMLDocument.FreeNode(const aNode: PXMLNode);
 begin
-  aNode.Clear;
+  aNode.DeleteAttributes(True);
+  aNode.DeleteChildren(True);
+  aNode.fNodeNameId := -1;
+  aNode.fNodeValueId := -1;
+  aNode.fParentNode := nil;
+
+  //do not set fNextSibling and fPrevSibling to nil, it's not necessary and also e.g. GetNextChild() has to work also after the node has been deleted!!!
 
   {$IFDEF O_GENERICS}
   fFreeNodes.Add(aNode, True);
   {$ELSE}
   fFreeNodes.Add({%H-}ONativeInt(aNode));
   {$ENDIF}
-
-  //do not set fNextSibling and fPrevSibling to nil, it's not necessary and also e.g. GetNextChild() has to work also after the node has been deleted!!!
 end;
 
 function TXMLDocument.GetCodePage: Word;

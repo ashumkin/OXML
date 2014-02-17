@@ -15,12 +15,13 @@ interface
 uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM,
   OHashedStrings;
 
+const
+  cTestCount = 9;
+  
 type
   TObjFunc = function(): Boolean of object;
 
   TOXmlUnitTest = class(TObject)
-  private const
-    cTestCount = 9;
   private
     fPassNameIfFalse: TStringList;
     fPassedCount: Integer;
