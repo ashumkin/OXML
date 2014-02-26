@@ -57,6 +57,8 @@ uses
   OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding, OHashedStrings;
 
 type
+  TSAXParser = class;
+
   //The clue of TSAXAttribute is to reduce string operations to an minimum.
   // -> therefore TSAXAttribute is just TXMLReaderToken
   TSAXAttribute = TXMLReaderToken;
@@ -65,15 +67,21 @@ type
   TSAXAttributes = class(TObject)
   private
     fAttributeTokens: TXMLReaderTokenList;
+    fIndex: TOVirtualHashIndex;//for fast Find/IndexOf function -> use only for more than attribute limit
+    fIndexUsed: Boolean;
 
     fIteratorCurrent: Integer;//for fast Next & Prev
 
     function GetPrevNext(var ioAttrEnum: PSAXAttribute; const aInc: Integer): Boolean;
     function GetAttributeItem(const aIndex: Integer): PSAXAttribute;
     function GetCount: Integer;
+
+    procedure GetKeyByIndex(const aIndex: OHashedStringsIndex; var outString: OWideString);
   public
     constructor Create;
     destructor Destroy; override;
+  public
+    procedure CreateIndex;
   public
     function IndexOf(const aAttrName: OWideString): Integer;
     function Has(const aAttrName: OWideString): Boolean;
@@ -109,7 +117,6 @@ type
     property Current: PSAXAttribute read GetCurrent;
   end;
 
-  TSAXParser = class;
   {$IFDEF O_ANONYMOUS_METHODS}
   TSAXNotifyEvent = reference to procedure(aSaxParser: TSAXParser);
   TSAXTextEvent = reference to procedure(aSaxParser: TSAXParser;
@@ -462,6 +469,7 @@ begin
           end;
         end;
         rtFinishOpenElementClose, rtFinishOpenElement: begin
+          xAttributes.CreateIndex;
           DoOnStartElement(xReaderToken.TokenName, xAttributes);
           if xReaderToken.TokenType = rtFinishOpenElementClose then
             DoOnEndElement(xReaderToken.TokenName);
@@ -531,11 +539,26 @@ begin
   inherited;
 
   fAttributeTokens := TXMLReaderTokenList.Create;
+  fIndex := TOVirtualHashIndex.Create(GetKeyByIndex);
+end;
+
+procedure TSAXAttributes.CreateIndex;
+var
+  I: Integer;
+begin
+  fIndexUsed := Count > XMLUseIndexForAttributesLimit;
+  if not fIndexUsed then
+    Exit;
+
+  fIndex.Clear(Count);
+  for I := 0 to fAttributeTokens.Count-1 do
+    fIndex.Add(fAttributeTokens[I].TokenName);
 end;
 
 destructor TSAXAttributes.Destroy;
 begin
   fAttributeTokens.Free;
+  fIndex.Free;
 
   inherited;
 end;
@@ -562,12 +585,17 @@ function TSAXAttributes.IndexOf(const aAttrName: OWideString): Integer;
 var
   I: Integer;
 begin
-  for I := 0 to Count-1 do
-  if fAttributeTokens[I].TokenName = aAttrName then begin
-    Result := I;
-    Exit;
+  if fIndexUsed then//hash index used
+    Result := fIndex.IndexOf(aAttrName)
+  else
+  begin//hash index not used
+    for I := 0 to Count-1 do
+    if fAttributeTokens[I].TokenName = aAttrName then begin
+      Result := I;
+      Exit;
+    end;
+    Result := -1;
   end;
-  Result := -1;
 end;
 
 function TSAXAttributes.First: PSAXAttribute;
@@ -648,7 +676,7 @@ begin
         ioAttrEnum := nil;
     end;
   end else begin
-    //return first or last element (list must not be not empty)
+    //return first or last element
     if aInc > 0 then
       fIteratorCurrent := 0
     else
@@ -656,6 +684,12 @@ begin
     ioAttrEnum := fAttributeTokens[fIteratorCurrent];
     Result := True;
   end;
+end;
+
+procedure TSAXAttributes.GetKeyByIndex(const aIndex: OHashedStringsIndex;
+  var outString: OWideString);
+begin
+  outString := fAttributeTokens[aIndex].TokenName;
 end;
 
 function TSAXAttributes.Last: PSAXAttribute;

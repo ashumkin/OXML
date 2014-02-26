@@ -13,10 +13,10 @@ unit OXmlUnitTests;
 interface
 
 uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM,
-  OHashedStrings;
+  OHashedStrings, OXmlSAX, OXmlSeq;
 
 const
-  cTestCount = 9;
+  cTestCount = 16;
   
 type
   TObjFunc = function(): Boolean of object;
@@ -27,7 +27,7 @@ type
     fPassedCount: Integer;
 
     function GetAllTestCount: Integer;
-    procedure FunctionPassed(const aFunction: TObjFunc; const aFunctionName: String);
+    procedure ExecuteFunction(const aFunction: TObjFunc; const aFunctionName: String);
   private
     //OXmlReadWrite.pas
     function Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
@@ -39,12 +39,27 @@ type
     function Test_TXMLNode_Normalize: Boolean;
     function Test_TXMLDocument_InvalidDocument1: Boolean;
     function Test_TXMLDocument_WhiteSpaceHandling: Boolean;
+    function Test_TXMLDocument_AttributeIndex: Boolean;
+    function Test_TXMLDocument_WrongDocument1: Boolean;
+    function Test_TXMLDocument_WrongDocument2: Boolean;
+    function Test_TXMLDocument_WrongDocument3: Boolean;
   private
     //OWideSupp.pas
     function Test_TOTextBuffer: Boolean;
   private
-    //OHashedStrings
+    //OHashedStrings.pas
     function Test_TOHashedStrings_Grow: Boolean;
+  private
+    //OXmlSAX.pas
+    procedure Test_TSAXParser_HashIndex_SAXStartElement({%H-}aSaxParser: TSAXParser;
+      const {%H-}aName: OWideString; const aAttributes: TSAXAttributes);
+    function Test_TSAXParser_HashIndex: Boolean;
+  private
+    //OXmlSeq.pas
+    function Test_TXMLSeqParser_Test1: Boolean;
+  private
+    //OXmlXPath.pas
+    function Test_OXmlXPath_Test1: Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
@@ -71,7 +86,7 @@ begin
   inherited;
 end;
 
-procedure TOXmlUnitTest.FunctionPassed(const aFunction: TObjFunc;
+procedure TOXmlUnitTest.ExecuteFunction(const aFunction: TObjFunc;
   const aFunctionName: String);
 begin
   if not aFunction() then
@@ -93,15 +108,22 @@ begin
   //we cannot use RTTI to call all test functions automatically
   // -> call here all functions manually
 
-  FunctionPassed(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
-  FunctionPassed(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
-  FunctionPassed(Test_TXMLNode_SelectNodeCreate_Attribute, 'Test_TXMLNode_SelectNodeCreate_Attribute');
-  FunctionPassed(Test_TXMLNode_Clone, 'Test_TXMLNode_Clone');
-  FunctionPassed(Test_TXMLNode_Normalize, 'Test_TXMLNode_Normalize');
-  FunctionPassed(Test_TXMLDocument_InvalidDocument1, 'Test_TXMLDocument_InvalidDocument1');
-  FunctionPassed(Test_TXMLDocument_WhiteSpaceHandling, 'Test_TXMLDocument_WhiteSpaceHandling');
-  FunctionPassed(Test_TOTextBuffer, 'Test_TOTextBuffer');
-  FunctionPassed(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
+  ExecuteFunction(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
+  ExecuteFunction(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
+  ExecuteFunction(Test_TXMLNode_SelectNodeCreate_Attribute, 'Test_TXMLNode_SelectNodeCreate_Attribute');
+  ExecuteFunction(Test_TXMLNode_Clone, 'Test_TXMLNode_Clone');
+  ExecuteFunction(Test_TXMLNode_Normalize, 'Test_TXMLNode_Normalize');
+  ExecuteFunction(Test_TXMLDocument_InvalidDocument1, 'Test_TXMLDocument_InvalidDocument1');
+  ExecuteFunction(Test_TXMLDocument_WhiteSpaceHandling, 'Test_TXMLDocument_WhiteSpaceHandling');
+  ExecuteFunction(Test_TXMLDocument_AttributeIndex, 'Test_TXMLDocument_AttributeIndex');
+  ExecuteFunction(Test_TXMLDocument_WrongDocument1, 'Test_TXMLDocument_WrongDocument1');
+  ExecuteFunction(Test_TXMLDocument_WrongDocument2, 'Test_TXMLDocument_WrongDocument2');
+  ExecuteFunction(Test_TXMLDocument_WrongDocument3, 'Test_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
+  ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
+  ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
+  ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
+  ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
 
   aStrList.Clear;
 
@@ -124,6 +146,93 @@ begin
       [GetAllTestCount, cTestCount]));
   end;
 
+end;
+
+function TOXmlUnitTest.Test_OXmlXPath_Test1: Boolean;
+const
+  cXML: OWideString =
+    //'  '+sLineBreak+'  '+
+    '<?xml version="1.0" encoding="utf-8" ?>'+
+    '<root description="test xml">'+
+      '<boss name="Max Muster">'+
+        '<person name="boss person"/>'+
+        '<person name="boss person 2">'+
+          '<person name="boss person/2.1"/>'+
+          '<dog name="boss dog 2.2" type="fight" />'+
+        '</person>'+
+      '</boss>'+
+      '<!-- comment -->'+
+      '<person name="Paul Caster">this text is in person tag</person>'+
+      '<![CDATA[some test info]]>'+
+      '<?pi processing instruction ?>'+
+    '</root>';
+
+var
+  xXml: OXmlPDOM.IXMLDocument;
+
+  function _TestXPathElements(const aStartNode: OXmlPDOM.PXMLNode; const aXPath, aResult: OWideString): Boolean;
+  var
+    xList: OXmlPDOM.IXMLNodeList;
+    xElement: OXmlPDOM.PXMLNode;
+    xStr: OWideString;
+    I: Integer;
+  begin
+    if aStartNode.SelectNodes(aXPath, {%H-}xList) then begin
+      xStr := '';
+      for I := 0 to xList.Count-1 do begin
+        xElement := xList[I];
+
+        if xStr <> '' then
+        if xStr <> '' then
+          xStr := xStr+sLineBreak;
+        case xElement.NodeType of
+          ntElement: xStr := xStr+xElement.NodeName+'='+xElement.Attributes['name'];
+          ntAttribute: xStr := xStr+xElement.ParentNode.NodeName+':'+xElement.NodeName+'='+xElement.NodeValue;
+          ntText, ntCData: xStr := xStr+xElement.NodeValue;
+        end;
+      end;
+
+      Result := (xStr = aResult);
+    end else begin
+      Result := (aResult = '');//nothing selected
+    end;
+  end;
+begin
+  xXml := OXmlPDOM.CreateXMLDoc;
+  xXml.LoadFromXML(cXML);
+
+  Result := True;
+
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '.', 'root=');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '../root', 'root=');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '../root|../root', 'root=');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '../root/.', 'root=');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '../root/boss/..', 'root=');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '../root/person', 'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '..//person[@name="boss person/2.1"]', 'person=boss person/2.1');
+  Result := Result and _TestXPathElements(xXml.DocumentElement, '//person[@name="boss person/2.1"]', 'person=boss person/2.1');
+  Result := Result and _TestXPathElements(xXml.Node, '//person[@name]', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, '//root//person/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+  Result := Result and _TestXPathElements(xXml.Node, '//person/../../boss', 'boss=Max Muster');
+  Result := Result and _TestXPathElements(xXml.Node, '//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root//person', 'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root//boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
+  Result := Result and _TestXPathElements(xXml.Node, 'root//*', 'boss=Max Muster'+sLineBreak+'person=boss person'+sLineBreak+'person=boss person 2'+sLineBreak+'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2'+sLineBreak+'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/*', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, '/root/boss/person', 'person=boss person'+sLineBreak+'person=boss person 2');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/boss', 'boss=Max Muster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/person|root/boss', 'boss=Max Muster'+sLineBreak+'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root', 'root=');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/boss/person[2]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/person[1]', 'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/person[last()]', 'person=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, '/root/*[last()-1]/person[last()]/*', 'person=boss person/2.1'+sLineBreak+'dog=boss dog 2.2');
+  Result := Result and _TestXPathElements(xXml.Node, '//text()', 'this text is in person tag'+sLineBreak+'some test info');
+  Result := Result and _TestXPathElements(xXml.Node, 'root/node()', 'root:description=test xml'+sLineBreak+'boss=Max Muster'+sLineBreak+'person=Paul Caster'+sLineBreak+'some test info');
+
+
+  Result := Result and _TestXPathElements(xXml.Node, 'root//@*', 'root:description=test xml'+sLineBreak+'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'dog:type=fight'+sLineBreak+'person:name=Paul Caster');
+  Result := Result and _TestXPathElements(xXml.Node, 'root//@name', 'boss:name=Max Muster'+sLineBreak+'person:name=boss person'+sLineBreak+'person:name=boss person 2'+sLineBreak+'person:name=boss person/2.1'+sLineBreak+'dog:name=boss dog 2.2'+sLineBreak+'person:name=Paul Caster');
 end;
 
 function TOXmlUnitTest.Test_TOHashedStrings_Grow: Boolean;
@@ -173,6 +282,80 @@ begin
     end;
   finally
     xBuf.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_TSAXParser_HashIndex: Boolean;
+var
+  xStream: TMemoryStream;
+  xWriter: TXMLWriter;
+  xSAXParser: TSAXParser;
+  I: Integer;
+  xAttr: OWideString;
+begin
+  xStream := nil;
+  xWriter := nil;
+  xSAXParser := nil;
+  try
+    xStream := TMemoryStream.Create;
+    xWriter := TXMLWriter.Create(xStream);
+    xWriter.OpenElement('root', stFinish);
+
+    xWriter.OpenElement('ten');//under the hash index limit
+    for I := 1 to 10 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('ten');
+
+    xWriter.OpenElement('thousand');//above the hash index limit
+    for I := 1 to 1000 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('thousand');
+
+    xWriter.OpenElement('tenthousand');//above the hash index limit
+    for I := 1 to 10*1000 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('tenthousand');
+
+    xWriter.CloseElement('root');
+    xWriter.Free;
+    xWriter := nil;
+
+    xStream.Position := 0;
+
+    xSAXParser := TSAXParser.Create;
+    xSAXParser.OnStartElement := Test_TSAXParser_HashIndex_SAXStartElement;
+    xSAXParser.ParseStream(xStream);
+
+  finally
+    xWriter.Free;
+    xStream.Free;
+    xSAXParser.Free;
+  end;
+
+  Result := True;//always true -> check for assertions in Test_TSAXParser_HashIndex_SAXStartElement
+end;
+
+procedure TOXmlUnitTest.Test_TSAXParser_HashIndex_SAXStartElement(
+  aSaxParser: TSAXParser; const aName: OWideString;
+  const aAttributes: TSAXAttributes);
+var
+  I: Integer;
+  xAttrName, xAttrValue: OWideString;
+begin
+  for I := 1 to aAttributes.Count do
+  begin
+    xAttrName := 'a'+IntToStr(I);
+    aAttributes.Find(xAttrName, {%H-}xAttrValue);
+    Assert(xAttrName = xAttrValue);
   end;
 end;
 
@@ -240,6 +423,155 @@ begin
   end;
 end;
 
+function TOXmlUnitTest.Test_TXMLSeqParser_Test1: Boolean;
+const
+  inXml: OWideString =
+    '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
+    '<teryt>'+sLineBreak+
+    '  <catalog name="ULIC">'+sLineBreak+
+    '    <row name="row1">'+sLineBreak+
+    '      <col name="WOJ">04</col>'+sLineBreak+
+    '      <col name="POW">10</col>'+sLineBreak+
+    '    </row>'+sLineBreak+
+    '    <row name="row2">'+sLineBreak+
+    '      <col name="ABC">09</col>'+sLineBreak+
+    '      <col name="CDE">11</col>'+sLineBreak+
+    '    </row>'+sLineBreak+
+    '    <row name="row3">'+sLineBreak+
+    '      <col name="REW">00</col>'+sLineBreak+
+    '      <col name="OLD">99</col>'+sLineBreak+
+    '    </row>'+sLineBreak+
+    '  </catalog>'+sLineBreak+
+    '</teryt>'+sLineBreak;
+  outStr: OWideString = 'WOJ:04;POW:10;ABC:09;CDE:11;REW:00;OLD:99;';
+var
+  xXMLSeq: TXMLSeqParser;
+  xNode: PXMLNode;
+  xColNode: PXMLNode;
+  xName, xValue:String;
+  xOpened: Boolean;
+  xStr: OWideString;
+begin
+  Result := False;
+
+  xXMLSeq := TXMLSeqParser.Create;
+  try
+    xXMLSeq.InitXML(inXml);
+    xXMLSeq.WhiteSpaceHandling := wsTrim;
+
+    if not(xXMLSeq.GoToPath('/teryt/catalog')) then
+      Exit;
+
+    if not((xXMLSeq.ReadNextChildElementHeader({%H-}xNode, {%H-}xOpened)) and xOpened) then
+      Exit;
+
+    xStr := '';
+    while xXMLSeq.ReadNextChildNode(xNode) do
+    begin
+      if(xNode.NodeType = ntElement) and (xNode.NodeName = 'row') then
+      begin
+        xColNode := nil;
+        while xNode.GetNextChild(xColNode) do
+        begin
+          xName := xColNode.GetAttribute('name');
+          xValue := xColNode.Text;
+
+          xStr := xStr + xName+':'+xValue+';'
+        end;
+      end;
+    end;
+
+    Result := (xStr = outStr);
+  finally
+    xXMLSeq.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_TXMLDocument_AttributeIndex: Boolean;
+  procedure _TestNode(const bNode: PXMLNode);
+  var
+    I: Integer;
+    xAttr: OWideString;
+  begin
+    for I := 1 to bNode.AttributeCount do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      Result := (bNode.GetAttribute(xAttr) = xAttr);
+      if not Result then
+        Exit;
+    end;
+  end;
+var
+  xStream: TMemoryStream;
+  xWriter: TXMLWriter;
+  xXML: IXMLDocument;
+  I: Integer;
+  xAttr: OWideString;
+  xNode: PXMLNode;
+begin
+  xStream := nil;
+  xWriter := nil;
+  try
+    xStream := TMemoryStream.Create;
+    xWriter := TXMLWriter.Create(xStream);
+    xWriter.OpenElement('root', stFinish);
+
+    xWriter.OpenElement('ten');//under the hash index limit
+    for I := 1 to 10 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('ten');
+
+    xWriter.OpenElement('thousand');//above the hash index limit
+    for I := 1 to 1000 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('thousand');
+
+    xWriter.OpenElement('tenthousand');//above the hash index limit
+    for I := 1 to 10*1000 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('tenthousand');
+
+    xWriter.CloseElement('root');
+    xWriter.Free;
+    xWriter := nil;
+
+    xStream.Position := 0;
+
+    xXML := CreateXMLDoc;
+    xXML.LoadFromStream(xStream);
+
+    xNode := xXML.Node.SelectNode('root/ten');
+    Result := xNode.AttributeCount = 10;
+    if not Result then Exit;
+    _TestNode(xNode);
+
+    xNode := xXML.Node.SelectNode('root/thousand');
+    Result := xNode.AttributeCount = 1000;
+    if not Result then Exit;
+    _TestNode(xNode);
+
+    xNode := xXML.Node.SelectNode('root/tenthousand');
+    Result := xNode.AttributeCount = 10*1000;
+    if not Result then Exit;
+    _TestNode(xNode);
+
+  finally
+    xWriter.Free;
+    xStream.Free;
+  end;
+
+  Result := True;//always true -> check for assertions in Test_TSAXParser_HashIndex_SAXStartElement
+end;
+
 function TOXmlUnitTest.Test_TXMLDocument_InvalidDocument1: Boolean;
 const
   inXML: OWideString = '<root><b>TEXT</i><p><t><aaa/></p></root>';
@@ -270,6 +602,100 @@ begin
   xXML.LoadFromXML(inXML);
 
   Result := (xXML.XML = outXML);
+end;
+
+function TOXmlUnitTest.Test_TXMLDocument_WrongDocument1: Boolean;
+const
+  inXML: OWideString =
+    '<Test>'+sLineBreak+
+    '  <T1>'#0'</T1> {Chr(0)}'+sLineBreak+
+    '</Test>'+sLineBreak;
+var
+  xXML: IXMLDocument;
+begin
+  xXML := CreateXMLDoc;
+
+  xXML.ReaderSettings.ErrorHandling := ehSilent;
+
+  Result :=
+    not xXML.LoadFromXML(inXML);
+  Result := Result and
+    (xXML.ParseError.Line = 2) and
+    (xXML.ParseError.LinePos = 7) and
+    (xXML.ParseError.ErrorCode = INVALID_CHARACTER_ERR);
+
+  if not Result then
+    Exit;
+
+  //now check XML read in not strict mode
+  xXML.ReaderSettings.StrictXML := False;
+  Result :=
+    xXML.LoadFromXML(inXML);
+
+  Result := Result and
+    (xXML.Node.SelectNode('/Test/T1').Text = #0);
+end;
+
+function TOXmlUnitTest.Test_TXMLDocument_WrongDocument2: Boolean;
+const
+  inXML: OWideString =
+    '<Test>'+sLineBreak+
+    '  <T1>0</T1> {Chr(0)}';
+var
+  xXML: IXMLDocument;
+begin
+  xXML := CreateXMLDoc;
+
+  xXML.ReaderSettings.ErrorHandling := ehSilent;
+
+  Result :=
+    not xXML.LoadFromXML(inXML);
+  Result := Result and
+    (xXML.ParseError.Line = 2) and
+    (xXML.ParseError.LinePos = 21) and
+    (xXML.ParseError.ErrorCode = HIERARCHY_REQUEST_ERR);
+
+  if not Result then
+    Exit;
+
+  //now check XML read in not strict mode
+  xXML.ReaderSettings.StrictXML := False;
+  Result :=
+    xXML.LoadFromXML(inXML);
+
+  Result := Result and
+    (xXML.Node.SelectNode('/Test/T1').Text = '0');
+end;
+
+function TOXmlUnitTest.Test_TXMLDocument_WrongDocument3: Boolean;
+const
+  inXML: OWideString =
+    '<Test> /> </Test>';
+var
+  xXML: IXMLDocument;
+begin
+  xXML := CreateXMLDoc;
+
+  xXML.ReaderSettings.ErrorHandling := ehSilent;
+
+  Result :=
+    not xXML.LoadFromXML(inXML);
+  Result := Result and
+    (xXML.ParseError.Line = 1) and
+    (xXML.ParseError.LinePos = 9) and
+    (xXML.ParseError.ErrorCode = INVALID_CHARACTER_ERR);
+
+  if not Result then
+    Exit;
+
+  //now check XML read in not strict mode
+  xXML.ReaderSettings.StrictXML := False;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  Result :=
+    xXML.LoadFromXML(inXML);
+
+  Result := Result and
+    (xXML.Node.SelectNode('/Test').Text = ' /> ');
 end;
 
 function TOXmlUnitTest.Test_TXMLNode_Clone: Boolean;

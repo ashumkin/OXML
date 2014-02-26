@@ -357,8 +357,8 @@ function TXMLSeqParser.ReadNextChildNode(var outNode: PXMLNode): Boolean;
 var
   x: Boolean;
 begin
-  //Result := ReadNextChildNodeCustom(False, {%H-}x) and fXmlDoc.Node.HasChildNodes;       <--- strange D2009 bug that doesn't like HasChildNodes, rewritten with Assigned(FirstChild)!!!
-  Result := ReadNextChildNodeCustom(False, {%H-}x) and Assigned(fXmlDoc.Node.FirstChild);//<--- strange D2009 bug that doesn't like HasChildNodes, rewritten with Assigned(FirstChild)!!!
+  Result := ReadNextChildNodeCustom(False, {%H-}x) and fXmlDoc.Node.HasChildNodes;
+
   if Result then
     outNode := fXmlDoc.Node.FirstChild;
 end;

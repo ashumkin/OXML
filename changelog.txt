@@ -1,6 +1,11 @@
 OXml Change Log
 ---------------
 
+Version 0.8 2014-02-26 [SVN commit: 14, https://sourceforge.net/p/oxml/code/16/]
+  - New unit OXmlCDOM.pas: a testing DOM model with nodes as TObject descendants.
+  - Various bug fixes.
+
+
 Version 0.7 2014-02-14 [SVN commit: 14, https://sourceforge.net/p/oxml/code/14/]
   - New unit OXmlDOMVendor.pas: a DOM vendor for Delphi's own TXMLDocument
     based on OXml - the fastest DOM vendor available for Delphi.

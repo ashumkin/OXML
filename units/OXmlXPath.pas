@@ -97,7 +97,7 @@ type
   TXMLXPathResNodeList = TList;
   TXMLXPathResNodeDictionary = TODictionary;
   {$ENDIF}
-  TXMLXPathCheckedParent = {$IF DEFINED (O_EXTRECORDS) OR DEFINED(O_GENERICS)}record{$ELSE}object{$IFEND}
+  TXMLXPathCheckedParent = packed {$IF DEFINED (O_EXTRECORDS) OR DEFINED(O_GENERICS)}record{$ELSE}object{$IFEND}//MUST BE PACKED RECORD! -> SEE QC: 122791
     ParentNodeId: XMLXPathId;
     SelectorLevel: Integer;
   {$IFNDEF O_GENERICS}
@@ -840,7 +840,8 @@ procedure TXMLXPathSelector.SelectElements(
     end else begin
       //last selector -> add to list!
       {$IFDEF O_GENERICS}
-      aAddedNodes.Add(aIdTree.Items[bNode], bNode);
+      if not aAddedNodes.ContainsKey(aIdTree.Items[bNode]) then
+        aAddedNodes.Add(aIdTree.Items[bNode], bNode);
       {$ELSE}
       aAddedNodes.AddPointer({%H-}ONativeInt(aIdTree.PointerOfKey[{%H-}ONativeInt(bNode)]), bNode);
       {$ENDIF}

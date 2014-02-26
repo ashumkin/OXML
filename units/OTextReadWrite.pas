@@ -91,11 +91,11 @@ type
       const aDefaultSingleByteEncoding: TEncoding); virtual;
   public
     //create
-    constructor Create(const aBufferSize: Integer = 10*1024 {10 KB}); overload;
+    constructor Create(const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE); overload;
     //create and init
     constructor Create(const aStream: TStream;
       const aDefaultSingleByteEncoding: TEncoding = nil;
-      const aBufferSize: Integer = 10*1024 {10 KB}); overload;
+      const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE); overload;
 
     destructor Destroy; override;
   public
@@ -190,11 +190,11 @@ type
       const aEncoding: TEncoding; const aWriteBOM: Boolean);
   public
     //create
-    constructor Create(const aBufferSize: Integer = 10*1024 {10*1024 Chars = 20 KB}); overload;
+    constructor Create(const aCharBufferSize: Integer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE); overload;
     //create and init
     constructor Create(const aStream: TStream;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True;
-      const aBufferSize: Integer = 10*1024 {10*1024 Chars = 20 KB}); overload;
+      const aCharBufferSize: Integer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE); overload;
 
     destructor Destroy; override;
   public
@@ -269,7 +269,7 @@ begin
   aStream.ReadBuffer(xBuffer[TEncodingBuffer_FirstElement], xSize);
   xEncoding := nil;
   ioTempStringPosition := ioTempStringPosition +
-    TEncoding.GetBufferEncoding(xBuffer, xEncoding {$IFDEF O_DELPHI_XE_UP}, Result{$ENDIF});
+    TEncoding.GetEncodingFromBOM(xBuffer, xEncoding {$IFDEF O_DELPHI_XE_UP}, Result{$ENDIF});
 
   if Assigned(xEncoding) then
     Result := xEncoding;
@@ -484,7 +484,11 @@ begin
 
   Inc(fStreamPosition, xReadBytes+xUTF8Inc);
   SetLength(xBuffer, xReadBytes+xUTF8Inc);
+  {$IFDEF O_DELPHI_2009_UP}
   fTempString := fEncoding.GetString(xBuffer);
+  {$ELSE}
+  fEncoding.BufferToString(xBuffer, fTempString);
+  {$ENDIF}
   fTempStringLength := Length(fTempString);
   fTempStringRemain := fTempStringLength;
   fTempStringPosition := 1;
@@ -588,7 +592,7 @@ var
   I, R: Integer;
   xC: OWideChar;
 const
-  cMaxStartBuffer = 10*1024;
+  cMaxStartBuffer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE;
 begin
   if aMaxChars <= 0 then begin
     Result := '';
@@ -666,20 +670,20 @@ end;
 
 { TOTextWriter }
 
-constructor TOTextWriter.Create(const aBufferSize: Integer);
+constructor TOTextWriter.Create(const aCharBufferSize: Integer);
 begin
   inherited Create;
 
-  DoCreate(aBufferSize)
+  DoCreate(aCharBufferSize)
 end;
 
 constructor TOTextWriter.Create(const aStream: TStream;
   const aEncoding: TEncoding; const aWriteBOM: Boolean;
-  const aBufferSize: Integer);
+  const aCharBufferSize: Integer);
 begin
   inherited Create;
 
-  DoCreate(aBufferSize);
+  DoCreate(aCharBufferSize);
 
   InitStream(aStream, aEncoding, aWriteBOM);
 end;
@@ -816,7 +820,7 @@ var
 begin
   if fWriteBOM and not fBOMWritten then begin
     //WRITE BOM
-    xBOM := fEncoding.GetPreamble;
+    xBOM := fEncoding.GetBOM;
     if Length(xBOM) > 0 then
       fStream.WriteBuffer(xBOM[TEncodingBuffer_FirstElement], Length(xBOM));
   end;
@@ -824,11 +828,19 @@ begin
 
   if aMaxLength < 0 then begin
     //write complete string
+    {$IFDEF O_DELPHI_2009_UP}
     xBytes := fEncoding.GetBytes(aString);
+    {$ELSE}
+    fEncoding.StringToBuffer(aString, {%H-}xBytes);
+    {$ENDIF}
     xBytesLength := Length(xBytes);
   end else begin
     //write part of string
+    {$IFDEF O_DELPHI_2009_UP}
     xBytes := fEncoding.GetBytes(Copy(aString, 1, aMaxLength));
+    {$ELSE}
+    fEncoding.StringToBuffer(Copy(aString, 1, aMaxLength), {%H-}xBytes);
+    {$ENDIF}
     xBytesLength := Length(xBytes);
   end;
 

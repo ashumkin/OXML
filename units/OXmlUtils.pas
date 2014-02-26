@@ -70,6 +70,9 @@ type
   //wsDefault: default handlign (do not preserve)
   TXMLPreserveWhiteSpace = (pwInherit, pwPreserve, pwDefault);
   TXMLReaderErrorHandling = (ehSilent, ehRaiseAndEat, ehRaise);
+  TXMLCharKind =
+    (ckNewLine10, ckNewLine13, ckSingleQuote, ckDoubleQuote, ckAmpersand,
+     ckLowerThan, ckGreaterThan, ckCharacter, ckInvalid);
 
 const
   {$IFDEF MSWINDOWS}
@@ -78,6 +81,8 @@ const
   XMLDefaultLineBreak = lbLF;
   {$ENDIF}
   XMLLineBreak: Array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
+
+  XMLUseIndexForAttributesLimit = 256;
 
   // W3C DOM Level 1 :: http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html
   // index or size is negative, or greater than the allowed value
@@ -125,6 +130,7 @@ function OXmlIsSignChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inlin
 function OXmlIsBreakChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsChar(const aChar: OWideChar): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsChar(const aChar: Integer): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlCharKind(const aChar: OWideChar): TXMLCharKind; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsWhiteSpace(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -305,11 +311,17 @@ begin
   end;
 end;
 
+function OXmlIsChar(const aChar: OWideChar): Boolean;
+begin
+  Result := OXmlIsChar(Ord(aChar));
+end;
+
 function OXmlIsChar(const aChar: Integer): Boolean;
 begin
   case aChar of
+    Ord('<'), Ord('>'): Result := True;
     09, 10, 13,
-    $20..$FF
+    $20..$3B, $3D, $3F..$FF//except <>
     {$IF NOT DEFINED(FPC)}
     ,
     $0100..$FFFD
@@ -320,9 +332,26 @@ begin
   end;
 end;
 
-function OXmlIsChar(const aChar: OWideChar): Boolean;
+function OXmlCharKind(const aChar: OWideChar): TXMLCharKind;
 begin
-  Result := OXmlIsChar(Ord(aChar));
+  case Ord(aChar) of
+    Ord('"'): Result := ckDoubleQuote;//#$22
+    Ord('&'): Result := ckAmpersand;//#$26
+    Ord(''''): Result := ckSingleQuote;//#$27
+    Ord('<'): Result := ckLowerThan;//#$3C
+    Ord('>'): Result := ckGreaterThan;//#$3E
+    10: Result := ckNewLine10;
+    13: Result := ckNewLine13;
+    09,
+    $20, $21, $23..$25, $28..$3B, $3D, $3F..$FF//except '"&<>
+    {$IF NOT DEFINED(FPC)}
+    ,
+    $0100..$FFFD
+    {$IFEND}
+    : Result := ckCharacter;
+  else
+    Result := ckInvalid;
+  end;
 end;
 
 function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;

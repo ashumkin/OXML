@@ -604,8 +604,7 @@ end;
 
 function TOXmlDOMNode.hasChildNodes: WordBool;
 begin
-  //Result := FOXmlNode.HasChildNodes;     // <-- some strange D2009 bug, must be rewritten with Assigned(FirstChild)
-  Result := Assigned(FOXmlNode.FirstChild);// <-- some strange D2009 bug, must be rewritten with Assigned(FirstChild)
+  Result := FOXmlNode.HasChildNodes;
 end;
 
 function TOXmlDOMNode.insertBefore(const newChild,
@@ -751,7 +750,7 @@ function TOXmlDOMAttrNamedNodeMap.removeNamedItem(
 var
   xNode: PXMLNode;
 begin
-  if FOXmlNodeList.Remove(name, xNode) >= 0 then
+  if FOXmlNodeList.Remove(name, xNode) then
     Result := MakeNode(xNode)
   else
     Result := nil;

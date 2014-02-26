@@ -85,15 +85,15 @@ type
     fItems: Array of POHashItem;//array indexed by index
     fObjects: Array of TObject;
     fNextItemId: OHashedStringsIndex;//next list index to use
-    fItemLength: OHashedStringsIndex;//= "Count(fList)*1024" - count of allocated items in fList
+    fItemLength: OHashedStringsIndex;//count of allocated items in fList
     fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
     fBuckets: Array of POHashItem;//array indexed by hash
 
     fLastHashI: OHashedStringsIndex;
   protected
     function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POHashItem;
-    function HashOf(const aKey: OWideString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
-    function HashOfFast(const aKey: OFastString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
+    //function HashOf(const aKey: OWideString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
+    //function HashOfFast(const aKey: OFastString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
     procedure AddItem(const aItem: POHashItem; const aHash: OHashedStringsIndex);
 
     procedure GrowBuckets;
@@ -175,7 +175,55 @@ type
     property Current: TOHashedStringDictionaryPair read GetCurrent;
   end;
 
+  POVirtualHashItem = ^TOVirtualHashItem;
+  TOVirtualHashItem = packed record
+    Next: POVirtualHashItem;
+    Index: OHashedStringsIndex;
+  end;
+
+  {$IFDEF O_ANONYMOUS_METHODS}
+  TOVirtualHashIndexGetStringProc = reference to procedure(const aIndex: OHashedStringsIndex;
+    var outString: OWideString);
+  TOVirtualHashIndexSameStringProc = reference to procedure(const aIndex: OHashedStringsIndex;
+    const aString: OWideString; var outSameString: Boolean);
+  {$ELSE}
+  TOVirtualHashIndexGetStringProc = procedure(const aIndex: OHashedStringsIndex;
+    var outString: OWideString) of Object;
+  TOVirtualHashIndexSameStringProc = procedure(const aIndex: OHashedStringsIndex;
+    const aString: OWideString; var outSameString: Boolean) of Object;
+  {$ENDIF}
+
+  TOVirtualHashIndex = class(TObject)
+  private
+    fList: Array of TOVirtualHashItem;//list of real items (by item index)
+    fBuckets: Array of POVirtualHashItem;//indexed by hash
+    fOnGetString: TOVirtualHashIndexGetStringProc;
+    fOnSameString: TOVirtualHashIndexSameStringProc;
+    fNextItemId: OHashedStringsIndex;//next list index to use
+
+    fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
+
+    procedure DefOnSameString(const aIndex: OHashedStringsIndex;
+      const aString: OWideString; var outSameString: Boolean);
+
+    function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POVirtualHashItem;
+    procedure GrowBuckets;
+    procedure AddItem(const aItem: POVirtualHashItem; const aHash: OHashedStringsIndex);
+  public
+    constructor Create(
+      const aOnGetString: TOVirtualHashIndexGetStringProc;
+      const aOnSameString: TOVirtualHashIndexSameStringProc = nil);
+  public
+    procedure Clear(const aNewCount: Integer = 0);
+
+    function IndexOf(const aText: OWideString): OHashedStringsIndex;
+    function Add(const aText: OWideString): OHashedStringsIndex; overload;
+    function Add(const aText: OWideString; var outNewEntry: Boolean): OHashedStringsIndex; overload;
+  end;
+
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
+function HashOf(const aKey: OWideString): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
+function HashOfFast(const aKey: OFastString): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 const
   OHASHEDSTRINGSINDEX_UNASSIGNED = -1;
@@ -189,6 +237,51 @@ function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$
 begin
   Result := aId <> OHASHEDSTRINGSINDEX_UNASSIGNED;
 end;
+
+function HashOf(const aKey: OWideString): Cardinal;
+{$IFDEF O_UNICODE}
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 1 to Length(aKey) do
+    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
+      Ord(aKey[I]);
+end;
+{$ELSE}
+var
+  I, xLen: Integer;
+  xK: PAnsiChar;
+begin
+  Result := 0;
+  xLen := Length(aKey);
+  if xLen > 0 then
+  begin
+    xK := @aKey[1];
+    for I := 1 to xLen*2 do begin
+      Result := ((Result shl 2) or (Result shr (SizeOf(Result)*8 - 2))) xor
+        Ord(xK^);
+      Inc(xK);
+    end;
+  end;
+end;
+{$ENDIF}
+
+function HashOfFast(const aKey: OFastString): Cardinal;
+{$IFDEF O_UNICODE}
+begin
+  Result := HashOf(aKey);
+end;
+{$ELSE}
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 1 to Length(aKey) do
+    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
+      Ord(aKey[I]);
+end;
+{$ENDIF}
 
 { TOHashedStringDictionary }
 
@@ -478,10 +571,6 @@ begin
   Result := fObjects[aIndex];
 end;
 
-procedure TOHashedStrings.GrowBuckets;
-var
-  I: OHashedStringsIndex;
-  xTableSize: LongWord;
 const
   cHashTable: Array[0..27] of LongWord =
   ( 53,         97,         193,       389,       769,
@@ -490,6 +579,11 @@ const
     1572869,    3145739,    6291469,   12582917,  25165843,
     50331653,   100663319,  201326611, 402653189, 805306457,
     1610612741, 3221225473, 4294967291 );
+
+procedure TOHashedStrings.GrowBuckets;
+var
+  I: OHashedStringsIndex;
+  xTableSize: LongWord;
 begin
   ClearBuckets;
 
@@ -506,51 +600,6 @@ begin
 
   Inc(fLastHashI);
 end;
-
-function TOHashedStrings.HashOf(const aKey: OWideString): Cardinal;
-{$IFDEF O_UNICODE}
-var
-  I: Integer;
-begin
-  Result := 0;
-  for I := 1 to Length(aKey) do
-    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
-      Ord(aKey[I]);
-end;
-{$ELSE}
-var
-  I, xLen: Integer;
-  xK: PAnsiChar;
-begin
-  Result := 0;
-  xLen := Length(aKey);
-  if xLen > 0 then
-  begin
-    xK := @aKey[1];
-    for I := 1 to xLen*2 do begin
-      Result := ((Result shl 2) or (Result shr (SizeOf(Result)*8 - 2))) xor
-        Ord(xK^);
-      Inc(xK);
-    end;
-  end;
-end;
-{$ENDIF}
-
-function TOHashedStrings.HashOfFast(const aKey: OFastString): Cardinal;
-{$IFDEF O_UNICODE}
-begin
-  Result := HashOf(aKey);
-end;
-{$ELSE}
-var
-  I: Integer;
-begin
-  Result := 0;
-  for I := 1 to Length(aKey) do
-    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
-      Ord(aKey[I]);
-end;
-{$ENDIF}
 
 function TOHashedStrings.IndexOf(
   const aText: OWideString): OHashedStringsIndex;
@@ -604,6 +653,155 @@ begin
       ((fTextFast = '') or //must be here, otherwise @fTextFast[1] causes range check error
         CompareMem(@fTextFast[1], @aText[1], Length(fTextFast)));
   {$ENDIF}
+end;
+
+{ TOVirtualHashIndex }
+
+constructor TOVirtualHashIndex.Create(
+  const aOnGetString: TOVirtualHashIndexGetStringProc;
+  const aOnSameString: TOVirtualHashIndexSameStringProc);
+begin
+  inherited Create;
+
+  Assert(Assigned(aOnGetString));
+  fOnGetString := aOnGetString;
+  if Assigned(aOnSameString) then
+    fOnSameString := aOnSameString
+  else
+    fOnSameString := DefOnSameString;
+
+  GrowBuckets;
+end;
+
+procedure TOVirtualHashIndex.DefOnSameString(const aIndex: OHashedStringsIndex;
+  const aString: OWideString; var outSameString: Boolean);
+var
+  xString: OWideString;
+begin
+  fOnGetString(aIndex, {%H-}xString);
+  outSameString := (xString = aString);
+end;
+
+function TOVirtualHashIndex.Find(const aKey: OWideString;
+  var outHash: OHashedStringsIndex): POVirtualHashItem;
+var
+  xSameString: Boolean;
+begin
+  outHash := HashOf(aKey) mod Cardinal(Length(fBuckets));
+  Result := fBuckets[outHash];
+  while Result <> nil do
+  begin
+    fOnSameString(Result.Index, aKey, {%H-}xSameString);
+    if xSameString then
+      Exit
+    else
+      Result := Result.Next;
+  end;
+end;
+
+procedure TOVirtualHashIndex.GrowBuckets;
+var
+  I, xLastItemCount: OHashedStringsIndex;
+  xKey: OWideString;
+begin
+  xLastItemCount := fNextItemId;
+  Clear(fMaxItemsBeforeGrowBuckets+1);
+
+  for I := 0 to xLastItemCount-1 do
+  begin
+    fOnGetString(I, {%H-}xKey);
+    AddItem(@fList[I], HashOf(xKey) mod Cardinal(Length(fBuckets)));
+  end;
+
+  fNextItemId := xLastItemCount;
+end;
+
+function TOVirtualHashIndex.Add(const aText: OWideString): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := Add(aText, {%H-}x);
+end;
+
+function TOVirtualHashIndex.Add(const aText: OWideString;
+  var outNewEntry: Boolean): OHashedStringsIndex;
+var
+  xBucket: POVirtualHashItem;
+  xHash: OHashedStringsIndex;
+begin
+  xBucket := Find(aText, {%H-}xHash);
+  if Assigned(xBucket) then begin
+    Result := xBucket.Index;
+    outNewEntry := False;
+    Exit;
+  end;
+
+  if fNextItemId = fMaxItemsBeforeGrowBuckets then
+  begin
+    GrowBuckets;
+    xHash := HashOf(aText) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
+  end;
+
+  AddItem(@fList[fNextItemId], xHash);
+  Result := fNextItemId;
+
+  Inc(fNextItemId);
+
+  outNewEntry := True;
+end;
+
+procedure TOVirtualHashIndex.AddItem(const aItem: POVirtualHashItem;
+  const aHash: OHashedStringsIndex);
+begin
+  aItem.Next := fBuckets[aHash];
+  fBuckets[aHash] := aItem;
+end;
+
+function TOVirtualHashIndex.IndexOf(
+  const aText: OWideString): OHashedStringsIndex;
+var
+  xP: POVirtualHashItem;
+  xH: OHashedStringsIndex;
+begin
+  xP := Find(aText, {%H-}xH);
+  if xP <> nil then
+    Result := xP.Index
+  else
+    Result := -1;
+end;
+
+procedure TOVirtualHashIndex.Clear(const aNewCount: Integer);
+var
+  I: OHashedStringsIndex;
+  xTableSize: LongWord;
+begin
+  if aNewCount > fMaxItemsBeforeGrowBuckets then
+  begin
+    for I := Low(cHashTable) to High(cHashTable) do
+    if cHashTable[I] > Cardinal(aNewCount)*3 div 2 then
+    begin
+      xTableSize := cHashTable[I];
+
+      SetLength(fBuckets, xTableSize);
+      fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
+
+      Break;
+    end;
+  end;
+
+  if Length(fList) < fMaxItemsBeforeGrowBuckets then
+    SetLength(fList, fMaxItemsBeforeGrowBuckets*3 div 2);
+
+  for I := Low(fList) to High(fList) do//must set all to nil!
+  begin
+    fList[I].Index := I;
+    fList[I].Next := nil;
+  end;
+
+  for I := Low(fBuckets) to High(fBuckets) do//must set all to nil!
+    fBuckets[I] := nil;
+
+  fNextItemId := 0;
 end;
 
 end.

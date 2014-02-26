@@ -692,20 +692,25 @@ var
 begin
   if aClearCustomBuffer then
     fMainBuffer.Clear(False);
-  fReader.ReadNextChar({%H-}xC);
 
-  while not Assigned(fParseError) do begin
-    case xC of
-      #0, '<': break;
-      '&': ProcessEntity;
-      #10, #13: ProcessNewLineChar(xC);
+  fReader.ReadNextChar({%H-}xC);
+  while not Assigned(fParseError) and not fReader.EOF do begin
+    case OXmlCharKind(xC) of
+      ckNewLine10, ckNewLine13: ProcessNewLineChar(xC);
+      ckAmpersand: ProcessEntity;
+      ckLowerThan: Break;
+      ckCharacter, ckSingleQuote, ckDoubleQuote: fMainBuffer.WriteChar(xC);
     else
-      fMainBuffer.WriteChar(xC);
+      if not fReaderSettings.fStrictXML then
+        fMainBuffer.WriteChar(xC)
+      else
+        RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
+          OXmlLng_InvalidCharacterInText, [IntToHex(Ord(xC), 4)]);
     end;
     fReader.ReadNextChar(xC);
-  end;
+  end;(**)
 
-  if xC <> #0 then
+  if not fReader.EOF then
     fReader.UndoRead;
   fReaderToken.TokenType := rtText;
   fReaderToken.TokenName := '';
@@ -772,23 +777,18 @@ begin
       //read attribute value in quotation marks
       fMainBuffer.Clear(False);
       fReader.ReadNextChar(xC);
-      while (xC <> xQuotationMark) and not Assigned(fParseError) do
+      while not (xC = xQuotationMark) and not Assigned(fParseError) and not fReader.EOF do
       begin
-        case xC of
-          #0: Break;
-          '&': ProcessEntity;
-          #10, #13: ProcessNewLineChar(xC);
-          '>', '<':
-            if fReaderSettings.fStrictXML then
-            begin
-              RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
-                OXmlLng_InvalidCharacterInAttribute, [OWideString(xC)]);
-              Exit;
-            end
-            else
-              fMainBuffer.WriteChar(xC);
+        case OXmlCharKind(xC) of
+          ckNewLine10, ckNewLine13: ProcessNewLineChar(xC);
+          ckAmpersand: ProcessEntity;
+          ckCharacter, ckSingleQuote, ckDoubleQuote: fMainBuffer.WriteChar(xC);
         else
-          fMainBuffer.WriteChar(xC);
+          if not fReaderSettings.fStrictXML then
+            fMainBuffer.WriteChar(xC)
+          else
+            RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
+              OXmlLng_InvalidCharacterInAttribute, [IntToHex(Ord(xC), 4)]);
         end;
         fReader.ReadNextChar(xC);
       end;
@@ -800,14 +800,18 @@ begin
       end else begin
         //let's be generous and allow attribute values that are not enclosed in quotes
         fMainBuffer.Clear(False);
-        while not OXmlIsBreakChar(xC) and not Assigned(fParseError) do
+        while not OXmlIsBreakChar(xC) and not Assigned(fParseError) and not fReader.EOF do
         begin
-          case xC of
-            #0: Break;
-            '&': ProcessEntity;
-            #10, #13: ProcessNewLineChar(xC);
+          case OXmlCharKind(xC) of
+            ckNewLine10, ckNewLine13: ProcessNewLineChar(xC);
+            ckAmpersand: ProcessEntity;
+            ckCharacter, ckSingleQuote, ckDoubleQuote: fMainBuffer.WriteChar(xC);
           else
-            fMainBuffer.WriteChar(xC);
+            if not fReaderSettings.fStrictXML then
+              fMainBuffer.WriteChar(xC)
+            else
+              RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
+                OXmlLng_InvalidCharacterInText, [IntToHex(Ord(xC), 4)]);
           end;
           fReader.ReadNextChar(xC);
         end;
@@ -842,7 +846,7 @@ var
   xReaderToken: PXMLReaderToken;
 begin
   if
-    GetCreateCodePage(aEncodingAlias, {%H-}xEncoding) and
+    TEncoding.EncodingFromAlias(aEncodingAlias, {%H-}xEncoding) and
     (fReader.Encoding <> xEncoding)
   then begin
     //reload document with new encoding
@@ -1029,9 +1033,17 @@ begin
       if Length(xPreviousC) > 1 then
         Move(xPreviousC[2], xPreviousC[1], (Length(xPreviousC)-1)*SizeOf(OWideChar));
       fReader.ReadNextChar(xC);
-      xPreviousC[Length(xPreviousC)] := xC;
-      fMainBuffer.WriteChar(xC);
-    until ((xPreviousC = aEndTag) or (xC = #0));
+
+      if not fReaderSettings.fStrictXML or OXmlIsChar(xC) then
+      begin
+        xPreviousC[Length(xPreviousC)] := xC;
+        fMainBuffer.WriteChar(xC);
+      end else
+      begin
+        RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
+          OXmlLng_InvalidCharacterInText, [IntToHex(Ord(xC), 4)]);
+      end;
+    until ((xPreviousC = aEndTag) or Assigned(fParseError) or fReader.EOF);
 
     for I := 1 to Length(aEndTag) do
       fMainBuffer.RemoveLastChar;
@@ -1197,14 +1209,18 @@ begin
 
   fReaderToken := fOpenElementTokens.CreateNew;//must be here and not in the beggining of the function -> due to attributes and open elements and sequential parser
 
-  fReader.ReadNextChar({%H-}xC);
+  if not fReader.ReadNextChar({%H-}xC) then
+  begin
+    //end of document
+    Result := False;
+    ReleaseDocument;
+    if fReaderSettings.fStrictXML and (NodePathCount > 0) then
+      RaiseExceptionFmt(TXMLParseErrorInvalidStructure,
+        OXmlLng_UnclosedElementsInTheEnd, [xC]);
+    Exit;
+  end;
+
   case xC of
-    #0: begin
-      //end of document
-      Result := False;
-      ReleaseDocument;
-      Exit;
-    end;
     '<': begin
       if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute, rtOpenElement, rtAttribute] then
       begin
@@ -1299,6 +1315,7 @@ begin
   fReader.ReadNextChar({%H-}xC);
 
   if fReaderSettings.fStrictXML then begin
+    //strict
     if not OXmlIsNameStartChar(xC) then
     begin
       RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
@@ -1320,6 +1337,7 @@ begin
       Exit;
     end;
   end else begin
+    //not strict
     if not OXmlIsNameChar(xC) then begin
       fMainBuffer.WriteChar('<');
       fMainBuffer.WriteChar('/');
@@ -1337,7 +1355,7 @@ begin
         fMainBuffer.WriteChar(xC);
         fReader.ReadNextChar(xC);
       end;
-      while not((xC = '>') or (xC = #0)) do begin
+      while not((xC = '>') or fReader.EOF) do begin
         fReader.ReadNextChar(xC);
       end;
     end;
@@ -1609,7 +1627,7 @@ begin
   fReader.ReadNextChar(xC);
   while
     not((xPreviousC = '?') and (xC = '>')) and
-    not(xC = #0)
+    not fReader.EOF
   do begin
     fMainBuffer.WriteChar(xC);
     xPreviousC := xC;
@@ -2149,32 +2167,37 @@ begin
 
   for I := 1 to xLength do begin
     xC := aText[I];
-    case xC of
-      '&': RawText('&amp;');
-      '<': RawText('&lt;');
-      '>': RawText('&gt;');
-      '"':
+    case OXmlCharKind(xC) of
+      ckAmpersand: RawText('&amp;');
+      ckLowerThan: RawText('&lt;');
+      ckGreaterThan: RawText('&gt;');
+      ckDoubleQuote:
         if aQuoteChar = '"' then
           RawText('&quot;')
         else
           RawChar(xC);
-      '''':
+      ckSingleQuote:
         if aQuoteChar = '''' then
           RawText('&apos;')
         else
           RawChar(xC);
-      #10:
+      ckNewLine10:
         if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
           RawChar(xC)
         else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
           RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
-      #13:
+      ckNewLine13:
         if fWriterSettings.fLineBreak = lbDoNotProcess then
           RawChar(xC)
         else
           RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+      ckCharacter: RawChar(xC);
     else
-      RawChar(xC);
+      //invalid
+      if not fWriterSettings.fStrictXML then
+        RawChar(xC)
+      else
+        raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidText, [aText]);
     end;
   end;
 end;

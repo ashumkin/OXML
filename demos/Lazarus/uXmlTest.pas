@@ -3,12 +3,12 @@ unit uXmlTest;
 {$mode delphi}{$H+}
 
 {.$DEFINE USE_DELPHIXML}//define/undefine to compare OXml with Delphi XML
-{.$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
 {.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
 {.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
 {.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML: http://blog.spreendigital.de/2011/11/10/verysimplexml-a-lightweight-delphi-xml-reader-and-writer/
 {.$DEFINE USE_SIMPLEXML}//define/undefine to compare OXml with SimpleXML: http://www.audio-data.de/simplexml.html
 {.$DEFINE USE_DIXML}//define/undefine to compare OXml with DIXml: http://www.yunqa.de/delphi/doku.php/products/xml/index?DokuWiki=kg5ade2rod3o49f5v1anmf7ol1
+{.$DEFINE USE_ALCINOE}//define/undefine to compare OXml with Alcinoe: https://sourceforge.net/projects/alcinoe/
 {$DEFINE USE_LAZARUSDOMXML}//define/undefine to compare OXml with Lazarus DOM XML
 
 {$IFDEF FPC}
@@ -26,8 +26,9 @@ unit uXmlTest;
 interface
 
 uses
-  Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
-  Windows,
+  {$IFDEF FPC}LCLIntf, {$ELSE}Windows, {$ENDIF}
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  //BEGIN XML LIBRARIES UNITS
   {$IFDEF USE_DELPHIXML}
   XMLIntf, XMLDoc, xmldom, msxmldom, {$IFDEF USE_ADOM}adomxmldom,{$ENDIF} OXmlDOMVendor,
   {$ENDIF}
@@ -49,11 +50,15 @@ uses
   {$IFDEF USE_DIXML}
   DIXml,
   {$ENDIF}
-  {$IFDEF USE_LAZARUSDOMXML}
-  XMLRead, XMLWrite, DOM,
+  {$IFDEF USE_ALCINOE}
+  AlXmlDoc, AlStringList,
   {$ENDIF}
+  {$IFDEF USE_LAZARUSDOMXML}
+  XMLRead, XMLWrite, DOM, SAX, SAX_XML,
+  {$ENDIF}
+  //END XML LIBRARIES UNITS
   OEncoding, OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
-  OXmlPDOM, OXmlSAX, OXmlSeq;
+  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlSeq;
 
 type
 
@@ -98,6 +103,17 @@ type
     procedure Navigate_SAXStartElement(Sender: TSAXParser; const aName: OWideString;
       const aAttributes: TSAXAttributes);
     procedure Navigate_SAXEndElement(Sender: TSAXParser; const {%H-}aName: OWideString);
+
+    {$IFDEF USE_LAZARUSDOMXML}
+    procedure Navigate_LazarusSAXStartElement(Sender: TObject;
+      const {%H-}NamespaceURI, LocalName, {%H-}QName: SAXString;
+      Atts: SAX.TSAXAttributes);
+    procedure Navigate_LazarusSAXEndElement(Sender: TObject;
+      const {%H-}NamespaceURI, {%H-}LocalName, {%H-}QName: SAXString);
+    {$ENDIF}
+    {$IFDEF USE_ALCINOE}
+    procedure Navigate_AlcinoeSAXStartElement(Sender: TObject; const Path, Name: AnsiString; const Attributes: TALStrings);
+    {$ENDIF}
   private
     DocDir: String;
 
@@ -156,7 +172,6 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
     xXmlIntf := xXml;
 
     xXml.DOMVendor := xmldom.GetDOMVendor(aVendorName);
-    xXml := xXml;
     xXml.LoadFromFile(DocDir+'sheet1.xml');
     xXml.Active := True;
     xT2 := GetTickCount;
@@ -454,6 +469,100 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
   end;
   {$ENDIF}
 
+  {$IFDEF USE_ALCINOE}
+  procedure TestAlcinoeDOM;
+    procedure _Navigate(const aNode: AlXmlDoc.TALXMLNode);
+    var
+      I: Integer;
+      xCNode: AlXmlDoc.TALXMLNode;
+    begin
+      if Assigned(aNode.AttributeNodes) then
+      for I := 0 to aNode.AttributeNodes.Count-1 do
+      begin
+        xCNode := aNode.AttributeNodes[I];
+        DoNothing(
+          {$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(xCNode.NodeName),
+          {$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(xCNode.NodeValue));
+      end;
+
+      if aNode.HasChildNodes then
+      for I := 0 to aNode.ChildNodes.Count-1 do
+      begin
+        xCNode := aNode.ChildNodes[I];
+        DoNothing({$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(xCNode.NodeName), '');
+        if xCNode.NodeType = AlXmlDoc.ntElement then
+          _Navigate(xCNode);
+      end;
+    end;
+  var
+    xXml: AlXmlDoc.TALXMLDocument;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+
+    xXml := AlXmlDoc.TALXMLDocument.Create;
+    try
+      xXml.LoadFromFile(AnsiString(DocDir+'sheet1.xml'));
+      xXml.Active := True;
+      xT2 := GetTickCount;
+
+      _Navigate(xXml.Node);
+
+      xXml.Free;
+      xXml := nil;
+
+      xT3 := GetTickCount;
+    finally
+      xXml.Free;
+    end;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'Alcinoe DOM'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure TestAlcinoeSAX;
+  var
+    xSAX: AlXmlDoc.TALXMLDocument;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+
+    //read
+    xSAX := AlXmlDoc.TALXMLDocument.Create;
+    try
+      xSAX.LoadFromFile(AnsiString(DocDir+'sheet1.xml'), True);
+    finally
+      xSAX.Free;
+    end;
+
+    xT2 := GetTickCount;
+
+    //read+navigate
+    xSAX := AlXmlDoc.TALXMLDocument.Create;
+    try
+      xSAX.OnParseStartElement := Navigate_AlcinoeSAXStartElement;
+      xSAX.LoadFromFile(AnsiString(DocDir+'sheet1.xml'), True);
+    finally
+      xSAX.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'Alcinoe SAX'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((Integer(xT3-xT2)-Integer(xT2-xT1)) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
   {$IFDEF USE_LAZARUSDOMXML}
   procedure TestLazarusDOM;
     procedure _Navigate(const aNode: DOM.TDOMNode);
@@ -461,7 +570,8 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
       xCNode: DOM.TDOMNode;
       I: Integer;
     begin
-      if aNode.HasAttributes then begin
+      if aNode.HasAttributes then
+      begin
         for I := 0 to aNode.Attributes.Length-1 do
         begin
           xCNode := aNode.Attributes[I];
@@ -469,13 +579,15 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
         end;
       end;
 
-      if aNode.HasChildNodes then begin
-        for I := 0 to aNode.ChildNodes.Length-1 do
+      if aNode.HasChildNodes then
+      begin
+        xCNode := aNode.FirstChild;
+        while Assigned(xCNode) do
         begin
-          xCNode := aNode.ChildNodes[I];
           DoNothing(xCNode.NodeName, '');
           if xCNode.NodeType = DOM.ELEMENT_NODE then
             _Navigate(xCNode);
+          xCNode := xCNode.NextSibling;
         end;
       end;
     end;
@@ -503,7 +615,95 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
       'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
+
+  procedure TestLazarusSAX;
+  var
+    xSAX: SAX_XML.TSAXXMLReader;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+
+    //read
+    xSAX := SAX_XML.TSAXXMLReader.Create;
+    try
+      xSAX.Parse(DocDir+'sheet1.xml');
+    finally
+      xSAX.Free;
+    end;
+
+    xT2 := GetTickCount;
+
+    //read+navigate
+    xSAX := SAX_XML.TSAXXMLReader.Create;
+    try
+      xSAX.OnStartElement := Navigate_LazarusSAXStartElement;
+      xSAX.OnEndElement := Navigate_LazarusSAXEndElement;
+
+      xSAX.Parse(DocDir+'sheet1.xml');
+    finally
+      xSAX.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'Lazarus SAX'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((Integer(xT3-xT2)-Integer(xT2-xT1)) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
   {$ENDIF}
+
+  procedure TestOXmlCDOM;
+    procedure _Navigate(const aNode: OXmlCDOM.TXMLNode);
+    var
+      xCNode: OXmlCDOM.TXMLNode;
+    begin
+      if aNode.HasAttributes then begin
+        xCNode := aNode.FirstAttribute;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+
+      if aNode.HasChildNodes then begin
+        xCNode := aNode.FirstChild;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, '');
+          if xCNode.NodeType = OXmlUtils.ntElement then
+            _Navigate(xCNode);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+    end;
+  var
+    xXml: OXmlCDOM.IXMLDocument;
+    xT1, xT2, xT3: Cardinal;
+  begin
+    xT1 := GetTickCount;
+    xXml := OXmlCDOM.CreateXMLDoc;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
+    xXml.LoadFromFile(DocDir+'sheet1.xml');
+    xT2 := GetTickCount;
+    _Navigate(xXml.Node);
+
+    xXml := nil;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml class DOM'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Navigate: '+FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: '+FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
 
   procedure TestOXmlPDOM;
     procedure _Navigate(const aNode: OXmlPDOM.PXMLNode);
@@ -756,9 +956,18 @@ begin
   TestDIXmlDOM;
   {$ENDIF}
 
+  {$IFDEF USE_ALCINOE}
+  TestAlcinoeDOM;
+  TestAlcinoeSAX;
+  {$ENDIF}
+
   {$IFDEF USE_LAZARUSDOMXML}
   TestLazarusDOM;
+
+  TestLazarusSAX;
   {$ENDIF}
+
+  TestOXmlCDOM;
 
   TestOXmlPDOM;
 
@@ -1372,11 +1581,11 @@ const
     end;
   begin
     xXml := OXmlPDOM.CreateXMLDoc;
-    xXml := TXMLDocument.Create(nil);
     xXml.LoadFromXML(cXML);
 
     _TestXPathElements(xXml.DocumentElement, '.', 'root=');
     _TestXPathElements(xXml.DocumentElement, '../root', 'root=');
+    _TestXPathElements(xXml.DocumentElement, '../root|../root', 'root=');
     _TestXPathElements(xXml.DocumentElement, '../root/.', 'root=');
     _TestXPathElements(xXml.DocumentElement, '../root/boss/..', 'root=');
     _TestXPathElements(xXml.DocumentElement, '../root/person', 'person=Paul Caster');
@@ -1651,7 +1860,7 @@ var
   I: Integer;
   xT1, xT2, xT3: Cardinal;
 const
-  cAttrCount = 1*1000;// << play around
+  cAttrCount = 100*1000;// << play around
 begin
   {
     About this test:
@@ -1832,11 +2041,47 @@ begin
   end;
 end;
 
+{$IFDEF USE_ALCINOE}
+procedure TForm1.Navigate_AlcinoeSAXStartElement(Sender: TObject; const Path,
+  Name: AnsiString; const Attributes: TALStrings);
+var
+  I: Integer;
+begin
+  DoNothing({$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(Name), '');
+
+  if Assigned(Attributes) then
+  for I := 0 to Attributes.Count-1 do
+    DoNothing(
+      {$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(Attributes.Names[I]),
+      {$IFNDEF FPC}{$IFDEF UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}{$ENDIF}(Attributes.ValueFromIndex[I]));
+end;
+{$ENDIF}
+
 procedure TForm1.Navigate_SAXEndElement(Sender: TSAXParser;
   const aName: OWideString);
 begin
   //do nothing
 end;
+
+{$IFDEF USE_LAZARUSDOMXML}
+procedure TForm1.Navigate_LazarusSAXStartElement(Sender: TObject;
+  const NamespaceURI, LocalName, QName: SAXString; Atts: SAX.TSAXAttributes);
+var
+  I: Integer;
+begin
+  DoNothing(LocalName, '');
+
+  if Assigned(Atts) then
+  for I := 0 to Atts.Length-1 do
+    DoNothing(Atts.GetLocalName(I), Atts.GetValue(I));
+end;
+
+procedure TForm1.Navigate_LazarusSAXEndElement(Sender: TObject;
+  const NamespaceURI, LocalName, QName: SAXString);
+begin
+  //do nothing
+end;
+{$ENDIF}
 
 procedure TForm1.Navigate_SAXStartElement(Sender: TSAXParser;
   const aName: OWideString; const aAttributes: TSAXAttributes);
@@ -1912,6 +2157,7 @@ procedure TForm1.BtnWritePerformanceTestClick(Sender: TObject);
       sLineBreak+sLineBreak;
   end;
   {$ENDIF}
+
   {$IFDEF USE_MSXML}
   procedure MSXmlTest;
   var
@@ -2327,6 +2573,91 @@ procedure TForm1.BtnWritePerformanceTestClick(Sender: TObject);
   end;
   {$ENDIF}
 
+  {$IFDEF USE_ALCINOE}
+  procedure AlcinoeXmlTest;
+  var
+    I: Integer;
+    xT1, xT2, xT3: Cardinal;
+    xXML: AlXmlDoc.TALXMLDocument;
+    xRootNode, xNode: AlXmlDoc.TALXMLNode;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := AlXmlDoc.TALXMLDocument.Create();
+    try
+      xXML.Active := True;
+      xXML.Encoding := 'utf-8';
+      xXML.DocumentElement := xXML.CreateElement('root');
+      xRootNode := xXML.DocumentElement;
+
+      for I := 1 to 100*1000 do begin
+        xNode := xRootNode.AddChild('text');
+        xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').Text := 'afg';
+        xNode.Attributes['attr1'] := 'A'+IntToStr(I);
+        xNode.Attributes['attr2'] := 'const';
+        xNode.Attributes['attr3'] := 'const';
+      end;
+
+      xT2 := GetTickCount;
+
+      xXML.SaveToFile(DocDir+'domtest-created.xml');
+
+      xRootNode := nil;
+      xNode := nil;
+    finally
+      xXML.Free;
+    end;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'Alcinoe XML'+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+  {$ENDIF}
+
+  procedure OXmlCDOMTest;
+  var
+    xXML: OXmlCDOM.IXMLDocument;
+    I: Integer;
+    xT1, xT2, xT3: Cardinal;
+    xRootNode, xNode: OXmlCDOM.TXMLNode;
+  begin
+    xT1 := GetTickCount;
+
+    xXML := OXmlCDOM.CreateXMLDoc('root', True);
+    xXML.WhiteSpaceHandling := wsTrim;
+    xXML.WriterSettings.WriteBOM := False;
+    xRootNode := xXML.DocumentElement;
+    for I := 1 to 100*1000 do begin
+      xNode := xRootNode.AddChild('text');
+      xNode.AddChild('A'+IntToStr(I)).AddChild('noname').AddChild('some').AddChild('p').AddText('afg');
+      xNode.AddAttribute('attr1', 'A'+IntToStr(I));
+      xNode.AddAttribute('attr2', 'const');
+      xNode.AddAttribute('attr3', 'const');
+    end;
+
+    xT2 := GetTickCount;
+
+    xXML.SaveToFile(DocDir+'domtest-created.xml');
+
+    xXML := nil;
+
+    xT3 := GetTickCount;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml class DOM'+sLineBreak+
+      'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      'Save: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak+
+      'Whole: ' + FloatToStr((xT3-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
   procedure OXmlPDOMTest;
   var
     xXML: OXmlPDOM.IXMLDocument;
@@ -2459,6 +2790,13 @@ begin
   LazarusDOMTest;
   //_MatchTestFiles; <- do not test on matching LazarusDOMTest
   {$ENDIF}
+  {$IFDEF USE_ALCINOE}
+  AlcinoeXmlTest;
+  _MatchTestFiles;
+  {$ENDIF}
+
+  OXmlCDOMTest;
+  _MatchTestFiles;
 
   OXmlPDOMTest;
   _MatchTestFiles;

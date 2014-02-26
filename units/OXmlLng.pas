@@ -35,6 +35,7 @@ interface
 
 var
   OXmlLng_InvalidCData: String = '"%s" is not a valid CData text.';
+  OXmlLng_InvalidText: String = '"%s" is not a valid text.';
   OXmlLng_InvalidComment: String = '"%s" is not a valid comment text.';
   OXmlLng_InvalidPITarget: String = '"%s" is not a valid processing instruction target.';
   OXmlLng_InvalidPIContent: String = '"%s" is not a valid processing instruction content.';
@@ -48,6 +49,7 @@ var
   OXmlLng_EqualSignMustFollowAttribute: String = 'Equal sign must follow the attribute "%s".';
   OXmlLng_AttributeValueMustBeEnclosed: String = '"%s" attribute value must be enclosed in quotes.';
   OXmlLng_TooManyElementsClosed: String = 'Too many elements closed.';
+  OXmlLng_UnclosedElementsInTheEnd: String = 'There are unclosed elements in the document end.';
   OXmlLng_WrongElementClosed: String = 'Trying to close wrong element. Close="%s", open element="%s".';
   OXmlLng_InvalidEntity: String = '"%s" is not a valid entity.';
   OXmlLng_ReadingAt: String =
