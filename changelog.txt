@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 0.9 2014-03-11 [SVN commit: 17, https://sourceforge.net/p/oxml/code/17/]
+Version 0.9 2014-03-11 [SVN commit: 18, https://sourceforge.net/p/oxml/code/18/]
   - Optimized XPath engine. Now OXml's XPath is faster than OmniXML's and MSXML's.
   - Test functions for OXmlCDOM.pas. Now OXmlCDOM can be used as well.
     Remember that OXmlCDOM is a TObject-based DOM for OXml. 
