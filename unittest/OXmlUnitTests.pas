@@ -7,16 +7,17 @@ unit OXmlUnitTests;
 {$IFNDEF FPC}
   {$IF CompilerVersion >= 25}
     {$ZEROBASEDSTRINGS OFF}
+    {$LEGACYIFEND ON}
   {$IFEND}
 {$ENDIF}
 
 interface
 
-uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM,
+uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM, OXmlCDOM,
   OHashedStrings, OXmlSAX, OXmlSeq;
 
 const
-  cTestCount = 16;
+  cTestCount = 25;
   
 type
   TObjFunc = function(): Boolean of object;
@@ -34,15 +35,26 @@ type
     function Test_TXMLReader_InvalidDocument1: Boolean;
   private
     //OXmlPDOM.pas
-    function Test_TXMLNode_SelectNodeCreate_Attribute: Boolean;
-    function Test_TXMLNode_Clone: Boolean;
-    function Test_TXMLNode_Normalize: Boolean;
-    function Test_TXMLDocument_InvalidDocument1: Boolean;
-    function Test_TXMLDocument_WhiteSpaceHandling: Boolean;
-    function Test_TXMLDocument_AttributeIndex: Boolean;
-    function Test_TXMLDocument_WrongDocument1: Boolean;
-    function Test_TXMLDocument_WrongDocument2: Boolean;
-    function Test_TXMLDocument_WrongDocument3: Boolean;
+    function Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
+    function Test_OXmlPDOM_TXMLNode_Clone: Boolean;
+    function Test_OXmlPDOM_TXMLNode_Normalize: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_InvalidDocument1: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_WrongDocument1: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_WrongDocument2: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
+  private
+    //OXmlCDOM.pas
+    function Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
+    function Test_OXmlCDOM_TXMLNode_Clone: Boolean;
+    function Test_OXmlCDOM_TXMLNode_Normalize: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_InvalidDocument1: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_AttributeIndex: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_WrongDocument1: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_WrongDocument2: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_WrongDocument3: Boolean;
   private
     //OWideSupp.pas
     function Test_TOTextBuffer: Boolean;
@@ -110,15 +122,24 @@ begin
 
   ExecuteFunction(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
   ExecuteFunction(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
-  ExecuteFunction(Test_TXMLNode_SelectNodeCreate_Attribute, 'Test_TXMLNode_SelectNodeCreate_Attribute');
-  ExecuteFunction(Test_TXMLNode_Clone, 'Test_TXMLNode_Clone');
-  ExecuteFunction(Test_TXMLNode_Normalize, 'Test_TXMLNode_Normalize');
-  ExecuteFunction(Test_TXMLDocument_InvalidDocument1, 'Test_TXMLDocument_InvalidDocument1');
-  ExecuteFunction(Test_TXMLDocument_WhiteSpaceHandling, 'Test_TXMLDocument_WhiteSpaceHandling');
-  ExecuteFunction(Test_TXMLDocument_AttributeIndex, 'Test_TXMLDocument_AttributeIndex');
-  ExecuteFunction(Test_TXMLDocument_WrongDocument1, 'Test_TXMLDocument_WrongDocument1');
-  ExecuteFunction(Test_TXMLDocument_WrongDocument2, 'Test_TXMLDocument_WrongDocument2');
-  ExecuteFunction(Test_TXMLDocument_WrongDocument3, 'Test_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_Clone, 'Test_OXmlPDOM_TXMLNode_Clone');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_Normalize, 'Test_OXmlPDOM_TXMLNode_Normalize');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_InvalidDocument1, 'Test_OXmlPDOM_TXMLDocument_InvalidDocument1');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling, 'Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_AttributeIndex, 'Test_OXmlPDOM_TXMLDocument_AttributeIndex');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument1, 'Test_OXmlPDOM_TXMLDocument_WrongDocument1');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument2, 'Test_OXmlPDOM_TXMLDocument_WrongDocument2');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument3, 'Test_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_InvalidDocument1, 'Test_OXmlCDOM_TXMLDocument_InvalidDocument1');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling, 'Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_AttributeIndex, 'Test_OXmlCDOM_TXMLDocument_AttributeIndex');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument1, 'Test_OXmlCDOM_TXMLDocument_WrongDocument1');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument2, 'Test_OXmlCDOM_TXMLDocument_WrongDocument2');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument3, 'Test_TXMLDocument_WrongDocument3');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
@@ -446,8 +467,8 @@ const
   outStr: OWideString = 'WOJ:04;POW:10;ABC:09;CDE:11;REW:00;OLD:99;';
 var
   xXMLSeq: TXMLSeqParser;
-  xNode: PXMLNode;
-  xColNode: PXMLNode;
+  xNode: OXmlPDOM.PXMLNode;
+  xColNode: OXmlPDOM.PXMLNode;
   xName, xValue:String;
   xOpened: Boolean;
   xStr: OWideString;
@@ -487,8 +508,8 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TXMLDocument_AttributeIndex: Boolean;
-  procedure _TestNode(const bNode: PXMLNode);
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
+  procedure _TestNode(const bNode: OXmlPDOM.PXMLNode);
   var
     I: Integer;
     xAttr: OWideString;
@@ -504,10 +525,10 @@ function TOXmlUnitTest.Test_TXMLDocument_AttributeIndex: Boolean;
 var
   xStream: TMemoryStream;
   xWriter: TXMLWriter;
-  xXML: IXMLDocument;
+  xXML: OXmlPDOM.IXMLDocument;
   I: Integer;
   xAttr: OWideString;
-  xNode: PXMLNode;
+  xNode: OXmlPDOM.PXMLNode;
 begin
   xStream := nil;
   xWriter := nil;
@@ -546,7 +567,7 @@ begin
 
     xStream.Position := 0;
 
-    xXML := CreateXMLDoc;
+    xXML := OXmlPDOM.CreateXMLDoc;
     xXML.LoadFromStream(xStream);
 
     xNode := xXML.Node.SelectNode('root/ten');
@@ -572,14 +593,14 @@ begin
   Result := True;//always true -> check for assertions in Test_TSAXParser_HashIndex_SAXStartElement
 end;
 
-function TOXmlUnitTest.Test_TXMLDocument_InvalidDocument1: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_InvalidDocument1: Boolean;
 const
   inXML: OWideString = '<root><b>TEXT</i><p><t><aaa/></p></root>';
   outXML: OWideString = '<root><b>TEXT</b><p><t><aaa/></t></p></root>';
 var
-  xXML: IXMLDocument;
+  xXML: OXmlPDOM.IXMLDocument;
 begin
-  xXML := CreateXMLDoc;
+  xXML := OXmlPDOM.CreateXMLDoc;
   xXML.ReaderSettings.StrictXML := False;
   xXML.WriterSettings.StrictXML := False;
 
@@ -589,14 +610,14 @@ begin
   Result := (xXML.XML = outXML);
 end;
 
-function TOXmlUnitTest.Test_TXMLDocument_WhiteSpaceHandling: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
 const
   inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
   outXML: OWideString = '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default">default<p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p></text>  </root>';
 var
-  xXML: IXMLDocument;
+  xXML: OXmlPDOM.IXMLDocument;
 begin
-  xXML := CreateXMLDoc;
+  xXML := OXmlPDOM.CreateXMLDoc;
 
   xXML.WhiteSpaceHandling := wsAutoTag;
   xXML.LoadFromXML(inXML);
@@ -604,16 +625,16 @@ begin
   Result := (xXML.XML = outXML);
 end;
 
-function TOXmlUnitTest.Test_TXMLDocument_WrongDocument1: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WrongDocument1: Boolean;
 const
   inXML: OWideString =
     '<Test>'+sLineBreak+
     '  <T1>'#0'</T1> {Chr(0)}'+sLineBreak+
     '</Test>'+sLineBreak;
 var
-  xXML: IXMLDocument;
+  xXML: OXmlPDOM.IXMLDocument;
 begin
-  xXML := CreateXMLDoc;
+  xXML := OXmlPDOM.CreateXMLDoc;
 
   xXML.ReaderSettings.ErrorHandling := ehSilent;
 
@@ -636,15 +657,15 @@ begin
     (xXML.Node.SelectNode('/Test/T1').Text = #0);
 end;
 
-function TOXmlUnitTest.Test_TXMLDocument_WrongDocument2: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WrongDocument2: Boolean;
 const
   inXML: OWideString =
     '<Test>'+sLineBreak+
     '  <T1>0</T1> {Chr(0)}';
 var
-  xXML: IXMLDocument;
+  xXML: OXmlPDOM.IXMLDocument;
 begin
-  xXML := CreateXMLDoc;
+  xXML := OXmlPDOM.CreateXMLDoc;
 
   xXML.ReaderSettings.ErrorHandling := ehSilent;
 
@@ -667,14 +688,14 @@ begin
     (xXML.Node.SelectNode('/Test/T1').Text = '0');
 end;
 
-function TOXmlUnitTest.Test_TXMLDocument_WrongDocument3: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
 const
   inXML: OWideString =
     '<Test> /> </Test>';
 var
-  xXML: IXMLDocument;
+  xXML: OXmlPDOM.IXMLDocument;
 begin
-  xXML := CreateXMLDoc;
+  xXML := OXmlPDOM.CreateXMLDoc;
 
   xXML.ReaderSettings.ErrorHandling := ehSilent;
 
@@ -698,15 +719,15 @@ begin
     (xXML.Node.SelectNode('/Test').Text = ' /> ');
 end;
 
-function TOXmlUnitTest.Test_TXMLNode_Clone: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Clone: Boolean;
 const
   inXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone></root>';
   outXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone><clone attr="value"/><clone attr="value"><n>text</n><m/></clone></root>';
 var
-  xXML: IXMLDocument;
-  xCloneNode: PXMLNode;
+  xXML: OXmlPDOM.IXMLDocument;
+  xCloneNode: OXmlPDOM.PXMLNode;
 begin
-  xXML := CreateXMLDoc;
+  xXML := OXmlPDOM.CreateXMLDoc;
   xXML.LoadFromXML(inXML);
   xCloneNode := xXML.DocumentElement.SelectNode('clone');
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(False));
@@ -715,14 +736,14 @@ begin
   Result := xXML.XML = outXML;
 end;
 
-function TOXmlUnitTest.Test_TXMLNode_Normalize: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Normalize: Boolean;
 const
   outXML: OWideString = '<root><test/>my  text<b>hello<clone/></b></root>';
 var
-  xXML: IXMLDocument;
-  xDocElement, xNodeB: PXMLNode;
+  xXML: OXmlPDOM.IXMLDocument;
+  xDocElement, xNodeB: OXmlPDOM.PXMLNode;
 begin
-  xXML := CreateXMLDoc('root');
+  xXML := OXmlPDOM.CreateXMLDoc('root');
   xXML.WhiteSpaceHandling := wsPreserveAll;
   xDocElement := xXML.DocumentElement;
   xDocElement.AddText(sLineBreak+'   '+sLineBreak+#9);
@@ -742,12 +763,280 @@ begin
   Result := xXML.XML = outXML;
 end;
 
-function TOXmlUnitTest.Test_TXMLNode_SelectNodeCreate_Attribute: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
 var
-  xXML: IXMLDocument;
-  xAttribute: PXMLNode;
+  xXML: OXmlPDOM.IXMLDocument;
+  xAttribute: OXmlPDOM.PXMLNode;
 begin
-  xXML := CreateXMLDoc('root', False);
+  xXML := OXmlPDOM.CreateXMLDoc('root', False);
+
+  xAttribute := xXML.DocumentElement.SelectNodeCreate('@attr');
+  xAttribute.NodeValue := 'value';
+
+  Result := (xXML.XML = '<root attr="value"/>');
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_AttributeIndex: Boolean;
+  procedure _TestNode(const bNode: OXmlCDOM.TXMLNode);
+  var
+    I: Integer;
+    xAttr: OWideString;
+  begin
+    for I := 1 to bNode.AttributeCount do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      Result := (bNode.GetAttribute(xAttr) = xAttr);
+      if not Result then
+        Exit;
+    end;
+  end;
+var
+  xStream: TMemoryStream;
+  xWriter: TXMLWriter;
+  xXML: OXmlCDOM.IXMLDocument;
+  I: Integer;
+  xAttr: OWideString;
+  xNode: OXmlCDOM.TXMLNode;
+begin
+  xStream := nil;
+  xWriter := nil;
+  try
+    xStream := TMemoryStream.Create;
+    xWriter := TXMLWriter.Create(xStream);
+    xWriter.OpenElement('root', stFinish);
+
+    xWriter.OpenElement('ten');//under the hash index limit
+    for I := 1 to 10 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('ten');
+
+    xWriter.OpenElement('thousand');//above the hash index limit
+    for I := 1 to 1000 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('thousand');
+
+    xWriter.OpenElement('tenthousand');//above the hash index limit
+    for I := 1 to 10*1000 do
+    begin
+      xAttr := 'a'+IntToStr(I);
+      xWriter.Attribute(xAttr, xAttr);
+    end;
+    xWriter.FinishOpenElementClose('tenthousand');
+
+    xWriter.CloseElement('root');
+    xWriter.Free;
+    xWriter := nil;
+
+    xStream.Position := 0;
+
+    xXML := OXmlCDOM.CreateXMLDoc;
+    xXML.LoadFromStream(xStream);
+
+    xNode := xXML.Node.SelectNode('root/ten');
+    Result := xNode.AttributeCount = 10;
+    if not Result then Exit;
+    _TestNode(xNode);
+
+    xNode := xXML.Node.SelectNode('root/thousand');
+    Result := xNode.AttributeCount = 1000;
+    if not Result then Exit;
+    _TestNode(xNode);
+
+    xNode := xXML.Node.SelectNode('root/tenthousand');
+    Result := xNode.AttributeCount = 10*1000;
+    if not Result then Exit;
+    _TestNode(xNode);
+
+  finally
+    xWriter.Free;
+    xStream.Free;
+  end;
+
+  Result := True;//always true -> check for assertions in Test_TSAXParser_HashIndex_SAXStartElement
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_InvalidDocument1: Boolean;
+const
+  inXML: OWideString = '<root><b>TEXT</i><p><t><aaa/></p></root>';
+  outXML: OWideString = '<root><b>TEXT</b><p><t><aaa/></t></p></root>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.ReaderSettings.StrictXML := False;
+  xXML.WriterSettings.StrictXML := False;
+
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = outXML);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
+const
+  inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
+  outXML: OWideString = '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default">default<p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p></text>  </root>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xXML.WhiteSpaceHandling := wsAutoTag;
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = outXML);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WrongDocument1: Boolean;
+const
+  inXML: OWideString =
+    '<Test>'+sLineBreak+
+    '  <T1>'#0'</T1> {Chr(0)}'+sLineBreak+
+    '</Test>'+sLineBreak;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xXML.ReaderSettings.ErrorHandling := ehSilent;
+
+  Result :=
+    not xXML.LoadFromXML(inXML);
+  Result := Result and
+    (xXML.ParseError.Line = 2) and
+    (xXML.ParseError.LinePos = 7) and
+    (xXML.ParseError.ErrorCode = INVALID_CHARACTER_ERR);
+
+  if not Result then
+    Exit;
+
+  //now check XML read in not strict mode
+  xXML.ReaderSettings.StrictXML := False;
+  Result :=
+    xXML.LoadFromXML(inXML);
+
+  Result := Result and
+    (xXML.Node.SelectNode('/Test/T1').Text = #0);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WrongDocument2: Boolean;
+const
+  inXML: OWideString =
+    '<Test>'+sLineBreak+
+    '  <T1>0</T1> {Chr(0)}';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xXML.ReaderSettings.ErrorHandling := ehSilent;
+
+  Result :=
+    not xXML.LoadFromXML(inXML);
+  Result := Result and
+    (xXML.ParseError.Line = 2) and
+    (xXML.ParseError.LinePos = 21) and
+    (xXML.ParseError.ErrorCode = HIERARCHY_REQUEST_ERR);
+
+  if not Result then
+    Exit;
+
+  //now check XML read in not strict mode
+  xXML.ReaderSettings.StrictXML := False;
+  Result :=
+    xXML.LoadFromXML(inXML);
+
+  Result := Result and
+    (xXML.Node.SelectNode('/Test/T1').Text = '0');
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WrongDocument3: Boolean;
+const
+  inXML: OWideString =
+    '<Test> /> </Test>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xXML.ReaderSettings.ErrorHandling := ehSilent;
+
+  Result :=
+    not xXML.LoadFromXML(inXML);
+  Result := Result and
+    (xXML.ParseError.Line = 1) and
+    (xXML.ParseError.LinePos = 9) and
+    (xXML.ParseError.ErrorCode = INVALID_CHARACTER_ERR);
+
+  if not Result then
+    Exit;
+
+  //now check XML read in not strict mode
+  xXML.ReaderSettings.StrictXML := False;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  Result :=
+    xXML.LoadFromXML(inXML);
+
+  Result := Result and
+    (xXML.Node.SelectNode('/Test').Text = ' /> ');
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_Clone: Boolean;
+const
+  inXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone></root>';
+  outXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone><clone attr="value"/><clone attr="value"><n>text</n><m/></clone></root>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xCloneNode: OXmlCDOM.TXMLNode;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.LoadFromXML(inXML);
+  xCloneNode := xXML.DocumentElement.SelectNode('clone');
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(False));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
+
+  Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_Normalize: Boolean;
+const
+  outXML: OWideString = '<root><test/>my  text<b>hello<clone/></b></root>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xDocElement, xNodeB: OXmlCDOM.TXMLNode;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc('root');
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xDocElement := xXML.DocumentElement;
+  xDocElement.AddText(sLineBreak+'   '+sLineBreak+#9);
+  xDocElement.AddChild('test');
+  xDocElement.AddText(#9'my  text '+sLineBreak);
+  xDocElement.AddText(sLineBreak);
+  xNodeB := xDocElement.AddChild('b');
+  xNodeB.AddText('  ');
+  xNodeB.AddText('hello');
+  xNodeB.AddText(sLineBreak);
+  xNodeB.AddText('  ');
+  xNodeB.AddChild('clone');
+  xNodeB.AddText('  ');
+
+  xDocElement.Normalize;
+
+  Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xAttribute: OXmlCDOM.TXMLNode;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc('root', False);
 
   xAttribute := xXML.DocumentElement.SelectNodeCreate('@attr');
   xAttribute.NodeValue := 'value';

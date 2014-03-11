@@ -170,6 +170,7 @@ type
     function HasAttribute(const aName: OWideString): Boolean;
     function FindAttribute(const aName: OWideString; var outAttr: PXMLNode): Boolean; overload;
     function FindAttribute(const aName: OWideString; var outValue: OWideString): Boolean; overload;
+    function FindAttributeById(const aNameId: OHashedStringsIndex; var outAttr: PXMLNode): Boolean; overload;
     //get attribute
     function GetAttribute(const aName: OWideString): OWideString;
     //get attribute, if attr does not exist, return aDefaultValue
@@ -198,8 +199,8 @@ type
     procedure DeleteAttributes(const aDestroyList: Boolean = True);
     procedure DeleteChild(const aChild: PXMLNode);
     procedure DeleteChildren(const aDestroyList: Boolean = True);
-    procedure DeleteSelf;
-    procedure RemoveSelfFromParent;
+    procedure DeleteSelf;//free current node, both for NextGen and "normal" Pascal
+    procedure RemoveSelfFromParent;//remove self from parent node list, the node doesn't get destroyed
 
     //insert a node before another
     //  Inserts the node aNewChild before the existing child node aRefChild.
@@ -312,6 +313,8 @@ type
     property NodeType: TXmlNodeType read fNodeType;
     property NodeName: OWideString read GetNodeName;
     property NodeValue: OWideString read GetNodeValue write SetNodeValue;
+    property NodeNameId: OHashedStringsIndex read fNodeNameId;
+    property NodeValueId: OHashedStringsIndex read fNodeValueId write fNodeValueId;
     property Text: OWideString read GetText write SetText;
     property PreserveWhiteSpace: TXMLPreserveWhiteSpace read fPreserveWhiteSpace write fPreserveWhiteSpace;
 
@@ -342,8 +345,6 @@ type
     ['{490301A3-C95B-4E03-B09D-99E4682BC3FE}']
 
   //protected
-    function GetLoading: Boolean;
-    procedure SetLoading(const aLoading: Boolean);
     function GetCodePage: Word;
     procedure SetCodePage(const aCodePage: Word);
     function GetVersion: OWideString;
@@ -357,17 +358,9 @@ type
     function GetWriterSettings: TXMLWriterSettings;
     function GetReaderSettings: TXMLReaderSettings;
 
-    property Loading: Boolean read GetLoading write SetLoading;
-
-  //protected
-    function GetDummyNode: PXMLNode;
-    function GetDummyResNodeList: IXMLNodeList;
     function GetDocumentNode: PXMLNode;
     function GetDocumentElement: PXMLNode;
     procedure SetDocumentElement(const aDocumentElement: PXMLNode);
-
-    property DummyNode: PXMLNode read GetDummyNode;
-    property DummyResNodeList: IXMLNodeList read GetDummyResNodeList;
 
   //public
     //clear the whole document
@@ -776,17 +769,21 @@ type
   TXMLXPathDOMAdapter = class(TXMLXPathAdapter)
   private
     fResNodeList: IXMLNodeList;
+    fOwnerDocument: TXMLDocument;
+  public
+    constructor Create(const aOwnerDocument: TXMLDocument);
   public
     procedure BuildIdTree(const aStartWithNode: TXMLXPathNode; const aLevelsDeep: Integer;
-      const aIdTree: TXMLXPathIdTree); override;
+      const aAttributes: Boolean; const aIdTree: TXMLXPathIdTree); override;
     function CreateResNodeList: TXMLXPathNodeList; override;
     procedure AddNodeToResList(const aNode: TXMLXPathNode); override;
-    function GetNodeName(const aNode: TXMLXPathNode): OWideString; override;
-    function GetNodeValue(const aNode: TXMLXPathNode): OWideString; override;
+    function GetNodeNameId(const aNode: TXMLXPathNode): OHashedStringsIndex; override;
+    function GetNodeValueId(const aNode: TXMLXPathNode): OHashedStringsIndex; override;
+    function GetStringId(const aString: OWideString): OHashedStringsIndex; override;
     function GetNodeType(const aNode: TXMLXPathNode): TXmlNodeType; override;
     procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); override;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; override;
-    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrName: OWideString): TXMLXPathNode; override;
+    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
     procedure GetNodeAttributes(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
     function GetNodeParent(const aNode: TXMLXPathNode): TXMLXPathNode; override;
     function GetNodeDOMDocument(const aNode: TXMLXPathNode): TXMLXPathNode; override;
@@ -1062,36 +1059,8 @@ end;
 
 function TXMLNode.FindAttribute(const aName: OWideString;
   var outAttr: PXMLNode): Boolean;
-var
-  xNameId: OHashedStringsIndex;
-  xAttrCount: Integer;
 begin
-  if not HasAttributes then
-  begin
-    Result := False;
-    Exit;
-  end;
-
-  xNameId := fOwnerDocument.IndexOfString(aName);
-  if xNameId < 0 then
-  begin
-    Result := False;
-    Exit;
-  end;
-
-  if fOwnerDocument.fTempAttributeIndex.ParentElement = @Self then
-  begin
-    //attribute index used!
-    Result := fOwnerDocument.fTempAttributeIndex.FindAttribute(xNameId, outAttr);
-  end
-  else
-  begin
-    //attribute index not used!
-    Result := FindCChild(xNameId, ctAttribute, outAttr, {%H-}xAttrCount);
-    //if we looked through more then attribute limit (the whole attribute count is not necesarily xAttrCount), use index!
-    if xAttrCount > XMLUseIndexForAttributesLimit then
-      fOwnerDocument.fTempAttributeIndex.SetParentElement(@Self);
-  end;
+  Result := FindAttributeById(fOwnerDocument.IndexOfString(aName), outAttr);
 end;
 
 function TXMLNode.FindAttribute(const aName: OWideString;
@@ -1104,6 +1073,40 @@ begin
     outValue := xAttr.NodeValue
   else
     outValue := '';
+end;
+
+function TXMLNode.FindAttributeById(const aNameId: OHashedStringsIndex;
+  var outAttr: PXMLNode): Boolean;
+var
+  xAttrCount: Integer;
+begin
+  if not HasAttributes then
+  begin
+    Result := False;
+    outAttr := nil;
+    Exit;
+  end;
+
+  if aNameId < 0 then
+  begin
+    Result := False;
+    outAttr := nil;
+    Exit;
+  end;
+
+  if fOwnerDocument.fTempAttributeIndex.ParentElement = @Self then
+  begin
+    //attribute index used!
+    Result := fOwnerDocument.fTempAttributeIndex.FindAttribute(aNameId, outAttr);
+  end
+  else
+  begin
+    //attribute index not used!
+    Result := FindCChild(aNameId, ctAttribute, outAttr, {%H-}xAttrCount);
+    //if we looked through more then attribute limit (the whole attribute count is not necesarily xAttrCount), use index!
+    if xAttrCount > XMLUseIndexForAttributesLimit then
+      fOwnerDocument.fTempAttributeIndex.SetParentElement(@Self);
+  end;
 end;
 
 function TXMLNode.FindCChild(const aNodeNameId: OHashedStringsIndex;
@@ -2001,12 +2004,12 @@ var
   xXPaths: TXMLXPathList;
   xCustomList: TXMLXPathNodeList;
 begin
-  xXPaths := TXMLXPathList.Create;
+  xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
   try
     xXPaths.LoadFromString(aXPath);
 
     xCustomList := nil;//must be here -> list will be created in SelectNodes
-    Result := xXPaths.SelectNodes(@Self, xCustomList, TXMLXPathDOMAdapter, aMaxNodeCount);
+    Result := xXPaths.SelectNodes(@Self, xCustomList, aMaxNodeCount);
     if Result then
       outNodeList := (IInterface(xCustomList) as IXMLNodeList)
     else
@@ -3005,7 +3008,8 @@ begin
 end;
 
 procedure TXMLXPathDOMAdapter.BuildIdTree(const aStartWithNode: TXMLXPathNode;
-  const aLevelsDeep: Integer; const aIdTree: TXMLXPathIdTree);
+  const aLevelsDeep: Integer; const aAttributes: Boolean;
+  const aIdTree: TXMLXPathIdTree);
 var
   xId: XMLNodeId;
 
@@ -3023,9 +3027,11 @@ var
     if bLevelsDeepLeft < 0 then
       Exit;
 
-    if bNode.HasAttributes then begin
+    if aAttributes and bNode.HasAttributes then
+    begin
       xChild := nil;
-      while bNode.GetNextAttribute(xChild) do begin
+      while bNode.GetNextAttribute(xChild) do
+      begin
         {$IFDEF O_GENERICS}
         aIdTree.Add(TXMLXPathNode(xChild), xId);
         {$ELSE}
@@ -3035,12 +3041,12 @@ var
       end;
     end;
 
-    if bNode.HasChildNodes then begin
+    if bNode.HasChildNodes then
+    begin
       xChild := nil;
       while bNode.GetNextChild(xChild) do
-      if xChild.NodeType in [ntElement, ntText, ntCData] then begin
+      if xChild.NodeType in [ntElement, ntText, ntCData] then
         _ScanNode(xChild, bLevelsDeepLeft-1);
-      end;
     end;
   end;
 begin
@@ -3048,6 +3054,13 @@ begin
   xId := 0;
 
   _ScanNode(PXMLNode(aStartWithNode), aLevelsDeep);
+end;
+
+constructor TXMLXPathDOMAdapter.Create(const aOwnerDocument: TXMLDocument);
+begin
+  inherited Create;
+
+  fOwnerDocument := aOwnerDocument;
 end;
 
 function TXMLXPathDOMAdapter.CreateResNodeList: TXMLXPathNodeList;
@@ -3091,15 +3104,15 @@ var
   xNode: PXMLNode;
 begin
   xNode := PXMLNode(aNode);
-  outNodeInfo.NodeName := xNode.NodeName;
-  outNodeInfo.NodeValue := xNode.NodeValue;
+  outNodeInfo.NodeNameId := xNode.fNodeNameId;
+  outNodeInfo.NodeValueId := xNode.fNodeValueId;
   outNodeInfo.NodeType := xNode.NodeType;
 end;
 
-function TXMLXPathDOMAdapter.GetNodeName(
-  const aNode: TXMLXPathNode): OWideString;
+function TXMLXPathDOMAdapter.GetNodeNameId(
+  const aNode: TXMLXPathNode): OHashedStringsIndex;
 begin
-  Result := PXMLNode(aNode).NodeName;
+  Result := PXMLNode(aNode).fNodeNameId;
 end;
 
 function TXMLXPathDOMAdapter.GetNodeParent(
@@ -3114,18 +3127,24 @@ begin
   Result := PXMLNode(aNode).NodeType;
 end;
 
-function TXMLXPathDOMAdapter.GetNodeValue(
-  const aNode: TXMLXPathNode): OWideString;
+function TXMLXPathDOMAdapter.GetNodeValueId(
+  const aNode: TXMLXPathNode): OHashedStringsIndex;
 begin
-  Result := PXMLNode(aNode).NodeValue;
+  Result := PXMLNode(aNode).fNodeValueId;
+end;
+
+function TXMLXPathDOMAdapter.GetStringId(
+  const aString: OWideString): OHashedStringsIndex;
+begin
+  Result := fOwnerDocument.IndexOfString(aString);
 end;
 
 function TXMLXPathDOMAdapter.NodeFindAttribute(const aNode: TXMLXPathNode;
-  const aAttrName: OWideString): TXMLXPathNode;
+  const aAttrNameId: OHashedStringsIndex): TXMLXPathNode;
 var
   xAttr: PXMLNode;
 begin
-  if PXMLNode(aNode).FindAttribute(aAttrName, {%H-}xAttr) then
+  if PXMLNode(aNode).FindAttributeById(aAttrNameId, {%H-}xAttr) then
     Result := xAttr
   else
     Result := nil;

@@ -56,7 +56,7 @@ type
     fDataRead: Boolean;
     fTempReaderPath: TOWideStringList;
     fTempNodePath: TOWideStringList;
-    fXmlDoc: IXMLDocument;
+    fXmlDoc: TXMLDocument;
     fParseError: IXMLParseError;
 
     function ReadNextChildNodeCustom(const aOnlyElementHeader: Boolean;
@@ -185,6 +185,7 @@ begin
   fReader.Free;
   fTempNodePath.Free;
   fTempReaderPath.Free;
+  fXmlDoc.Free;
 
   inherited;
 end;
@@ -363,6 +364,9 @@ begin
     outNode := fXmlDoc.Node.FirstChild;
 end;
 
+type
+  TAccessXMLDoc = class(TXMLDocument);
+
 function TXMLSeqParser.ReadNextChildNodeCustom(
   const aOnlyElementHeader: Boolean; var outElementIsOpen: Boolean): Boolean;
 var
@@ -372,7 +376,7 @@ begin
   Result := False;
   fParseError := nil;
 
-  fXmlDoc.Loading := True;
+  TAccessXMLDoc(fXmlDoc).Loading := True;
   try
     fXmlDoc.Clear(False);
 
@@ -436,7 +440,7 @@ begin
     if Assigned(fReader.ParseError) then
       fParseError := fReader.ParseError;
 
-    fXmlDoc.Loading := False;
+    TAccessXMLDoc(fXmlDoc).Loading := False;
   end;
 end;
 

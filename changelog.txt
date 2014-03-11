@@ -1,7 +1,16 @@
 OXml Change Log
 ---------------
 
-Version 0.8 2014-02-26 [SVN commit: 14, https://sourceforge.net/p/oxml/code/16/]
+Version 0.9 2014-03-11 [SVN commit: 17, https://sourceforge.net/p/oxml/code/17/]
+  - Optimized XPath engine. Now OXml's XPath is faster than OmniXML's and MSXML's.
+  - Test functions for OXmlCDOM.pas. Now OXmlCDOM can be used as well.
+    Remember that OXmlCDOM is a TObject-based DOM for OXml. 
+    The advantages are: usual programming concept, no need to dereference the nodes in FPC.
+    The disadvantages are: small performance penalty and higher memory consumption.
+    But still OXmlCDOM is faster than other interface-based DOMs.
+
+
+Version 0.8 2014-02-26 [SVN commit: 16, https://sourceforge.net/p/oxml/code/16/]
   - New unit OXmlCDOM.pas: a testing DOM model with nodes as TObject descendants.
   - Various bug fixes.
 
