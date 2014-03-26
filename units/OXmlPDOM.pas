@@ -19,8 +19,7 @@ unit OXmlPDOM;
 
   Simplified W3C DOM (Core) Level 1 specification:
     http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html
-  - OXmlPDOM uses record-based nodes instead of interfaces for maximum
-    performance.
+  - OXmlPDOM uses record-based nodes for maximum performance.
 
   Very close to MSXML/OmniXML implementations but much faster.
 

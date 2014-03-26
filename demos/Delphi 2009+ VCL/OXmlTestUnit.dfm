@@ -84,13 +84,22 @@ object Form1: TForm1
     TabOrder = 6
     OnClick = BtnDOMTestClick
   end
+  object BtnTest4GB: TButton
+    Left = 615
+    Top = 48
+    Width = 194
+    Height = 25
+    Caption = 'Big file test (4GB+)'
+    TabOrder = 7
+    OnClick = BtnTest4GBClick
+  end
   object BtnIterateTest: TButton
     Left = 16
     Top = 80
     Width = 193
     Height = 25
     Caption = 'Iterate Test'
-    TabOrder = 7
+    TabOrder = 8
     OnClick = BtnIterateTestClick
   end
   object BtnSequentialTest: TButton
@@ -99,7 +108,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Sequential Test'
-    TabOrder = 8
+    TabOrder = 9
     OnClick = BtnSequentialTestClick
   end
   object BtnTestXPath: TButton
@@ -108,7 +117,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'XPath Test'
-    TabOrder = 9
+    TabOrder = 10
     OnClick = BtnTestXPathClick
   end
   object BtnTestReadInvalid: TButton
@@ -117,7 +126,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Test read invalid document'
-    TabOrder = 10
+    TabOrder = 11
     OnClick = BtnTestReadInvalidClick
   end
   object BtnTestWriteInvalid: TButton
@@ -126,7 +135,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Test write invalid document'
-    TabOrder = 11
+    TabOrder = 12
     OnClick = BtnTestWriteInvalidClick
   end
   object BtnEncodingTest: TButton
@@ -135,7 +144,7 @@ object Form1: TForm1
     Width = 193
     Height = 25
     Caption = 'Custom Encoding Test'
-    TabOrder = 12
+    TabOrder = 13
     OnClick = BtnEncodingTestClick
   end
   object Memo1: TMemo
@@ -146,7 +155,7 @@ object Form1: TForm1
     Lines.Strings = (
       'Memo1')
     ScrollBars = ssBoth
-    TabOrder = 13
+    TabOrder = 14
   end
   object Memo2: TMemo
     Left = 312
@@ -156,6 +165,6 @@ object Form1: TForm1
     Lines.Strings = (
       'Memo2')
     ScrollBars = ssBoth
-    TabOrder = 14
+    TabOrder = 15
   end
 end

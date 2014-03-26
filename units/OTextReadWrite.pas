@@ -61,14 +61,14 @@ type
     fBufferSize: Integer;
 
     fStream: TStream;
-    fStreamSize: ONativeInt;
-    fStreamPosition: ONativeInt;
-    fStreamStartPosition: ONativeInt;
+    fStreamSize: Int64;
+    fStreamPosition: Int64;
+    fStreamStartPosition: Int64;
     fOwnsStream: Boolean;
 
-    fFilePosition: Integer;//current character in file (in character units, not bytes!), 1-based
-    fLinePosition: Integer;//current character in line, 1-based
-    fLine: Integer;//current line in file, 1-based
+    fFilePosition: Int64;//current character in file (in character units, not bytes!), 1-based
+    fLinePosition: Int64;//current character in line, 1-based
+    fLine: Int64;//current line in file, 1-based
 
     fEncoding: TEncoding;
     fOwnsEncoding: Boolean;
@@ -81,7 +81,7 @@ type
 
     procedure SetEncoding(const Value: TEncoding);
 
-    function GetApproxStreamPosition: ONativeInt;
+    function GetApproxStreamPosition: Int64;
 
     procedure LoadStringFromStream;
 
@@ -156,15 +156,15 @@ type
 
     //Approximate byte position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
-    property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    property ApproxStreamPosition: Int64 read GetApproxStreamPosition;
     //Character position in text
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
-    property FilePosition: Integer read fFilePosition;//absolute character position in file, 1-based
-    property LinePosition: Integer read fLinePosition;//current character in line, 1-based
-    property Line: Integer read fLine;//current line, 1-based
+    property FilePosition: Int64 read fFilePosition;//absolute character position in file, 1-based
+    property LinePosition: Int64 read fLinePosition;//current character in line, 1-based
+    property Line: Int64 read fLine;//current line, 1-based
     //size of original stream
-    property StreamSize: ONativeInt read fStreamSize;
+    property StreamSize: Int64 read fStreamSize;
   end;
 
   TOTextWriter = class(TObject)
@@ -230,22 +230,23 @@ type
 //decide what encoding is used in a stream (BOM markers are searched for)
 //  only UTF-8, UTF-16, UTF-16BE can be recognized
 function GetEncodingFromStream(const aStream: TStream;
-  var {%H-}ioTempStringPosition: ONativeInt;
-  const aLastPosition: ONativeInt;
-  const {%H-}aDefaultEncoding: TEncoding): TEncoding;
+  var ioTempStringPosition: Int64;
+  const aLastPosition: Int64;
+  const aDefaultEncoding: TEncoding): TEncoding;
 
 implementation
 
-
+{$IFDEF FPC}
 uses
-  {$IFDEF FPC}
-  LazUTF8,
-  {$ENDIF}
-  OXmlLNG;
+  LazUTF8;
+{$ENDIF}
+
+resourcestring
+  OTextReadWrite_CannotUndo2Times = 'Unsupported: you tried to run the undo function two times in a row.';
 
 function GetEncodingFromStream(const aStream: TStream;
-  var ioTempStringPosition: ONativeInt;
-  const aLastPosition: ONativeInt;
+  var ioTempStringPosition: Int64;
+  const aLastPosition: Int64;
   const aDefaultEncoding: TEncoding): TEncoding;
 var
   xSize: Integer;
@@ -359,7 +360,7 @@ begin
   fLine := 1;
 end;
 
-function TOTextReader.GetApproxStreamPosition: ONativeInt;
+function TOTextReader.GetApproxStreamPosition: Int64;
 begin
   //YOU CAN'T KNOW IT EXACTLY!!! (due to Lazarus Unicode->UTF8 or Delphi UTF8->Unicode conversion etc.)
   //the char lengths may differ from one character to another
@@ -431,7 +432,7 @@ procedure TOTextReader.LoadStringFromStream;
 var
   xBuffer: TEncodingBuffer;
   xUTF8Inc: Integer;
-  xReadBytes: ONativeInt;
+  xReadBytes: Int64;
 const
   BS = TEncodingBuffer_FirstElement;
 begin
@@ -533,7 +534,7 @@ begin
 
   if fTempStringRemain > 0 then begin
     outChar := fTempString[fTempStringPosition];
-    case Ord(outChar) of//must be "case Ord(outChar) of" -> faster than simple "case outChar of"
+    case Ord(outChar) of
       10: begin
         if fPreviousChar <> #13 then
           Inc(fLine);
@@ -666,7 +667,7 @@ end;
 procedure TOTextReader.UndoRead;
 begin
   if fReadFromUndo then
-    raise EOTextReader.Create(OXmlLng_CannotUndo2Times);
+    raise EOTextReader.Create(OTextReadWrite_CannotUndo2Times);
 
   fReadFromUndo := True;
   Dec(fLinePosition);

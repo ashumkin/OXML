@@ -9,7 +9,7 @@ uses
   Interfaces, // this includes the LCL widgetset
   Forms, uXmlTest, OBufferedStreams, ODictionary,
   OEncoding, OHashedStrings, OTextReadWrite, OWideSupp, OXmlLng, OXmlReadWrite,
-  OXmlSAX, OXmlSeq, OXmlUtils, OXmlXPath, OXmlPDOM, OXmlCDOM;
+  OXmlSAX, OXmlSeq, OXmlUtils, OXmlXPath, OXmlPDOM, OXmlCDOM, XMLRead;
 
 {$R *.res}
 

@@ -364,8 +364,8 @@ type
     fAllowSetEncodingFromFile: Boolean;//internal, for external use ForceEncoding
 
     fLastTokenType: TXMLReaderTokenType;//must be used because fReaderToken can be replaced! -> do not replace it with fReaderToken.TokenType!!!
-    fLastTokenLinePosition: Integer;
-    fLastTokenCharPosition: Integer;
+    fLastTokenLinePosition: Int64;
+    fLastTokenCharPosition: Int64;
     fDocumentElementFound: Boolean;
     fForceEncoding: Boolean;
 
@@ -382,8 +382,8 @@ type
     procedure SetEncoding(const aEncoding: TEncoding);
     function GetOwnsEncoding: Boolean;
     procedure SetOwnsEncoding(const aSetOwnsEncoding: Boolean);
-    function GetApproxStreamPosition: ONativeInt;
-    function GetStreamSize: ONativeInt;
+    function GetApproxStreamPosition: Int64;
+    function GetStreamSize: Int64;
   private
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
@@ -404,9 +404,9 @@ type
     procedure Comment;
     procedure DocType;
     procedure ProcessingInstruction;
-    function GetFilePosition: Integer;
-    function GetLinePosition: Integer;
-    function GetLine: Integer;
+    function GetFilePosition: Int64;
+    function GetLinePosition: Int64;
+    function GetLine: Int64;
     procedure DoRaiseException;
     procedure RaiseException(const aErrorClass: TXMLParseErrorClass;
       const aReason: String);
@@ -488,19 +488,19 @@ type
   public
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
-    property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    property ApproxStreamPosition: Int64 read GetApproxStreamPosition;
     //size of original stream
-    property StreamSize: ONativeInt read GetStreamSize;
+    property StreamSize: Int64 read GetStreamSize;
 
     //Character position in text
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
-    property FilePosition: Integer read GetFilePosition;//absolute character position in file (in character units, not bytes), 1-based
-    property LinePosition: Integer read GetLinePosition;//current character in line, 1-based
-    property Line: Integer read GetLine;//current line, 1-based
+    property FilePosition: Int64 read GetFilePosition;//absolute character position in file (in character units, not bytes), 1-based
+    property LinePosition: Int64 read GetLinePosition;//current character in line, 1-based
+    property Line: Int64 read GetLine;//current line, 1-based
     //Position where last token was read
-    property LastTokenLinePosition: Integer read fLastTokenLinePosition;
-    property LastTokenCharPosition: Integer read fLastTokenCharPosition;
+    property LastTokenLinePosition: Int64 read fLastTokenLinePosition;
+    property LastTokenCharPosition: Int64 read fLastTokenCharPosition;
 
     property ParseError: IXMLParseError read fParseError;
   end;
@@ -510,11 +510,11 @@ type
   EXmlReaderException = class(Exception)
   private
     fReason: String;
-    fFilePos: Integer;
-    fLinePos: Integer;
-    fLine: Integer;
-    fLastTokenLinePos: Integer;
-    fLastTokenCharPos: Integer;
+    fFilePos: Int64;
+    fLinePos: Int64;
+    fLine: Int64;
+    fLastTokenLinePos: Int64;
+    fLastTokenCharPos: Int64;
     fSrcText: OWideString;
     fSrcTextPos: Integer;
   protected
@@ -534,12 +534,13 @@ type
     //Character position in text (when error was detected)
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
-    property FilePos: Integer read fFilePos;//absolute character position in file (in character units, not bytes), 1-based
-    property LinePos: Integer read fLinePos;//current character in line, 1-based
-    property Line: Integer read fLine;//current line, 1-based
+    property FilePos: Int64 read fFilePos;//absolute character position in file (in character units, not bytes), 1-based
+    property LinePos: Int64 read fLinePos;//current character in line, 1-based
+    property Line: Int64 read fLine;//current line, 1-based
     //Position where last token was read (before the error)
-    property LastTokenCharPos: Integer read fLastTokenCharPos;//1-based
-    property LastTokenLinePos: Integer read fLastTokenLinePos;//1-based
+    //xxx
+    property LastTokenCharPos: Int64 read fLastTokenCharPos;//1-based
+    property LastTokenLinePos: Int64 read fLastTokenLinePos;//1-based
     //Source code stub
     property SrcText: OWideString read fSrcText;
     //position of error in SrcText, 1-based
@@ -564,17 +565,17 @@ type
     function GetReason: OWideString;
     function GetSrcText: OWideString;
     function GetSrcTextPos: Integer;
-    function GetLine: Integer;
-    function GetLinePos: Integer;
-    function GetFilePos: Integer;
+    function GetLine: Int64;
+    function GetLinePos: Int64;
+    function GetFilePos: Int64;
 
     procedure RaiseException;
     procedure RaiseAndEatException;
 
     property ErrorCode: Integer read GetErrorCode;
-    property FilePos: Integer read GetFilePos;
-    property Line: Integer read GetLine;
-    property LinePos: Integer read GetLinePos;
+    property FilePos: Int64 read GetFilePos;
+    property Line: Int64 read GetLine;
+    property LinePos: Int64 read GetLinePos;
     property Reason: OWideString read GetReason;
     property SrcText: OWideString read GetSrcText;
     property SrcTextPos: Integer read GetSrcTextPos;
@@ -587,11 +588,11 @@ type
     fReason: OWideString;
     fSrcText: OWideString;
     fSrcTextPos: Integer;
-    fLine: Integer;
-    fLinePos: Integer;
-    fFilePos: Integer;
-    fLastTokenLinePos: Integer;
-    fLastTokenCharPos: Integer;
+    fLine: Int64;
+    fLinePos: Int64;
+    fFilePos: Int64;
+    fLastTokenLinePos: Int64;
+    fLastTokenCharPos: Int64;
   protected
     function GetExceptionClass: EXmlReaderExceptionClass; virtual; abstract;
     function GetErrorCode: Integer;
@@ -599,9 +600,9 @@ type
     function GetReason: OWideString;
     function GetSrcText: OWideString;
     function GetSrcTextPos: Integer;
-    function GetLine: Integer;
-    function GetLinePos: Integer;
-    function GetFilePos: Integer;
+    function GetLine: Int64;
+    function GetLinePos: Int64;
+    function GetFilePos: Int64;
 
     procedure DoCreate(const aReader: TXMLReader; const aReason: string);
   public
@@ -614,14 +615,14 @@ type
   public
     property URL: OWideString read GetURL;
     property ErrorCode: Integer read GetErrorCode;
-    property FilePos: Integer read GetFilePos;
-    property Line: Integer read GetLine;
-    property LinePos: Integer read GetLinePos;
+    property FilePos: Int64 read GetFilePos;
+    property Line: Int64 read GetLine;
+    property LinePos: Int64 read GetLinePos;
     property Reason: OWideString read GetReason;
     property SrcText: OWideString read GetSrcText;
     property SrcTextPos: Integer read GetSrcTextPos;
-    property LastTokenCharPos: Integer read fLastTokenCharPos;
-    property LastTokenLinePos: Integer read fLastTokenLinePos;
+    property LastTokenCharPos: Int64 read fLastTokenCharPos;
+    property LastTokenLinePos: Int64 read fLastTokenLinePos;
   end;
 
   TXMLParseErrorInvalidCharacter = class(TXMLParseError)
@@ -1368,7 +1369,7 @@ begin
   RemoveLastFromNodePath(True);
 end;
 
-function TXMLReader.GetApproxStreamPosition: ONativeInt;
+function TXMLReader.GetApproxStreamPosition: Int64;
 begin
   Result := fReader.ApproxStreamPosition;
 end;
@@ -1383,22 +1384,22 @@ begin
   Result := fReader.OwnsEncoding;
 end;
 
-function TXMLReader.GetStreamSize: ONativeInt;
+function TXMLReader.GetStreamSize: Int64;
 begin
   Result := fReader.StreamSize;
 end;
 
-function TXMLReader.GetLinePosition: Integer;
+function TXMLReader.GetLinePosition: Int64;
 begin
   Result := fReader.LinePosition;
 end;
 
-function TXMLReader.GetLine: Integer;
+function TXMLReader.GetLine: Int64;
 begin
   Result := fReader.Line;
 end;
 
-function TXMLReader.GetFilePosition: Integer;
+function TXMLReader.GetFilePosition: Int64;
 begin
   Result := fReader.FilePosition;
 end;
@@ -2535,17 +2536,17 @@ begin
   Result := GetExceptionClass.GetErrorCode;
 end;
 
-function TXMLParseError.GetFilePos: Integer;
+function TXMLParseError.GetFilePos: Int64;
 begin
   Result := fFilePos;
 end;
 
-function TXMLParseError.GetLine: Integer;
+function TXMLParseError.GetLine: Int64;
 begin
   Result := fLine;
 end;
 
-function TXMLParseError.GetLinePos: Integer;
+function TXMLParseError.GetLinePos: Int64;
 begin
   Result := fLinePos;
 end;

@@ -21,7 +21,9 @@ unit OXmlCDOM;
     http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html
   - OXmlCDOM uses class-based nodes.
 
-  Just a showcase now! Not properly tested!
+  A clone from OXmlPDOM that uses ordinary classes as nodes.
+  Although OXmlCDOM is a little bit slower and more memory demanding than
+  OXmlPDOM, it's still very fast.
 
 }
 

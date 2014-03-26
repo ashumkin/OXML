@@ -28,7 +28,8 @@ interface
 
 uses
   {$IFDEF FPC}LCLIntf, {$ELSE}Windows, {$ENDIF}
-  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls,
+  Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
+  ComCtrls,
   //BEGIN XML LIBRARIES UNITS
   {$IFDEF USE_DELPHIXML}
   XMLIntf, XMLDoc, xmldom, msxmldom, {$IFDEF USE_ADOM}adomxmldom,{$ENDIF} OXmlDOMVendor,
@@ -73,6 +74,7 @@ type
     BtnReadPerformanceTest: TButton;
     BtnResaveTest: TButton;
     BtnSequentialTest: TButton;
+    BtnTest4GB: TButton;
     BtnTestReadInvalid: TButton;
     BtnTestSAX: TButton;
     BtnTestWriteInvalid: TButton;
@@ -96,6 +98,7 @@ type
     procedure BtnWritePerformanceTestClick(Sender: TObject);
     procedure BtnEncodingTestClick(Sender: TObject);
     procedure FormResize(Sender: TObject);
+    procedure BtnTest4GBClick(Sender: TObject);
   private
     procedure DoNothing(const {%H-}aStr1, {%H-}aStr2: OWideString);
 
@@ -103,6 +106,7 @@ type
   private
     DocDir: String;
 
+    {$IFNDEF USE_ANONYMOUS_METHODS}
     procedure SAXStartDocument(Sender: TSAXParser);
     procedure SAXEndDocument(Sender: TSAXParser);
     procedure SAXCharacters(Sender: TSAXParser; const aText: OWideString);
@@ -111,6 +115,9 @@ type
     procedure SAXStartElement(Sender: TSAXParser; const aName: OWideString;
       const aAttributes: TSAXAttributes);
     procedure SAXEndElement(Sender: TSAXParser; const aName: OWideString);
+    {$ENDIF}
+
+    procedure BtnTest4GB_CancelClick(Sender: TObject);
   protected
     procedure DoCreate; override;
   end;
@@ -1274,6 +1281,130 @@ begin
   Memo2.Lines.Clear;
 
   TestOXmlPDOM;
+end;
+
+procedure TForm1.BtnTest4GBClick(Sender: TObject);
+var
+  xPanel: TPanel;
+  xLblProgress: TLabel;
+  xPB: TProgressBar;
+  xBtnCancel: TButton;
+  xWriter: TXMLWriter;
+  xReader: TXMLReader;
+  xReaderToken: PXMLReaderToken;
+  xFileName: String;
+  I, L: Integer;
+begin
+  if MessageDlg(
+  'This test creates a big file (> 4 GB) with TXMLWriter and parses it with TXMLReader.'+sLineBreak+
+    'Check if you have enough free space on the hard disc.'+sLineBreak+sLineBreak+
+    'This operation can take very long. Do you want to continue?',
+    mtConfirmation, [mbYes, mbNo], 0) <> mrYes
+  then
+    Exit;
+
+  xPanel := TPanel.Create(Self);
+  xLblProgress := TLabel.Create(Self);
+  xPB := TProgressBar.Create(Self);
+  xBtnCancel := TButton.Create(Self);
+  try
+    //create controls
+    xPanel.Parent := Self;
+    xPanel.BevelOuter := bvNone;
+    xPanel.Align := alClient;
+
+    xLblProgress.Parent := xPanel;
+    xLblProgress.Top := 50;
+    xLblProgress.Left := 10;
+    xLblProgress.AutoSize := True;
+
+    xPB.Parent := xLblProgress.Parent;
+    xPB.Top := xLblProgress.BoundsRect.Bottom + 10;
+    xPB.Left := 10;
+    xPB.Width := xPB.Parent.ClientWidth - 2*xPB.Left;
+    xPB.Anchors := [akLeft, akTop, akRight];
+
+    xBtnCancel.Parent := xPB.Parent;
+    xBtnCancel.Top := xPB.BoundsRect.Bottom + 20;
+    xBtnCancel.Left := xPB.Left;
+    xBtnCancel.Caption := 'Cancel';
+
+    xBtnCancel.OnClick := BtnTest4GB_CancelClick;
+
+    xFileName := DocDir+'big.xml';
+
+    //create file
+    xLblProgress.Caption := 'Writing file';
+    xWriter := TXMLWriter.Create;
+    try
+      xWriter.InitFile(xFileName);
+
+      xWriter.XMLDeclaration;
+      xWriter.OpenElement('root', stFinish);
+
+      xPB.Max := 10*1000 - 1;
+      for I := 0 to xPB.Max do
+      begin
+        xWriter.OpenElement('first_layer');
+        xWriter.Attribute('attr1', 'text');
+        xWriter.Attribute('attr2', 'text');
+        xWriter.FinishOpenElement;
+
+        for L := 0 to 11*1000 - 1 do
+        begin
+          xWriter.OpenElement('second_layer');
+          xWriter.Attribute('attrA', 'notes');
+          xWriter.Attribute('attrB', 'notes');
+          xWriter.FinishOpenElementClose;
+        end;
+        xWriter.CloseElement('first_layer');
+
+        xPB.Position := I;
+        Application.ProcessMessages;
+
+        if xBtnCancel.Tag > 0 then//cancel
+          Exit;
+      end;
+
+      xWriter.CloseElement('root');
+    finally
+      xWriter.Free;
+    end;
+
+    //read file
+    xLblProgress.Caption := 'Reading file';
+    xReader := TXMLReader.Create;
+    try
+      xReader.InitFile(xFileName);
+
+      xPB.Max := (xReader.StreamSize div 1024);
+      while xReader.ReadNextToken({%H-}xReaderToken) do
+      begin
+        if (xReaderToken.TokenType = rtOpenElement) and (xReader.NodePathCount = 2) then
+        begin
+          xPB.Position := xReader.ApproxStreamPosition div 1024;
+          Application.ProcessMessages;
+
+          if xBtnCancel.Tag > 0 then//cancel
+            Exit;
+        end;
+      end;
+    finally
+      xReader.Free;
+    end;
+  finally
+    xLblProgress.Free;
+    xPB.Free;
+    xBtnCancel.Free;
+    xPanel.Free;
+
+    DeleteFile(xFileName);
+  end;
+end;
+
+procedure TForm1.BtnTest4GB_CancelClick(Sender: TObject);
+begin
+  (Sender as TButton).Tag := 1;//set canceled tag
 end;
 
 procedure TForm1.BtnTestReadInvalidClick(Sender: TObject);

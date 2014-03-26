@@ -83,7 +83,6 @@ var
   OXmlLng_NodeNameCannotBeEmpty: String = 'Node name cannot be empty.';
   OXmlLng_XPathCannotBeEmpty: String = 'XPath cannot be empty.';
   OXmlLng_CannotWriteToVirtualMemoryStream: String = 'You cannot write to a TVirtualMemoryStream.';
-  OXmlLng_CannotUndo2Times: String = 'Unsupported: you tried to run the undo function two times in a row.';
 
 implementation
 

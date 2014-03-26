@@ -35,7 +35,7 @@
         <PackageName Value="LCL"/>
       </Item1>
     </RequiredPackages>
-    <Units Count="16">
+    <Units Count="17">
       <Unit0>
         <Filename Value="OXmlTest.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -119,6 +119,11 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="OXmlCDOM"/>
       </Unit15>
+      <Unit16>
+        <Filename Value="C:\MyPrograms\lazarus\fpc\2.6.2\source\packages\fcl-xml\src\xmlread.pp"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="XMLRead"/>
+      </Unit16>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -129,10 +134,14 @@
     </Target>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="..\..\units;..\..\..\..\OmniXML;..\..\..\..\NativeXML\units"/>
+      <OtherUnitFiles Value="..\..\units;..\..\..\..\OmniXML;..\..\..\..\NativeXML\units;C:\MyPrograms\lazarus\fpc\2.6.2\source\packages\fcl-xml\src\"/>
       <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
     </SearchPaths>
     <Linking>
+      <Debugging>
+        <GenerateDebugInfo Value="False"/>
+        <StripSymbols Value="True"/>
+      </Debugging>
       <Options>
         <Win32>
           <GraphicApplication Value="True"/>
