@@ -7,7 +7,4 @@ about OXml licensing.
 Every file of the OXml library is subject of the "license/license.txt" 
 text.
 
-There is an exception: files in "units/OmniXML" and "units/KOmniXML"
-are supplied with a different licensing model (please see the 
-License.txt file in each directory).
-Furthermore the demos (in "demos/" directory) are public domain.
+There is an exception: the demos (in "demos/" directory) are public domain.

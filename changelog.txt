@@ -1,11 +1,12 @@
 OXml Change Log
 ---------------
 
-Version 0.10 2014-04-09  [SVN commit: 20, https://sourceforge.net/p/oxml/code/20/]
+Version 0.10 2014-04-09  [SVN commit: 21, https://sourceforge.net/p/oxml/code/21/]
   - Big file (> 4 GB) support also on 32bit systems.
   - Delphi 4 and Delphi 5 support.
   - Namespace support.
   - Some bug fixes.
+  - License change to MPL 1.1 only.
 
 
 Version 0.9 2014-03-11 [SVN commit: 18, https://sourceforge.net/p/oxml/code/18/]
