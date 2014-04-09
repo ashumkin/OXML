@@ -4,12 +4,12 @@ unit OXmlUnitTests;
   {$MODE DELPHI}{$H+}
 {$ENDIF}
 
-{$IFNDEF FPC}
+{$IFNDEF FPC}{$IFDEF CONDITIONALEXPRESSIONS}
   {$IF CompilerVersion >= 25}
     {$ZEROBASEDSTRINGS OFF}
     {$LEGACYIFEND ON}
   {$IFEND}
-{$ENDIF}
+{$ENDIF}{$ENDIF}
 
 interface
 
@@ -17,7 +17,7 @@ uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM, OXmlCDOM,
   OHashedStrings, OXmlSAX, OXmlSeq;
 
 const
-  cTestCount = 25;
+  cTestCount = 30;
   
 type
   TObjFunc = function(): Boolean of object;
@@ -38,12 +38,15 @@ type
     function Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
     function Test_OXmlPDOM_TXMLNode_Clone: Boolean;
     function Test_OXmlPDOM_TXMLNode_Normalize: Boolean;
+    function Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS: Boolean;
     function Test_OXmlPDOM_TXMLDocument_InvalidDocument1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
     function Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WrongDocument1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WrongDocument2: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_NameSpaces1: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_NameSpaces2: Boolean;
   private
     //OXmlCDOM.pas
     function Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
@@ -55,6 +58,8 @@ type
     function Test_OXmlCDOM_TXMLDocument_WrongDocument1: Boolean;
     function Test_OXmlCDOM_TXMLDocument_WrongDocument2: Boolean;
     function Test_OXmlCDOM_TXMLDocument_WrongDocument3: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_NameSpaces1: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_NameSpaces2: Boolean;
   private
     //OWideSupp.pas
     function Test_TOTextBuffer: Boolean;
@@ -125,12 +130,15 @@ begin
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_Clone, 'Test_OXmlPDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_Normalize, 'Test_OXmlPDOM_TXMLNode_Normalize');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS, 'Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_InvalidDocument1, 'Test_OXmlPDOM_TXMLDocument_InvalidDocument1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling, 'Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_AttributeIndex, 'Test_OXmlPDOM_TXMLDocument_AttributeIndex');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument1, 'Test_OXmlPDOM_TXMLDocument_WrongDocument1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument2, 'Test_OXmlPDOM_TXMLDocument_WrongDocument2');
-  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument3, 'Test_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument3, 'Test_OXmlPDOM_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces1, 'Test_OXmlPDOM_TXMLDocument_NameSpaces1');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces2, 'Test_OXmlPDOM_TXMLDocument_NameSpaces2');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -139,7 +147,9 @@ begin
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_AttributeIndex, 'Test_OXmlCDOM_TXMLDocument_AttributeIndex');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument1, 'Test_OXmlCDOM_TXMLDocument_WrongDocument1');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument2, 'Test_OXmlCDOM_TXMLDocument_WrongDocument2');
-  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument3, 'Test_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument3, 'Test_OXmlCDOM_TXMLDocument_WrongDocument3');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces1, 'Test_OXmlCDOM_TXMLDocument_NameSpaces1');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces2, 'Test_OXmlCDOM_TXMLDocument_NameSpaces2');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
@@ -610,6 +620,61 @@ begin
   Result := (xXML.XML = outXML);
 end;
 
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_NameSpaces1: Boolean;
+const
+  inXml: OWideString =
+    '<h:table xmlns:h="http://www.w3.org/TR/html4/">'+
+    '<h:tr>'+
+    '<h:td desc:comment="simple test" xmlns:desc="ns-desc">Apples</h:td>'+
+    '</h:tr>'+
+    '</h:table>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = inXml);
+  if not Result then Exit;
+
+  Result := xXML.DocumentElement.NameSpaceURI = 'http://www.w3.org/TR/html4/';
+  if not Result then Exit;
+
+  Result := xXML.Node.SelectNode('//h:tr').NameSpaceURI = 'http://www.w3.org/TR/html4/';
+  if not Result then Exit;
+
+  Result := xXML.Node.SelectNode('//h:td/@desc:comment').NameSpaceURI = 'ns-desc';
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_NameSpaces2: Boolean;
+const
+  outXML = '<x:root xmlns:x="my-ns"><x:text f:begin="bgn" f:hello="txt" xmlns:f="my-ns"><e:hello xmlns:e="extra-ns"/></x:text></x:root>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xRoot, xNode1, xNode2, xAttr: OXmlPDOM.PXMLNode;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+
+  xRoot := xXML.Node.AppendChild(xXML.CreateElementNS('my-ns', 'x:root'));
+  xNode1 := xXML.CreateElementNS('my-ns', 'x:text');
+  xRoot.AppendChild(xNode1);
+  Result := (xNode1.namespaceURI = 'my-ns');
+  if not Result then Exit;
+
+  xAttr := xXML.CreateAttribute('f:begin', 'bgn');
+  xNode1.SetAttributeNode(xAttr);
+  xAttr := xXML.CreateAttributeNS('my-ns', 'f:hello', 'txt');
+  xNode1.SetAttributeNode(xAttr);
+  Result := xAttr.namespaceURI = 'my-ns';
+  if not Result then Exit;
+  xNode2 := xNode1.AppendChild(xXML.CreateElementNS('extra-ns', 'e:hello'));
+  Result := xNode2.namespaceURI = 'extra-ns';
+  if not Result then Exit;
+
+  Result := xXML.XML = outXML;
+end;
+
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
 const
   inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
@@ -734,6 +799,37 @@ begin
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
 
   Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS: Boolean;
+const
+  inXml: OWideString =
+    '<h:table xmlns:h="http://www.w3.org/TR/html4/" xmlns:x="http://www.w3.org/TR/html4/">'+
+    '<h:tr h:id="tr0" />'+
+    '<h:tr x:id="tr1" />'+
+    '<x:tr h:id="tr2" />'+
+    '</h:table>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xNodeList: OXmlPDOM.IXMLNodeList;
+  xAttrValue: OWideString;
+  I: Integer;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+
+  xXML.LoadFromXML(inXML);
+
+  xXML.DocumentElement.GetElementsByTagNameNS('http://www.w3.org/TR/html4/', 'tr', {%H-}xNodeList);
+  Result := xNodeList.Count = 3;
+  if not Result then Exit;
+
+  for I := 0 to xNodeList.Count-1 do
+  begin
+    Result := xNodeList[I].FindAttributeNS('http://www.w3.org/TR/html4/', 'id', {%H-}xAttrValue);
+    if not Result then Exit;
+    Result := xAttrValue = 'tr'+IntToStr(I);
+    if not Result then Exit;
+  end;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Normalize: Boolean;
@@ -876,6 +972,61 @@ begin
   xXML.LoadFromXML(inXML);
 
   Result := (xXML.XML = outXML);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_NameSpaces1: Boolean;
+const
+  inXml: OWideString =
+    '<h:table xmlns:h="http://www.w3.org/TR/html4/">'+
+    '<h:tr>'+
+    '<h:td desc:comment="simple test" xmlns:desc="ns-desc">Apples</h:td>'+
+    '</h:tr>'+
+    '</h:table>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = inXml);
+  if not Result then Exit;
+
+  Result := xXML.DocumentElement.NameSpaceURI = 'http://www.w3.org/TR/html4/';
+  if not Result then Exit;
+
+  Result := xXML.Node.SelectNode('//h:tr').NameSpaceURI = 'http://www.w3.org/TR/html4/';
+  if not Result then Exit;
+
+  Result := xXML.Node.SelectNode('//h:td/@desc:comment').NameSpaceURI = 'ns-desc';
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_NameSpaces2: Boolean;
+const
+  outXML = '<x:root xmlns:x="my-ns"><x:text f:begin="bgn" f:hello="txt" xmlns:f="my-ns"><e:hello xmlns:e="extra-ns"/></x:text></x:root>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xRoot, xNode1, xNode2, xAttr: OXmlCDOM.TXMLNode;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xRoot := xXML.Node.AppendChild(xXML.CreateElementNS('my-ns', 'x:root'));
+  xNode1 := xXML.CreateElementNS('my-ns', 'x:text');
+  xRoot.AppendChild(xNode1);
+  Result := (xNode1.namespaceURI = 'my-ns');
+  if not Result then Exit;
+
+  xAttr := xXML.CreateAttribute('f:begin', 'bgn');
+  xNode1.SetAttributeNode(xAttr);
+  xAttr := xXML.CreateAttributeNS('my-ns', 'f:hello', 'txt');
+  xNode1.SetAttributeNode(xAttr);
+  Result := xAttr.namespaceURI = 'my-ns';
+  if not Result then Exit;
+  xNode2 := xNode1.AppendChild(xXML.CreateElementNS('extra-ns', 'e:hello'));
+  Result := xNode2.namespaceURI = 'extra-ns';
+  if not Result then Exit;
+
+  Result := xXML.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling: Boolean;

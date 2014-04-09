@@ -38,7 +38,7 @@
         <PackageName Value="LazUtils"/>
       </Item1>
     </RequiredPackages>
-    <Units Count="15">
+    <Units Count="16">
       <Unit0>
         <Filename Value="OXmlUTest_Laz.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -114,6 +114,11 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="OXmlPDOM"/>
       </Unit14>
+      <Unit15>
+        <Filename Value="..\..\units\OXmlCDOM.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="OXmlCDOM"/>
+      </Unit15>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

@@ -1295,8 +1295,16 @@ var
   xFileName: String;
   I, L: Integer;
 begin
+  {$IFDEF VER130}
+  MessageDlg(
+    'Delphi 5 does not support files bigger than 2 GB.'+sLineBreak+
+    'The test can be run only in Delphi 6 and newer.',
+    mtError, [mbOK], 0);
+  Exit;
+  {$ENDIF}
+
   if MessageDlg(
-  'This test creates a big file (> 4 GB) with TXMLWriter and parses it with TXMLReader.'+sLineBreak+
+    'This test creates a big file (> 4 GB) with TXMLWriter and parses it with TXMLReader.'+sLineBreak+
     'Check if you have enough free space on the hard disc.'+sLineBreak+sLineBreak+
     'This operation can take very long. Do you want to continue?',
     mtConfirmation, [mbYes, mbNo], 0) <> mrYes
@@ -2934,16 +2942,16 @@ procedure TForm1.BtnXmlDirectWriteClick(Sender: TObject);
       xXmlWriter.DocType('root PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"');
       xXmlWriter.XmlDeclaration(True);
 
-      xRootElement := xXmlWriter.OpenElementR('root');
+      xXmlWriter.OpenElementR('root', {%H-}xRootElement);
       xRootElement.Attribute('description', 'test xml');
 
-      xPersonElement := xRootElement.OpenElementR('boss');
+      xRootElement.OpenElementR('boss', {%H-}xPersonElement);
       xPersonElement.Attribute('name', '?Max Muster');
       xPersonElement.CloseElement;
 
       xRootElement.Comment('this is some text in comment');
 
-      xPersonElement := xRootElement.OpenElementR('person');
+      xRootElement.OpenElementR('person', xPersonElement);
       xPersonElement.Attribute('name', '/Paul Caster');
       xPersonElement.Text('/this text is in person tag');
       xPersonElement.CloseElement;
@@ -2990,9 +2998,9 @@ begin
 
   DocDir := ExtractFilePath(Application.ExeName)+'..'+PathDelim+'doc'+PathDelim;
 
-  {$IFNDEF FPC}{$IF CompilerVersion >= 18}//Delphi 2006 UP
+  {$IFNDEF FPC}{$IFDEF CONDITIONALEXPRESSIONS}{$IF (CompilerVersion >= 18)}//Delphi 2006 UP
   ReportMemoryLeaksOnShutdown := True;
-  {$IFEND}{$ENDIF}
+  {$IFEND}{$ENDIF}{$ENDIF}
 end;
 
 {$IFNDEF USE_ANONYMOUS_METHODS}

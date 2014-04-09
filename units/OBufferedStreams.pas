@@ -55,8 +55,8 @@ type
   TOBufferedWriteStream = class(TStream)
   private
     fStream: TStream;
-    fStreamPosition: Int64;
-    fStreamSize: Int64;
+    fStreamPosition: OStreamInt;
+    fStreamSize: OStreamInt;
 
     {$IFDEF O_GENERICBYTES}
     fTempBuffer: TBytes;
@@ -66,7 +66,7 @@ type
     fTempBufferUsedLength: Integer;
     fBufferSize: Integer;
   protected
-    function GetSize: Int64; {$IF DEFINED(O_DELPHI_7_UP) OR DEFINED(FPC)}override;{$IFEND}
+    function GetSize: OStreamInt; {$IFNDEF O_DELPHI_6_DOWN}override;{$ENDIF}
   public
     constructor Create(const aStream: TStream; const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
     destructor Destroy; override;
@@ -81,8 +81,11 @@ type
     function Read(Buffer: TBytes; Offset, Count: LongInt): LongInt; override;
     {$ENDIF}
 
-    function Seek(Offset: LongInt; Origin: Word): LongInt; override;
+    {$IFNDEF O_DELPHI_5_DOWN}
     function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+    {$ELSE}
+    function Seek(Offset: LongInt; Origin: Word): LongInt; override;
+    {$ENDIF}
   public
     //write the whole temporary buffer to the destination stream
     procedure EnsureTempBufferWritten;
@@ -91,8 +94,8 @@ type
   TOBufferedReadStream = class(TStream)
   private
     fStream: TStream;
-    fStreamPosition: Int64;
-    fStreamSize: Int64;
+    fStreamPosition: OStreamInt;
+    fStreamSize: OStreamInt;
     {$IFDEF O_GENERICBYTES}
     fTempBuffer: TBytes;
     {$ELSE}
@@ -105,7 +108,7 @@ type
 
     procedure CheckTempBuffer;
   protected
-    function GetSize: Int64; {$IF DEFINED(O_DELPHI_7_UP) OR DEFINED(FPC)}override;{$IFEND}
+    function GetSize: OStreamInt; {$IFNDEF O_DELPHI_6_DOWN}override;{$ENDIF}
   public
     constructor Create(const aStream: TStream; const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
 
@@ -119,8 +122,11 @@ type
     function Read(Buffer: TBytes; Offset, Count: LongInt): LongInt; override;
     {$ENDIF}
 
-    function Seek(Offset: LongInt; Origin: Word): LongInt; override;
+    {$IFNDEF O_DELPHI_5_DOWN}
     function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
+    {$ELSE}
+    function Seek(Offset: LongInt; Origin: Word): LongInt; override;
+    {$ENDIF}
   public
     //disallow clearing temporary buffer -> use if you need to seek back within the temp buffer.
     //use if you read from original streams that do not support seeking (e.g. a zip stream).
@@ -133,11 +139,11 @@ type
 
 implementation
 
-resourcestring
-  OBufferedStreams_NilStream = 'The aStream parameter must be assigned when creating a buffered stream.';
-  OBufferedStreams_ReadingNotPossible = 'You can''t read from TOBufferedWriteStream';
-  OBufferedStreams_SeekingNotPossible = 'You can''t use seek in TOBufferedWriteStream';
-  OBufferedStreams_WritingNotPossible = 'You can''t write to TOBufferedReadStream';
+var
+  OBufferedStreams_NilStream: OWideString = 'The aStream parameter must be assigned when creating a buffered stream.';
+  OBufferedStreams_ReadingNotPossible: OWideString = 'You can''t read from TOBufferedWriteStream';
+  OBufferedStreams_SeekingNotPossible: OWideString = 'You can''t use seek in TOBufferedWriteStream';
+  OBufferedStreams_WritingNotPossible: OWideString = 'You can''t write to TOBufferedReadStream';
 
 { TOBufferedWriteStream }
 
@@ -174,7 +180,7 @@ begin
   end;
 end;
 
-function TOBufferedWriteStream.GetSize: Int64;
+function TOBufferedWriteStream.GetSize: OStreamInt;
 begin
   Result {%H-}:= fStreamSize + fTempBufferUsedLength;
 end;
@@ -187,11 +193,12 @@ begin
   raise EOBufferedWriteStream.Create(OBufferedStreams_ReadingNotPossible);
 end;
 
-function TOBufferedWriteStream.Seek(const Offset: Int64;
-  Origin: TSeekOrigin): Int64;
+{$IFNDEF O_DELPHI_5_DOWN}
+function TOBufferedWriteStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+{$ELSE}
+function TOBufferedWriteStream.Seek(Offset: Integer; Origin: Word): LongInt;
+{$ENDIF}
 begin
-  //DUPLICATE CODE FOR BOTH SEEK FUNCTIONS
-
   if (Origin = soCurrent) and (Offset = 0) then
   begin
     Result := fStreamPosition + fTempBufferUsedLength;
@@ -219,30 +226,6 @@ begin
   Result := Self.Read(Buffer[Offset], Count);
 end;
 {$ENDIF}
-
-function TOBufferedWriteStream.Seek(Offset: Integer; Origin: Word): LongInt;
-begin
-  //DUPLICATE CODE FOR BOTH SEEK FUNCTIONS
-
-  if (Origin = soFromCurrent) and (Offset = 0) then
-  begin
-    Result := fStreamPosition + fTempBufferUsedLength;
-  {$IFDEF O_DELPHI_6_DOWN}
-  //BECAUSE OF GetSize function!!!
-  end else
-  if (Origin = soFromEnd) and (Offset = 0) then
-  begin
-    Result := GetSize; 
-  end else
-  if (Origin = soFromBeginning) and (Offset = fStreamPosition + fTempBufferUsedLength) then
-  begin//CURRENT POSITION
-    Result := fStreamPosition + fTempBufferUsedLength;
-  {$ENDIF}
-  end else
-  begin
-    raise EOBufferedWriteStream.Create(OBufferedStreams_SeekingNotPossible);
-  end;
-end;
 
 function TOBufferedWriteStream.Write(const Buffer; Count: LongInt): LongInt;
 begin
@@ -331,7 +314,7 @@ begin
   SetLength(fTempBuffer, fBufferSize);
 end;
 
-function TOBufferedReadStream.GetSize: Int64;
+function TOBufferedReadStream.GetSize: OStreamInt;
 begin
   Result := fStreamSize;
 end;
@@ -370,13 +353,14 @@ begin
   {$ENDIF}
 end;
 
-function TOBufferedReadStream.Seek(const Offset: Int64;
-  Origin: TSeekOrigin): Int64;
+{$IFNDEF O_DELPHI_5_DOWN}
+function TOBufferedReadStream.Seek(const Offset: Int64; Origin: TSeekOrigin): Int64;
+{$ELSE}
+function TOBufferedReadStream.Seek(Offset: Integer; Origin: Word): LongInt;
+{$ENDIF}
 var
-  xAbsolutePosition: Int64;
+  xAbsolutePosition: OStreamInt;
 begin
-  //DUPLICATE CODE FOR BOTH SEEK FUNCTIONS
-
   if (Origin = soCurrent) and (Offset = 0) then begin
     //CURRENT POSITION
     Result := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition;
@@ -386,41 +370,6 @@ begin
     case Origin of
       soCurrent: xAbsolutePosition := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition + Offset;
       soEnd: xAbsolutePosition := fStreamSize + Offset;
-    else
-      //soFromBeginning
-      xAbsolutePosition := Offset;
-    end;
-
-    if (xAbsolutePosition >= (fStreamPosition - fTempBufferUsedLength))
-    then begin
-      //WITHIN TEMP RANGE
-      fTempBufferPosition := xAbsolutePosition - (fStreamPosition - fTempBufferUsedLength);
-      Result := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition;
-    end else begin
-      //OUTSIDE TEMP RANGE, CLEAR TEMP STREAM
-      Result := fStream.Seek(soFromBeginning, xAbsolutePosition);
-      fStreamPosition := Result;
-      fTempBufferUsedLength := 0;
-      fTempBufferPosition := 0;
-    end;
-  end;
-end;
-
-function TOBufferedReadStream.Seek(Offset: Integer; Origin: Word): LongInt;
-var
-  xAbsolutePosition: ONativeInt;
-begin
-  //DUPLICATE CODE FOR BOTH SEEK FUNCTIONS
-
-  if (Origin = soFromCurrent) and (Offset = 0) then begin
-    //CURRENT POSITION
-    Result := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition;
-  end else begin
-    //SEEK TO POSITION AND CLEAR TEMP STREAM
-
-    case Origin of
-      soFromCurrent: xAbsolutePosition := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition + Offset;
-      soFromEnd: xAbsolutePosition := fStreamSize + Offset;
     else
       //soFromBeginning
       xAbsolutePosition := Offset;

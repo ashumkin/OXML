@@ -77,7 +77,7 @@ uses
     Generics.Collections,
     {$ENDIF}
   {$ELSE}
-  Contnrs, ODictionary,
+  ODictionary,
   {$ENDIF}
 
   OWideSupp, OXmlUtils, OHashedStrings;
@@ -97,7 +97,7 @@ type
   TXMLXPathResNodeList = TList;
   TXMLXPathResNodeDictionary = TODictionary;
   {$ENDIF}
-  TXMLXPathCheckedParent = packed {$IF DEFINED (O_EXTRECORDS) OR DEFINED(O_GENERICS)}record{$ELSE}object{$IFEND}//MUST BE PACKED RECORD! -> SEE QC: 122791
+  TXMLXPathCheckedParent = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}//MUST BE PACKED RECORD! -> SEE QC: 122791
     ParentNodeId: XMLXPathId;
     SelectorLevel: Integer;
   {$IFNDEF O_GENERICS}
@@ -238,10 +238,11 @@ type
     fAdapter: TXMLXPathAdapter;
 
     {$IFDEF O_GENERICS}
-    fList: TObjectList<TXMLXPath>;
+    fList: TList<TXMLXPath>;
     {$ELSE}
-    fList: TObjectList;
+    fList: TList;//Delphi 4 does not have TObjectList
     {$ENDIF}
+    procedure ClearList;
   private
     function GetI(const Index: Integer): TXMLXPath;
     function GetCount: Integer;
@@ -437,12 +438,26 @@ begin
   Result := False;
 end;
 
+procedure TXMLXPathList.ClearList;
+{$IFNDEF NEXTGEN}
+var
+  I: Integer;
+{$ENDIF}
+begin
+  {$IFNDEF NEXTGEN}//no need to call free in NextGen
+  for I := 0 to fList.Count-1 do
+    TXMLXPath(fList[I]).Free;
+  {$ENDIF}
+
+  fList.Clear;
+end;
+
 constructor TXMLXPathList.Create(const aAdapter: TXMLXPathAdapter);
 begin
   {$IFDEF O_GENERICS}
-  fList := TObjectList<TXMLXPath>.Create(True);
+  fList := TList<TXMLXPath>.Create;
   {$ELSE}
-  fList := TObjectList.Create(True);
+  fList := TList.Create;
   {$ENDIF}
 
   fAdapter := aAdapter;
@@ -450,6 +465,7 @@ end;
 
 destructor TXMLXPathList.Destroy;
 begin
+  ClearList;
   fList.Free;
   fAdapter.Free;
 
@@ -527,7 +543,7 @@ begin
   if aString = '' then
     raise EXmlXPathInvalidString.Create(OXmlLng_XPathCannotBeEmpty);
 
-  fList.Clear;
+  ClearList;
 
   xStrL := TOWideStringList.Create;
   try
@@ -697,10 +713,10 @@ begin
     CheckAttributeName := xAttributeName <> '*';
     if CheckAttributeName then
       fAttributeNameId := aAdapter.GetStringId(xAttributeName);
-  end else if SameText(aString, 'node()') then begin
+  end else if OSameText(aString, 'node()') then begin
     //any node
     fNodeType := xntNode;
-  end else if SameText(aString, 'text()') then begin
+  end else if OSameText(aString, 'text()') then begin
     //text node
     fNodeType := xntText;
   end else if (aString = '') then begin
@@ -877,7 +893,7 @@ procedure TXMLXPathSelector.SelectAttributes(
       {$IFDEF O_GENERICS}
       aAddedNodes.Add(aIdTree.Items[bAttr], bAttr);
       {$ELSE}
-      aAddedNodes.AddPointer({%H-}ONativeInt(aIdTree.PointerOfKey[{%H-}ONativeInt(bAttr)]), bAttr);
+      aAddedNodes.Add({%H-}ONativeInt(aIdTree.PointerOfKey[{%H-}ONativeInt(bAttr)]), bAttr);
       {$ENDIF}
     end;
   end;
@@ -927,7 +943,7 @@ procedure TXMLXPathSelector.SelectElements(
       if not aAddedNodes.ContainsKey(aIdTree.Items[bNode]) then
         aAddedNodes.Add(aIdTree.Items[bNode], bNode);
       {$ELSE}
-      aAddedNodes.AddPointer({%H-}ONativeInt(aIdTree.PointerOfKey[{%H-}ONativeInt(bNode)]), bNode);
+      aAddedNodes.Add({%H-}ONativeInt(aIdTree.PointerOfKey[{%H-}ONativeInt(bNode)]), bNode);
       {$ENDIF}
     end;
   end;

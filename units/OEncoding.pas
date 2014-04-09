@@ -91,9 +91,9 @@ const
   TEncodingBuffer_FirstElement = 0;
 {$ELSE}
 type
-  TEncodingBuffer = AnsiString;
+  TEncodingBuffer = array of Byte;
 const
-  TEncodingBuffer_FirstElement = 1;
+  TEncodingBuffer_FirstElement = 0;
 
 type
 
@@ -171,19 +171,19 @@ type
   end;
 {$ENDIF O_DELPHI_2009_UP}
 
-{$IF (DEFINED(O_DELPHI_2009_UP))}
+{$IFDEF O_DELPHI_2009_UP}
 //Delphi 2009 to 2010
 type
   TEncodingHelper = class helper for TEncoding
   public
     function EncodingAlias: String;
     function EncodingCodePage: Cardinal;
-    {$IF NOT DEFINED(O_DELPHI_XE_UP)}
+    {$IFNDEF O_DELPHI_XE_UP}
     function EncodingName: String;
-    {$IFEND}
-    {$IF NOT DEFINED(O_DELPHI_XE2_UP)}
+    {$ENDIF}
+    {$IFNDEF O_DELPHI_XE2_UP}
     class function ANSI: TEncoding;
-    {$IFEND}
+    {$ENDIF}
     class function OWideStringEncoding: TEncoding;
 
     class function EncodingFromCodePage(aCodePage: Integer): TEncoding;
@@ -199,17 +199,19 @@ type
   public
     function GetCodePage: Cardinal;
   end;
-{$IFEND}
+{$ENDIF}
 
 implementation
 
 {$IFNDEF O_DELPHI_2009_UP}
 
-{$IF DEFINED(MSWINDOWS)}
+{$IFDEF MSWINDOWS}
 uses Windows;
-{$ELSEIF DEFINED(FPC)}
-uses LConvEncoding;
-{$IFEND}
+{$ELSE}
+  {$IFDEF FPC}
+  uses LConvEncoding;
+  {$ENDIF}
+{$ENDIF}
 
 {$ENDIF NOT O_DELPHI_2009_UP}
 
@@ -267,7 +269,7 @@ var
   fxUnicodeEncoding: TEncoding = nil;
   fxASCIIEncoding: TEncoding = nil;
 
-{$IF DEFINED(MSWINDOWS) AND NOT DEFINED(O_DELPHI_2009_UP)}
+{$IFDEF MSWINDOWS}
 type
   _cpinfoExW = record
     MaxCharSize: UINT;                       { max length (bytes) of a char }
@@ -280,9 +282,9 @@ type
   TCPInfoExW = _cpinfoExW;
 
   function GetCPInfoExW(CodePage: UINT; dwFlags: DWORD; var lpCPInfoEx: TCPInfoExW): BOOL; stdcall; external kernel32 name 'GetCPInfoExW';
-{$IFEND}
+{$ENDIF}
 
-{$IF DEFINED(FPC) AND NOT DEFINED(MSWINDOWS)}
+{$IFDEF FPC}{$IFNDEF MSWINDOWS}
 function UTF8ToCodePage(const S: OWideString; aCodePage: Cardinal): AnsiString;
 begin
   case aCodePage of
@@ -333,7 +335,7 @@ begin
     Result := S;//Encoding not supported by lazarus
   end;
 end;
-{$IFEND}
+{$ENDIF}{$ENDIF}
 
 { TEncoding }
 
@@ -387,16 +389,16 @@ class function TEncoding.GetEncodingFromBOM(const aBuffer: TEncodingBuffer;
   var outEncoding: TEncoding; aDefaultEncoding: TEncoding): Integer;
 begin
   if (Length(aBuffer) >= 3) and
-     (aBuffer[TEncodingBuffer_FirstElement+0] = #$EF) and
-     (aBuffer[TEncodingBuffer_FirstElement+1] = #$BB) and
-     (aBuffer[TEncodingBuffer_FirstElement+2] = #$BF)
+     (aBuffer[TEncodingBuffer_FirstElement+0] = $EF) and
+     (aBuffer[TEncodingBuffer_FirstElement+1] = $BB) and
+     (aBuffer[TEncodingBuffer_FirstElement+2] = $BF)
   then begin
     outEncoding := UTF8;
     Result := 3;
   end else
   if (Length(aBuffer) >= 2) and
-     (aBuffer[TEncodingBuffer_FirstElement+0] = #$FF) and
-     (aBuffer[TEncodingBuffer_FirstElement+1] = #$FE)
+     (aBuffer[TEncodingBuffer_FirstElement+0] = $FF) and
+     (aBuffer[TEncodingBuffer_FirstElement+1] = $FE)
   then begin
     outEncoding := Unicode;
     Result := 2;
@@ -517,40 +519,38 @@ end;
 
 procedure TMBCSEncoding.StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer);
 {$IFDEF MSWINDOWS}
+  procedure _Convert(const aWS: PWideChar);
+  var
+    xLength: integer;
+  begin
+    //IMPORTANT: S is WITH a NULL TERMINATOR -> xCharCount is ALSO WITH NULL TERMINATOR!!!
+    xLength := WideCharToMultiByte(fCodePage,
+      WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
+      PWideChar(aWS), -1, nil, 0, nil, nil);
+
+    SetLength(outBuffer, xLength-1);
+    if xLength > 1 then
+      WideCharToMultiByte(codePage,
+        WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
+        PWideChar(aWS), -1, @outBuffer[TEncodingBuffer_FirstElement], xLength-1, nil, nil);
+  end;
+{$IFDEF FPC}
 var
-  xLength: integer;
-  {$IFDEF FPC}
   xUS: UnicodeString;
-  {$ENDIF}
+{$ENDIF}
 {$ENDIF}
 begin
   if S = '' then begin
-    outBuffer := '';
+    SetLength(outBuffer, 0);
     Exit;
   end;
 
   {$IFDEF MSWINDOWS}
     {$IFDEF FPC}
     xUS := UTF8Decode(S);
-    xLength := WideCharToMultiByte(fCodePage,
-      WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
-      PWideChar(@xUS[1]), -1, nil, 0, nil, nil);
-
-    SetLength(outBuffer, xLength-1);
-    if xLength > 1 then
-      WideCharToMultiByte(codePage,
-        WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
-        PWideChar(@xUS[1]), -1, @outBuffer[1], xLength-1, nil, nil);
+    _Convert(@xUS[1]);
     {$ELSE}
-    xLength := WideCharToMultiByte(fCodePage,
-      WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
-      PWideChar(@S[1]), -1, nil, 0, nil, nil);
-
-    SetLength(outBuffer, xLength-1);
-    if xLength > 1 then
-      WideCharToMultiByte(codePage,
-        WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
-        PWideChar(@S[1]), -1, @outBuffer[1], xLength-1, nil, nil);
+    _Convert(@S[1]);
     {$ENDIF}
   {$ELSE}
   outBuffer := UTF8ToCodePage(S, fCodePage);
@@ -559,35 +559,39 @@ end;
 
 function TMBCSEncoding.GetBOM: TEncodingBuffer;
 begin
-  Result := '';
+  SetLength(Result, 0);
 end;
 
 procedure TMBCSEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
 {$IFDEF MSWINDOWS}
+  procedure _Convert(var aWS: ORealWideString);
+  var
+    xLength, xByteCount: Integer;
+  begin
+    //IMPORTANT: S is WITHOUT a NULL TERMINATOR -> xCharCount is ALSO WITHOUT NULL TERMINATOR!!!
+    xByteCount := Length(aBytes);
+    xLength := MultiByteToWideChar(fCodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
+    SetLength(aWS, xLength);
+    if xLength > 0 then
+      MultiByteToWideChar(CodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(@aWS[1]), xLength);
+  end;
+{$IFDEF FPC}
 var
-  xLength: integer;
-  {$IFDEF FPC}
   xUS: UnicodeString;
-  {$ENDIF}
+{$ENDIF}
 {$ENDIF}
 begin
-  if aBytes = '' then begin
+  if Length(aBytes) = 0 then begin
     outString := '';
     Exit;
   end;
 
   {$IFDEF MSWINDOWS}
     {$IFDEF FPC}
-    xLength := MultiByteToWideChar(fCodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[1]), -1, nil, 0);
-    SetLength(xUS, xLength-1);
-    if xLength > 1 then
-      MultiByteToWideChar(CodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[1]), -1, PWideChar(@xUS[1]), xLength-1);
+    _Convert({%H-}xUS);
     outString := UTF8Encode(xUS);
     {$ELSE}
-    xLength := MultiByteToWideChar(fCodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[1]), -1, nil, 0);
-    SetLength(outString, xLength-1);
-    if xLength > 1 then
-      MultiByteToWideChar(CodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[1]), -1, PWideChar(@outString[1]), xLength-1);
+    _Convert(outString);
     {$ENDIF}
   {$ELSE}
   outString := CodePageToUTF8(aBytes, fCodePage);
@@ -623,23 +627,22 @@ begin
   xCharCount := Length(xUS);
   SetLength(outBuffer, xCharCount*2);
   if xCharCount > 0 then begin
-    Move(xUS[1], outBuffer[1], xCharCount*2);
+    Move(xUS[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
   end;
   {$ELSE}
   //DELPHI
   xCharCount := Length(S);
   SetLength(outBuffer, xCharCount*2);
-  if xCharCount > 0 then begin
-    Move(S[1], outBuffer[1], xCharCount*2);
-  end;
+  if xCharCount > 0 then
+    Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
   {$ENDIF}
 end;
 
 function TUnicodeEncoding.GetBOM: TEncodingBuffer;
 begin
   SetLength(Result, 2);
-  Result[TEncodingBuffer_FirstElement+0] := #$FF;
-  Result[TEncodingBuffer_FirstElement+1] := #$FE;
+  Result[TEncodingBuffer_FirstElement+0] := $FF;
+  Result[TEncodingBuffer_FirstElement+1] := $FE;
 end;
 
 procedure TUnicodeEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
@@ -657,12 +660,12 @@ begin
   {$IFDEF FPC}
   //FPC
   SetLength(xUS, xByteCount div 2);
-  Move(aBytes[1], xUS[1], xByteCount);
+  Move(aBytes[TEncodingBuffer_FirstElement], xUS[1], xByteCount);
   outString := UTF8Encode(xUS);
   {$ELSE}
   //DELPHI
   SetLength(outString, xByteCount div 2);
-  Move(aBytes[1], outString[1], xByteCount);
+  Move(aBytes[TEncodingBuffer_FirstElement], outString[1], xByteCount);
   {$ENDIF}
 end;
 
@@ -690,30 +693,84 @@ end;
 {$ENDIF}
 
 procedure TUTF8Encoding.StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer);
+var
+  xCharCount: Integer;
 begin
   {$IFDEF FPC}
-  outBuffer := S;
+  xCharCount := Length(S);
+  SetLength(outBuffer, xCharCount);
+  if xCharCount > 0 then
+    Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount);
   {$ELSE}
-  //DELPHI
-  outBuffer := UTF8Encode(S);
+    {$IFDEF O_DELPHI_5_DOWN}
+    //IMPORTANT: S is WITH a NULL TERMINATOR -> xCharCount is ALSO WITH NULL TERMINATOR!!!
+    xCharCount := WideCharToMultiByte(CP_UTF8, 0,
+      PWideChar(S), -1, nil, 0, nil, nil);
+
+    SetLength(outBuffer, xCharCount-1);
+    if xCharCount > 1 then
+      WideCharToMultiByte(CP_UTF8, 0,
+        PWideChar(S), -1, PAnsiChar(@outBuffer[TEncodingBuffer_FirstElement]), xCharCount-1, nil, nil);
+    {$ELSE}
+    if S = '' then
+    begin
+      SetLength(outBuffer, 0);
+      Exit;
+    end;
+    SetLength(outBuffer, Length(S) * 3 + 1);
+
+    xCharCount := UnicodeToUtf8(@outBuffer[TEncodingBuffer_FirstElement], Length(outBuffer), PWideChar(S), Length(S));
+    if xCharCount > 0 then
+      SetLength(outBuffer, xCharCount-1)
+    else
+      SetLength(outBuffer, 0);
+    {$ENDIF}
   {$ENDIF}
 end;
 
 function TUTF8Encoding.GetBOM: TEncodingBuffer;
 begin
   SetLength(Result, 3);
-  Result[TEncodingBuffer_FirstElement+0] := #$EF;
-  Result[TEncodingBuffer_FirstElement+1] := #$BB;
-  Result[TEncodingBuffer_FirstElement+2] := #$BF;
+  Result[TEncodingBuffer_FirstElement+0] := $EF;
+  Result[TEncodingBuffer_FirstElement+1] := $BB;
+  Result[TEncodingBuffer_FirstElement+2] := $BF;
 end;
 
 procedure TUTF8Encoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
+var
+  {$IFNDEF FPC}
+  xCharCount: Integer;
+  {$ENDIF}
+  xByteCount: Integer;
 begin
+  if Length(aBytes) = 0 then
+  begin
+    outString := '';
+    Exit;
+  end;
+  xByteCount := Length(aBytes);
+
   {$IFDEF FPC}
-  outString := aBytes;
+  //FPC
+  SetLength(outString, xByteCount);
+  Move(aBytes[TEncodingBuffer_FirstElement], outString[1], xByteCount);
   {$ELSE}
   //DELPHI
-  outString := UTF8Decode(aBytes);
+    {$IFDEF O_DELPHI_5_DOWN}
+    //IMPORTANT: xByteCount is WITHOUT the NULL character -> xCharCount is ALSO WITHOUT the NULL CHARACTER!!!
+    xCharCount := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
+    SetLength(outString, xCharCount);
+    if xCharCount > 0 then           
+      MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(outString), xCharCount);
+    {$ELSE}
+    SetLength(outString, xByteCount);
+
+    xCharCount := Utf8ToUnicode(PWideChar(outString), Length(outString)+1, @aBytes[TEncodingBuffer_FirstElement], xByteCount);
+    if xCharCount > 0 then
+      SetLength(outString, xCharCount-1)
+    else
+      outString := '';
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -721,13 +778,13 @@ class function TUTF8Encoding.IsSingleByte: Boolean;
 begin
   Result := False;
 end;
-{$ENDIF O_DELPHI_2009}
+{$ENDIF NOT O_DELPHI_2009_UP}
 
-{$IF (DEFINED(O_DELPHI_2009_UP))}
+{$IFDEF O_DELPHI_2009_UP}
 class function TEncodingHelper.EncodingFromCodePage(aCodePage: Integer): TEncoding;
 {$ELSE}
 class function TEncoding.EncodingFromCodePage(aCodePage: Integer): TEncoding;
-{$IFEND}
+{$ENDIF}
 begin
   case aCodePage of
     CP_UNICODE: Result := Unicode;
@@ -741,11 +798,11 @@ begin
   end;
 end;
 
-{$IF (DEFINED(O_DELPHI_2009_UP))}
+{$IFDEF O_DELPHI_2009_UP}
 class function TEncodingHelper.EncodingFromAlias(const aAlias: OWideString; var outEncoding: TEncoding): Boolean;
 {$ELSE}
 class function TEncoding.EncodingFromAlias(const aAlias: OWideString; var outEncoding: TEncoding): Boolean;
-{$IFEND}
+{$ENDIF}
 var
   xCP: Cardinal;
 begin
@@ -757,27 +814,27 @@ begin
     outEncoding := nil;
 end;
 
-{$IF (DEFINED(O_DELPHI_2009_UP))}
+{$IFDEF O_DELPHI_2009_UP}
 class function TEncodingHelper.AliasToCodePage(const aAlias: OWideString): Cardinal;
 {$ELSE}
 class function TEncoding.AliasToCodePage(const aAlias: OWideString): Cardinal;
-{$IFEND}
+{$ENDIF}
 var
   I: Integer;
 begin
   for I := Low(CodePages) to High(CodePages) do
-  if SameText(aAlias, CodePages[I].CPAlias) then begin
+  if OSameText(aAlias, CodePages[I].CPAlias) then begin
     Result := CodePages[I].CodePage;
     Exit;
   end;
   Result := 0;
 end;
 
-{$IF (DEFINED(O_DELPHI_2009_UP))}
+{$IFDEF O_DELPHI_2009_UP}
 class function TEncodingHelper.CodePageToAlias(const aCodePage: Cardinal): OWideString;
 {$ELSE}
 class function TEncoding.CodePageToAlias(const aCodePage: Cardinal): OWideString;
-{$IFEND}
+{$ENDIF}
 var
   I: Integer;
 begin
@@ -789,10 +846,10 @@ begin
   Result := '';
 end;
 
-{$IF NOT DEFINED(FPC) AND (DEFINED(O_DELPHI_2009_UP))}
+{$IFDEF O_DELPHI_2009_UP}
 { TEncodingHelper }
 
-{$IF NOT DEFINED(O_DELPHI_XE_UP)}
+{$IFNDEF O_DELPHI_XE_UP}
 function TEncodingHelper.EncodingName: String;
 begin
   if Self is TMBCSEncoding then
@@ -804,9 +861,9 @@ begin
   else
     Result := '';
 end;
-{$IFEND}
+{$ENDIF}
 
-{$IF NOT DEFINED(O_DELPHI_XE2_UP)}
+{$IFNDEF O_DELPHI_XE2_UP}
 class function TEncodingHelper.ANSI: TEncoding;
 begin
   {$IFDEF MSWINDOWS}
@@ -815,8 +872,8 @@ begin
   Result := TMBCSEncoding.Create(CP_WIN_1252);
   {$ENDIF}
 end;
+{$ENDIF O_DELPHI_XE2_UP}
 
-{$IFEND}
 class function TEncodingHelper.OWideStringEncoding: TEncoding;
 begin
   {$IFDEF FPC}
@@ -883,7 +940,7 @@ function TMBCSEncodingHelper.GetCodePage: Cardinal;
 begin
   Result := Self.FCodePage;
 end;
-{$IFEND}
+{$ENDIF O_DELPHI_2009_UP}
 
 {$IFNDEF O_DELPHI_2009_UP}
 initialization

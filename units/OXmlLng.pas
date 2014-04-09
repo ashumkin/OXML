@@ -33,6 +33,10 @@ unit OXmlLng;
 
 interface
 
+{$IFDEF O_DELPHI_5_DOWN}
+uses OWideSupp;
+{$ENDIF}
+
 var
   OXmlLng_InvalidCData: String = '"%s" is not a valid CData text.';
   OXmlLng_InvalidText: String = '"%s" is not a valid text.';

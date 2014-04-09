@@ -20,7 +20,8 @@ uses
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlPDOM in '..\..\units\OXmlPDOM.pas';
+  OXmlPDOM in '..\..\units\OXmlPDOM.pas',
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
 
 var
   xTest: TOXmlUnitTest;

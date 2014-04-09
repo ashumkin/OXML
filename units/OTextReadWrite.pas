@@ -61,14 +61,14 @@ type
     fBufferSize: Integer;
 
     fStream: TStream;
-    fStreamSize: Int64;
-    fStreamPosition: Int64;
-    fStreamStartPosition: Int64;
+    fStreamSize: OStreamInt;
+    fStreamPosition: OStreamInt;
+    fStreamStartPosition: OStreamInt;
     fOwnsStream: Boolean;
 
-    fFilePosition: Int64;//current character in file (in character units, not bytes!), 1-based
-    fLinePosition: Int64;//current character in line, 1-based
-    fLine: Int64;//current line in file, 1-based
+    fFilePosition: OStreamInt;//current character in file (in character units, not bytes!), 1-based
+    fLinePosition: OStreamInt;//current character in line, 1-based
+    fLine: OStreamInt;//current line in file, 1-based
 
     fEncoding: TEncoding;
     fOwnsEncoding: Boolean;
@@ -81,7 +81,7 @@ type
 
     procedure SetEncoding(const Value: TEncoding);
 
-    function GetApproxStreamPosition: Int64;
+    function GetApproxStreamPosition: OStreamInt;
 
     procedure LoadStringFromStream;
 
@@ -156,15 +156,15 @@ type
 
     //Approximate byte position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
-    property ApproxStreamPosition: Int64 read GetApproxStreamPosition;
+    property ApproxStreamPosition: OStreamInt read GetApproxStreamPosition;
     //Character position in text
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
-    property FilePosition: Int64 read fFilePosition;//absolute character position in file, 1-based
-    property LinePosition: Int64 read fLinePosition;//current character in line, 1-based
-    property Line: Int64 read fLine;//current line, 1-based
+    property FilePosition: OStreamInt read fFilePosition;//absolute character position in file, 1-based
+    property LinePosition: OStreamInt read fLinePosition;//current character in line, 1-based
+    property Line: OStreamInt read fLine;//current line, 1-based
     //size of original stream
-    property StreamSize: Int64 read fStreamSize;
+    property StreamSize: OStreamInt read fStreamSize;
   end;
 
   TOTextWriter = class(TObject)
@@ -230,8 +230,8 @@ type
 //decide what encoding is used in a stream (BOM markers are searched for)
 //  only UTF-8, UTF-16, UTF-16BE can be recognized
 function GetEncodingFromStream(const aStream: TStream;
-  var ioTempStringPosition: Int64;
-  const aLastPosition: Int64;
+  var ioTempStringPosition: OStreamInt;
+  const aLastPosition: OStreamInt;
   const aDefaultEncoding: TEncoding): TEncoding;
 
 implementation
@@ -241,12 +241,12 @@ uses
   LazUTF8;
 {$ENDIF}
 
-resourcestring
-  OTextReadWrite_CannotUndo2Times = 'Unsupported: you tried to run the undo function two times in a row.';
+var
+  OTextReadWrite_CannotUndo2Times: OWideString = 'Unsupported: you tried to run the undo function two times in a row.';
 
 function GetEncodingFromStream(const aStream: TStream;
-  var ioTempStringPosition: Int64;
-  const aLastPosition: Int64;
+  var ioTempStringPosition: OStreamInt;
+  const aLastPosition: OStreamInt;
   const aDefaultEncoding: TEncoding): TEncoding;
 var
   xSize: Integer;
@@ -360,7 +360,7 @@ begin
   fLine := 1;
 end;
 
-function TOTextReader.GetApproxStreamPosition: Int64;
+function TOTextReader.GetApproxStreamPosition: OStreamInt;
 begin
   //YOU CAN'T KNOW IT EXACTLY!!! (due to Lazarus Unicode->UTF8 or Delphi UTF8->Unicode conversion etc.)
   //the char lengths may differ from one character to another
@@ -432,7 +432,7 @@ procedure TOTextReader.LoadStringFromStream;
 var
   xBuffer: TEncodingBuffer;
   xUTF8Inc: Integer;
-  xReadBytes: Int64;
+  xReadBytes: OStreamInt;
 const
   BS = TEncodingBuffer_FirstElement;
 begin
@@ -826,6 +826,9 @@ var
 begin
   if fWriteBOM and not fBOMWritten then begin
     //WRITE BOM
+    {$IFDEF O_DELPHI_2007_DOWN}
+    SetLength(xBOM, 0);//suppress Delphi warnings
+    {$ENDIF}
     xBOM := fEncoding.GetBOM;
     if Length(xBOM) > 0 then
       fStream.WriteBuffer(xBOM[TEncodingBuffer_FirstElement], Length(xBOM));

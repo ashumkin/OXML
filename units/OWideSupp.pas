@@ -65,9 +65,12 @@ uses
   SysUtils, Classes
   {$ENDIF}
 
-  {$IF DEFINED(O_DELPHI_2006_UP) AND DEFINED(O_DELPHI_2007_DOWN)}
+  {$IFNDEF O_DELPHI_5_DOWN}{$IF DEFINED(O_DELPHI_2006_UP) AND DEFINED(O_DELPHI_2007_DOWN)}
   , WideStrUtils
-  {$IFEND}
+  {$IFEND}{$ENDIF}
+  {$IFDEF O_DELPHI_5_DOWN}
+  , Windows
+  {$ENDIF}
 
   {$IFDEF O_DELPHI_XE3_UP}
   , Character
@@ -118,6 +121,11 @@ type
       ONativeUInt = Cardinal;
     {$ENDIF}
   {$ENDIF}
+  {$IFNDEF O_DELPHI_5_DOWN}//D6+ or FPC
+  OStreamInt = Int64;
+  {$ELSE}
+  OStreamInt = Integer;
+  {$ENDIF}
 
   //OFastString is the fastest possible WideString replacement
   //Unicode Delphi: String
@@ -129,6 +137,11 @@ type
   OFastString = String;//WideString data is stored inside -> with double char size!!!
   {$ENDIF}
   TOWideStringArray = array of OWideString;
+
+  {$IFDEF O_DELPHI_5_DOWN}
+  IInterface = IUnknown;
+  UTF8String = AnsiString;
+  {$ENDIF}
 
   {$IFNDEF O_UNICODE}
   TOWideStringList = class;
@@ -142,13 +155,15 @@ type
     function GetText: OWideString;
     function GetCapacity: Integer;
     function GetCommaText: OWideString;
+    {$IFDEF O_DELPHI_6_UP}
     function GetDelimitedText: OWideString;
     function GetDelimiter: Char;
+    function GetQuoteChar: Char;
+    function GetCaseSensitive: Boolean;
+    {$ENDIF}
     function GetName(Index: Integer): OWideString;
     function GetObject(Index: Integer): TObject;
-    function GetQuoteChar: Char;
     function GetValue(const Name: OWideString): OWideString;
-    function GetCaseSensitive: Boolean;
     function GetDuplicates: TDuplicates;
     function GetOnChange: TNotifyEvent;
     function GetOnChanging: TNotifyEvent;
@@ -158,11 +173,13 @@ type
     procedure SetObject(Index: Integer; const Value: TObject);
     procedure SetCapacity(const Value: Integer);
     procedure SetCommaText(const Value: OWideString);
+    {$IFDEF O_DELPHI_6_UP}
     procedure SetDelimitedText(const Value: OWideString);
     procedure SetDelimiter(const Value: Char);
     procedure SetQuoteChar(const Value: Char);
-    procedure SetValue(const Name, Value: OWideString);
     procedure SetCaseSensitive(const Value: Boolean);
+    {$ENDIF}
+    procedure SetValue(const Name, Value: OWideString);
     procedure SetDuplicates(const Value: TDuplicates);
     procedure SetOnChange(const Value: TNotifyEvent);
     procedure SetOnChanging(const Value: TNotifyEvent);
@@ -217,18 +234,20 @@ type
     property Capacity: Integer read GetCapacity write SetCapacity;
     property Count: Integer read GetCount;
     property CommaText: OWideString read GetCommaText write SetCommaText;
+    {$IFDEF O_DELPHI_6_UP}
     property Delimiter: Char read GetDelimiter write SetDelimiter;
     property DelimitedText: OWideString read GetDelimitedText write SetDelimitedText;
+    property CaseSensitive: Boolean read GetCaseSensitive write SetCaseSensitive;
+    property QuoteChar: Char read GetQuoteChar write SetQuoteChar;
+    {$ENDIF}
     property Names[Index: Integer]: OWideString read GetName;
     property Objects[Index: Integer]: TObject read GetObject write SetObject;
-    property QuoteChar: Char read GetQuoteChar write SetQuoteChar;
     property Values[const Name: OWideString]: OWideString read GetValue write SetValue;
     property Strings[Index: Integer]: OWideString read GetI write SetI; default;
     property Text: OWideString read GetText write SetText;
 
     property Duplicates: TDuplicates read GetDuplicates write SetDuplicates;
     property Sorted: Boolean read GetSorted write SetSorted;
-    property CaseSensitive: Boolean read GetCaseSensitive write SetCaseSensitive;
     property OnChange: TNotifyEvent read GetOnChange write SetOnChange;
     property OnChanging: TNotifyEvent read GetOnChanging write SetOnChanging;
 
@@ -280,7 +299,7 @@ type
   end;
   POWideStringStackItem = ^TOWideStringStackItem;
 
-  TOWideStringStackArray = Array of TOWideStringStackItem;
+  TOWideStringStackArray = array of TOWideStringStackItem;
   POWideStringStackArray = ^TOWideStringStackArray;
 
   TOBufferWideStrings = class(TPersistent)
@@ -316,6 +335,28 @@ type
   public
     property Count: Integer read fItemsUsedCount;
   end;
+
+{$IFDEF FPC}{$DEFINE DEF_TValueRelationship}{$ENDIF}
+{$IFDEF O_DELPHI_5_DOWN}{$DEFINE DEF_TValueRelationship}{$ENDIF}
+{$IFDEF DEF_TValueRelationship}
+  TValueRelationship = -1..1;
+
+const
+  LessThanValue = Low(TValueRelationship);
+  EqualsValue = 0;
+  GreaterThanValue = High(TValueRelationship);
+{$ENDIF}
+
+{$IFDEF O_DELPHI_5_DOWN}
+  soBeginning = soFromBeginning;
+  soCurrent = soFromCurrent;
+  soEnd = soFromEnd;
+{$ENDIF}
+
+{$IFDEF O_DELPHI_4_DOWN}
+type
+  TListNotification = (lnAdded, lnExtracted, lnDeleted);
+{$ENDIF}
 
 
 function OStringReplace(const S, OldPattern, NewPattern: OWideString;
@@ -369,6 +410,20 @@ procedure OWideToFast(const aSourceWide: OWideString; var outDestFast: OFastStri
 procedure OExplode(const aText: OWideString; const aDelimiter: OWideChar;
   const aStrList: TOWideStringList; const aConsiderQuotes: Boolean = False);
 procedure OExpandPath(const aReferencePath, aVarPath: TOWideStringList);
+
+{$IFDEF O_DELPHI_5_DOWN}
+const
+  sLineBreak = #13#10;
+  PathDelim = '\';
+  DriveDelim = ':';
+
+function Utf8Encode(const WS: WideString): AnsiString;
+function Utf8Decode(const S: AnsiString): WideString;
+{$ENDIF}
+function OWideCompareText(const S1, S2: OWideString): Integer; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OWideCompareStr(const S1, S2: OWideString): Integer; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OSameStr(const S1, S2: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OSameText(const S1, S2: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OReplaceLineBreaks(const aString: OWideString; const aLineBreak: OWideString = sLineBreak): OWideString;
 
 implementation
@@ -516,6 +571,18 @@ begin
   _AddBufferToStrList;//must be here
 end;
 
+{$IFDEF O_DELPHI_5_DOWN}
+function WideLowerCase(const S: WideString): WideString;
+var
+  xLength: Integer;
+begin
+  xLength := Length(S);
+  SetString(Result, PWideChar(S), xLength);
+  if xLength > 0 then
+    CharLowerBuffW(Pointer(Result), xLength);
+end;
+{$ENDIF}
+
 function OLowerCase(const aStr: OWideString): OWideString;
 begin
   {$IFDEF O_UNICODE}
@@ -524,6 +591,18 @@ begin
   Result := WideLowerCase(aStr);
   {$ENDIF}
 end;
+
+{$IFDEF O_DELPHI_5_DOWN}
+function WideUpperCase(const S: WideString): WideString;
+var
+  xLength: Integer;
+begin
+  xLength := Length(S);
+  SetString(Result, PWideChar(S), xLength);
+  if xLength > 0 then
+    CharUpperBuffW(Pointer(Result), xLength);
+end;
+{$ENDIF}
 
 function OUpperCase(const aStr: OWideString): OWideString;
 begin
@@ -637,11 +716,7 @@ end;
 
 function OGetLocaleFormatSettings: TFormatSettings;
 begin
-{$IF DEFINED(FPC)}
-  Result := DefaultFormatSettings;
-{$ELSEIF DEFINED(O_DELPHI_XE_UP)}
-  Result := TFormatSettings.Create;
-{$ELSEIF DEFINED(O_DELPHI_6_DOWN)}
+{$IFDEF O_DELPHI_6_DOWN}
   Result.DecimalSeparator := DecimalSeparator;
   Result.ThousandSeparator := #0;
   Result.TimeSeparator := TimeSeparator;
@@ -651,11 +726,17 @@ begin
   Result.ShortTimeFormat := ShortTimeFormat;
   Result.LongTimeFormat := LongTimeFormat;
 {$ELSE}
-  GetLocaleFormatSettings(0, Result);
-{$IFEND}
+  {$IF DEFINED(FPC)}
+    Result := DefaultFormatSettings;
+  {$ELSEIF DEFINED(O_DELPHI_XE_UP)}
+    Result := TFormatSettings.Create;
+  {$ELSEIF NOT DEFINED(FPC)}//THIS EVALUATES ALWAYS TO TRUE (IT SHOULD REPLACE A SIMPLE "ELSE") -> DELPHI 5 COMPATIBILITY
+    GetLocaleFormatSettings(0, Result);
+  {$IFEND}
+{$ENDIF}
 end;
 
-{$IF NOT DEFINED(O_DELPHI_2006_UP)}
+{$IFNDEF O_DELPHI_2006_UP}
 //Delphi 6, 7
 function WideStringReplace(const S, OldPattern, NewPattern: WideString;
   Flags: TReplaceFlags): WideString; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -721,18 +802,91 @@ begin
   if Length(Result) <> L-1 then
     SetLength(Result, L-1);
 end;
-{$IFEND}
+{$ENDIF}
 
 function OStringReplace(const S, OldPattern, NewPattern: OWideString;
   Flags: TReplaceFlags): OWideString;
 begin
-{$IF DEFINED(O_UNICODE)}
+{$IFDEF O_UNICODE}
   //D2009+, FPC
   Result := StringReplace(S, OldPattern, NewPattern, Flags);
 {$ELSE}
   //D6-D2007
   Result := WideStringReplace(S, OldPattern, NewPattern, Flags);
-{$IFEND}
+{$ENDIF}
+end;
+
+{$IFDEF O_DELPHI_5_DOWN}
+function Utf8Encode(const WS: WideString): AnsiString;
+var
+  xLength: Integer;
+begin
+  Result := '';
+  if WS = '' then Exit;
+
+  //IMPORTANT: WS is WITH the NULL character -> xLength is ALSO WITH the NULL CHARACTER!!!
+  xLength := WideCharToMultiByte(CP_UTF8, 0, PWideChar(WS), -1, nil, 0, nil, nil);
+
+  SetLength(Result, xLength-1);
+  if xLength > 1 then
+    WideCharToMultiByte(CP_UTF8, 0, PWideChar(WS), -1, PAnsiChar(Result), xLength-1, nil, nil);
+end;
+
+function Utf8Decode(const S: AnsiString): WideString;
+var
+  xLength: Integer;
+begin
+  Result := '';
+  if S = '' then Exit;
+
+  //IMPORTANT: S is WITH the NULL character -> xLength is ALSO WITH the NULL CHARACTER!!!
+  xLength := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(S), -1, nil, 0);
+  SetLength(Result, xLength-1);
+  if xLength > 1 then
+    MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(S), -1, PWideChar(Result), xLength-1);
+end;
+{$ENDIF}
+
+function OWideCompareText(const S1, S2: OWideString): Integer;
+begin
+  {$IFDEF O_DELPHI_5_DOWN}
+  SetLastError(0);
+  Result := CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, PWideChar(S1),
+    Length(S1), PWideChar(S2), Length(S2)) - 2;
+  if GetLastError = ERROR_CALL_NOT_IMPLEMENTED then
+    Result := CompareText(S1, S2);
+  {$ELSE}
+  {$IFDEF UNICODE}
+  Result := CompareText(S1, S2);
+  {$ELSE}
+  Result := WideCompareText(S1, S2);
+  {$ENDIF}{$ENDIF}
+end;
+
+function OWideCompareStr(const S1, S2: OWideString): Integer;
+begin
+  {$IFDEF O_DELPHI_5_DOWN}
+  SetLastError(0);
+  Result := CompareStringW(LOCALE_USER_DEFAULT, 0, PWideChar(S1),
+    Length(S1), PWideChar(S2), Length(S2)) - 2;
+  if GetLastError = ERROR_CALL_NOT_IMPLEMENTED then
+    Result := CompareStr(S1, S2);
+  {$ELSE}
+  {$IFDEF UNICODE}
+  Result := CompareStr(S1, S2);
+  {$ELSE}
+  Result := WideCompareStr(S1, S2);
+  {$ENDIF}{$ENDIF}
+end;
+
+function OSameStr(const S1, S2: OWideString): Boolean;
+begin
+  Result := (OWideCompareStr(S1, S2) = 0);
+end;
+
+function OSameText(const S1, S2: OWideString): Boolean;
+begin
+  Result := (OWideCompareText(S1, S2) = 0);
 end;
 
 {$IFNDEF O_UNICODE}
@@ -799,7 +953,7 @@ end;
 
 function TOWideStringList.CompareStrings(const S1, S2: OWideString): Integer;
 begin
-  Result := WideCompareText(S1, S2);
+  Result := OWideCompareText(S1, S2);
 end;
 
 constructor TOWideStringList.Create;
@@ -854,11 +1008,6 @@ begin
   Result := fList.Capacity;
 end;
 
-function TOWideStringList.GetCaseSensitive: Boolean;
-begin
-  Result := fList.CaseSensitive;
-end;
-
 function TOWideStringList.GetCommaText: OWideString;
 begin
   Result := UTF8Decode(fList.CommaText);
@@ -867,6 +1016,12 @@ end;
 function TOWideStringList.GetCount: Integer;
 begin
   Result := fList.Count;
+end;
+
+{$IFDEF O_DELPHI_6_UP}
+function TOWideStringList.GetCaseSensitive: Boolean;
+begin
+  Result := fList.CaseSensitive;
 end;
 
 function TOWideStringList.GetDelimitedText: OWideString;
@@ -878,6 +1033,7 @@ function TOWideStringList.GetDelimiter: Char;
 begin
   Result := fList.Delimiter;
 end;
+{$ENDIF}
 
 function TOWideStringList.GetDuplicates: TDuplicates;
 begin
@@ -909,10 +1065,32 @@ begin
   Result := fList.OnChanging;
 end;
 
+{$IFDEF O_DELPHI_6_UP}
 function TOWideStringList.GetQuoteChar: Char;
 begin
   Result := fList.QuoteChar;
 end;
+
+procedure TOWideStringList.SetCaseSensitive(const Value: Boolean);
+begin
+  fList.CaseSensitive := Value;
+end;
+
+procedure TOWideStringList.SetDelimitedText(const Value: OWideString);
+begin
+  fList.DelimitedText := UTF8Encode(Value);
+end;
+
+procedure TOWideStringList.SetDelimiter(const Value: Char);
+begin
+  fList.Delimiter := Value;
+end;
+
+procedure TOWideStringList.SetQuoteChar(const Value: Char);
+begin
+  fList.QuoteChar := Value;
+end;
+{$ENDIF}
 
 function TOWideStringList.GetSorted: Boolean;
 begin
@@ -1019,24 +1197,9 @@ begin
   fList.Capacity := Value;
 end;
 
-procedure TOWideStringList.SetCaseSensitive(const Value: Boolean);
-begin
-  fList.CaseSensitive := Value;
-end;
-
 procedure TOWideStringList.SetCommaText(const Value: OWideString);
 begin
   fList.CommaText := UTF8Encode(Value);
-end;
-
-procedure TOWideStringList.SetDelimitedText(const Value: OWideString);
-begin
-  fList.DelimitedText := UTF8Encode(Value);
-end;
-
-procedure TOWideStringList.SetDelimiter(const Value: Char);
-begin
-  fList.Delimiter := Value;
 end;
 
 procedure TOWideStringList.SetDuplicates(const Value: TDuplicates);
@@ -1062,11 +1225,6 @@ end;
 procedure TOWideStringList.SetOnChanging(const Value: TNotifyEvent);
 begin
   fList.OnChanging := Value;
-end;
-
-procedure TOWideStringList.SetQuoteChar(const Value: Char);
-begin
-  fList.QuoteChar := Value;
 end;
 
 procedure TOWideStringList.SetSorted(const Value: Boolean);
@@ -1420,4 +1578,3 @@ begin
 end;
 
 end.
-

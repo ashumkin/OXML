@@ -81,6 +81,9 @@ const
   XMLDefaultLineBreak = lbLF;
   {$ENDIF}
   XMLLineBreak: Array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
+  XML_XML: OWideString = 'xml';
+  XML_XMLNS: OWideString = 'xmlns';
+  XML_XML_SPACE: OWideString = 'xml:space';
 
   XMLUseIndexForAttributesLimit = 256;
 
@@ -145,10 +148,64 @@ function OXmlValidName(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inli
 function OXmlPreserveToStr(const aPreserveWhiteSpace: TXMLPreserveWhiteSpace): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace; {$IFDEF O_INLINE}inline;{$ENDIF}
 
+procedure OXmlResolveNameSpace(const aNodeName: OWideString; var outNameSpacePrefix, outLocalName: OWideString);
+function OXmlCheckNameSpace(const aNodeName, aNameSpacePrefix: OWideString; var outLocalName: OWideString): Boolean;
+function OXmlApplyNameSpace(const aNameSpacePrefix, aLocalName: OWideString): OWideString;
+
 implementation
 
 uses
   OXmlLng;
+
+procedure OXmlResolveNameSpace(const aNodeName: OWideString; var outNameSpacePrefix, outLocalName: OWideString);
+var
+  xPos: Integer;
+begin
+  xPos := Pos(':', aNodeName);
+  if xPos >= 0 then
+  begin
+    outNameSpacePrefix := Copy(aNodeName, 1, xPos-1);
+    outLocalName := Copy(aNodeName, xPos+1, High(Integer));
+  end else
+  begin
+    outNameSpacePrefix := '';
+    outLocalName := aNodeName;
+  end;
+end;
+
+function OXmlCheckNameSpace(const aNodeName, aNameSpacePrefix: OWideString; var outLocalName: OWideString): Boolean;
+begin
+  Result := (Length(aNodeName) >= Length(aNameSpacePrefix)+1);
+  if not Result then
+  begin
+    outLocalName := '';
+    Exit;
+  end;
+
+  if Length(aNameSpacePrefix) > 0 then
+  begin
+    Result := CompareMem(POWideChar(aNodeName), POWideChar(aNameSpacePrefix), Length(aNameSpacePrefix)*SizeOf(OWideChar));
+    if not Result then
+    begin
+      outLocalName := '';
+      Exit;
+    end;
+  end;
+
+  Result := (aNodeName[Length(aNameSpacePrefix)+1] = ':');
+  if Result then
+    outLocalName := Copy(aNodeName, Length(aNameSpacePrefix)+2, High(Integer));
+end;
+
+function OXmlApplyNameSpace(const aNameSpacePrefix, aLocalName: OWideString): OWideString;
+begin
+  if (aNameSpacePrefix <> '') and (aLocalName <> '') then
+    Result := aNameSpacePrefix+':'+aLocalName
+  else if aNameSpacePrefix <> '' then
+    Result := aNameSpacePrefix
+  else
+    Result := aLocalName;
+end;
 
 function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace;
 begin
@@ -322,10 +379,10 @@ begin
     Ord('<'), Ord('>'): Result := True;
     09, 10, 13,
     $20..$3B, $3D, $3F..$FF//except <>
-    {$IF NOT DEFINED(FPC)}
+    {$IFNDEF FPC}
     ,
     $0100..$FFFD
-    {$IFEND}
+    {$ENDIF}
     : Result := True;
   else
     Result := False;
@@ -344,10 +401,10 @@ begin
     13: Result := ckNewLine13;
     09,
     $20, $21, $23..$25, $28..$3B, $3D, $3F..$FF//except '"&<>
-    {$IF NOT DEFINED(FPC)}
+    {$IFNDEF FPC}
     ,
     $0100..$FFFD
-    {$IFEND}
+    {$ENDIF}
     : Result := ckCharacter;
   else
     Result := ckInvalid;
@@ -364,7 +421,7 @@ begin
     $C0..$D6,
     $D8..$F6,
     $F8..$FF
-    {$IF NOT DEFINED(FPC)}
+    {$IFNDEF FPC}
     ,
     $100..$2FF,
     $370..$37D,
@@ -375,7 +432,7 @@ begin
     $3001..$D7FF,
     $F900..$FDCF,
     $FDF0..$FFFD
-    {$IFEND}
+    {$ENDIF}
     : Result := True;
   else
     Result := False;
