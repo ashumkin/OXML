@@ -509,35 +509,24 @@ end;
 procedure OExplode(const aText: OWideString; const aDelimiter: OWideChar;
   const aStrList: TOWideStringList; const aConsiderQuotes: Boolean);
 var
-  xBuffer: OWideString;
-  xI, xTextLength: Integer;
+  xI, xTextLength, xBufferBegin: Integer;
   xC: OWideChar;
-
-  procedure _ClearBuffer;
-  begin
-    xBuffer := '';
-  end;
 
   function _ReadChar: Boolean;
   begin
     Result := (xI <= xTextLength);
-    if Result then begin
+    if Result then
       xC := aText[xI];
-      Inc(xI);
-      xBuffer := xBuffer + xC;
-    end;
-  end;
-
-  procedure _DeleteLastCharFromBuffer;
-  begin
-    if xBuffer <> '' then
-      SetLength(xBuffer, Length(xBuffer)-1);
+    Inc(xI);
   end;
 
   procedure _AddBufferToStrList;
   begin
-    aStrList.Add(xBuffer);
-    _ClearBuffer;
+    if xBufferBegin < xI-1 then
+      aStrList.Add(Copy(aText, xBufferBegin, xI-xBufferBegin-1))
+    else
+      aStrList.Add('');
+    xBufferBegin := xI;
   end;
 begin
   aStrList.Clear;
@@ -547,25 +536,28 @@ begin
     Exit;
 
   xI := 1;
-  while _ReadChar do begin
-    if aConsiderQuotes then begin
+  xBufferBegin := 1;
+  while _ReadChar do
+  begin
+    if aConsiderQuotes then
+    begin
       case xC of
-        '"':begin
+        '"':
+        begin
           while _ReadChar do
           if xC = '"' then
             Break;
         end;
-        '''': begin
+        '''':
+        begin
           while _ReadChar do
           if xC = '''' then
             Break;
         end;
       end;
     end;
-    if xC = aDelimiter then begin
-      _DeleteLastCharFromBuffer;
+    if xC = aDelimiter then
       _AddBufferToStrList;
-    end;
   end;
 
   _AddBufferToStrList;//must be here

@@ -74,6 +74,12 @@ type
     (ckNewLine10, ckNewLine13, ckSingleQuote, ckDoubleQuote, ckAmpersand,
      ckLowerThan, ckGreaterThan, ckCharacter, ckInvalid);
 
+  {$IFDEF O_GENERICS}
+  TXMLIntArray = TArray<Integer>;
+  {$ELSE}
+  TXMLIntArray = array of Integer;
+  {$ENDIF}
+
 const
   {$IFDEF MSWINDOWS}
   XMLDefaultLineBreak = lbCRLF;

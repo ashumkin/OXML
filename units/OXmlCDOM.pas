@@ -410,8 +410,6 @@ type
 
     function AddText(const aText: OWideString): TXMLNode; override;
   public
-    destructor Destroy; override;
-  public
     function FindAttributeById(const aNameId: OHashedStringsIndex; var outAttr: TXMLNode): Boolean; override;
   public
     property PreserveWhiteSpace: TXMLPreserveWhiteSpace read fPreserveWhiteSpace write fPreserveWhiteSpace;
@@ -3638,17 +3636,6 @@ begin
     Self.fPreserveWhiteSpace := TXMLNodeWithChildren(aFromNode).fPreserveWhiteSpace;
 end;
 
-destructor TXMLNodeWithChildren.Destroy;
-var
-  C: TXMLChildType;
-begin
-  fTempAttributeIndex.Free;
-  for C := Low(C) to High(C) do
-    fTempCChildNodes[C].Free;
-
-  inherited;
-end;
-
 function TXMLNodeWithChildren.FindAttributeById(const aNameId: OHashedStringsIndex;
   var outAttr: TXMLNode): Boolean;
 begin
@@ -3707,6 +3694,12 @@ begin
 
   fFirstCChild[aChildType] := nil;
   fLastCChild[aChildType] := nil;
+
+  if aChildType = ctAttribute then
+  begin
+    fTempAttributeIndex.Free;
+    fTempAttributeIndex := nil;
+  end;
 end;
 
 function TXMLNodeWithChildren.GetChildNodes: TXMLChildNodeList;

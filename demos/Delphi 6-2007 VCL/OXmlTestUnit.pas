@@ -1,14 +1,14 @@
 unit OXmlTestUnit;
 
-{.$DEFINE USE_DELPHIXML}//define/undefine to compare OXml with Delphi XML
-{$DEFINE USE_MSXML}//define/undefine to compare OXml with MS XML
-{.$DEFINE USE_OMNIXML}//define/undefine to compare OXml with OmniXML
-{.$DEFINE USE_NATIVEXML}//define/undefine to compare OXml with NativeXML
-{.$DEFINE USE_VERYSIMPLE}//define/undefine to compare OXml with VerySimpleXML: http://blog.spreendigital.de/2011/11/10/verysimplexml-a-lightweight-delphi-xml-reader-and-writer/
-{.$DEFINE USE_SIMPLEXML}//define/undefine to compare OXml with SimpleXML: http://www.audio-data.de/simplexml.html
-{.$DEFINE USE_DIXML}//define/undefine to compare OXml with DIXml: http://www.yunqa.de/delphi/doku.php/products/xml/index?DokuWiki=kg5ade2rod3o49f5v1anmf7ol1
-{.$DEFINE USE_ALCINOE}//define/undefine to compare OXml with Alcinoe: https://sourceforge.net/projects/alcinoe/
-{.$DEFINE USE_LAZARUSDOMXML}//define/undefine to compare OXml with Lazarus DOM XML
+{.$DEFINE USE_DELPHIXML}      //compare OXml with Delphi XML
+{.$DEFINE USE_MSXML}          //compare OXml with MS XML
+{.$DEFINE USE_OMNIXML}        //compare OXml with OmniXML          http://www.omnixml.com
+{.$DEFINE USE_NATIVEXML}      //compare OXml with NativeXML        http://www.simdesign.nl/xml.html
+{.$DEFINE USE_VERYSIMPLE}     //compare OXml with VerySimpleXML    http://blog.spreendigital.de/2011/11/10/verysimplexml-a-lightweight-delphi-xml-reader-and-writer/
+{.$DEFINE USE_SIMPLEXML}      //compare OXml with SimpleXML        http://www.audio-data.de/simplexml.html
+{$DEFINE USE_DIXML}          //compare OXml with DIXml            http://www.yunqa.de/delphi/doku.php/products/xml/index?DokuWiki=kg5ade2rod3o49f5v1anmf7ol1
+{.$DEFINE USE_ALCINOE}        //compare OXml with Alcinoe          https://sourceforge.net/projects/alcinoe/
+{.$DEFINE USE_LAZARUSDOMXML}  //compare OXml with Lazarus DOM XML
 
 {$IFDEF FPC}
   {$DEFINE USE_FORIN}
@@ -3052,7 +3052,7 @@ begin
   {$ENDIF}
     if xAttrStr <> '' then
       xAttrStr := xAttrStr + ', ';
-    xAttrStr := xAttrStr + SAXEscapeString(xAttr.TokenName)+'="'+SAXEscapeString(xAttr.TokenValue)+'"';
+    xAttrStr := xAttrStr + SAXEscapeString(xAttr.NodeName)+'="'+SAXEscapeString(xAttr.NodeValue)+'"';
   end;
   xAttrStr := '['+xAttrStr+']';
 

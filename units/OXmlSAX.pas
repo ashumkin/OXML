@@ -60,9 +60,17 @@ type
   TSAXParser = class;
 
   //The clue of TSAXAttribute is to reduce string operations to an minimum.
-  // -> therefore TSAXAttribute is just TXMLReaderToken
-  TSAXAttribute = TXMLReaderToken;
-  PSAXAttribute = PXMLReaderToken;
+  // -> therefore TSAXAttribute just uses TXMLReaderToken.TokenName and .TokenValue.
+  //    You can explicitely cast TXMLReaderToken to TSAXAttribute and back!
+  TSAXAttribute = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fToken: TXMLReaderToken;
+  public
+    property NodeName: OWideString read fToken.TokenName;
+    property NodeValue: OWideString read fToken.TokenValue;
+  end;
+
+  PSAXAttribute = ^TSAXAttribute;
   TSAXAttributeEnum = class;
   TSAXAttributes = class(TObject)
   private
@@ -601,14 +609,14 @@ end;
 function TSAXAttributes.First: PSAXAttribute;
 begin
   if fAttributeTokens.Count >= 0 then
-    Result := fAttributeTokens[0]
+    Result := PSAXAttribute(fAttributeTokens[0])
   else
     Result := nil;
 end;
 
 function TSAXAttributes.GetAttributeItem(const aIndex: Integer): PSAXAttribute;
 begin
-  Result := fAttributeTokens[aIndex];
+  Result := PSAXAttribute(fAttributeTokens[aIndex]);
 end;
 
 function TSAXAttributes.Get(const aAttrName: OWideString): OWideString;
@@ -662,16 +670,16 @@ begin
     //get prev/next
     if not(
        (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount) and
-       (fAttributeTokens[fIteratorCurrent] = ioAttrEnum))
+       (PSAXAttribute(fAttributeTokens[fIteratorCurrent]) = ioAttrEnum))
     then//ioAttrEnum is NOT the last iterator -> we have to find it
-      fIteratorCurrent := fAttributeTokens.IndexOf(ioAttrEnum);
+      fIteratorCurrent := fAttributeTokens.IndexOf(PXMLReaderToken(ioAttrEnum));
 
     if (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount)
     then begin
       fIteratorCurrent := fIteratorCurrent + aInc;
       Result := (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount);
       if Result then
-        ioAttrEnum := fAttributeTokens[fIteratorCurrent]
+        ioAttrEnum := PSAXAttribute(fAttributeTokens[fIteratorCurrent])
       else
         ioAttrEnum := nil;
     end;
@@ -681,7 +689,7 @@ begin
       fIteratorCurrent := 0
     else
       fIteratorCurrent := xCount-1;
-    ioAttrEnum := fAttributeTokens[fIteratorCurrent];
+    ioAttrEnum := PSAXAttribute(fAttributeTokens[fIteratorCurrent]);
     Result := True;
   end;
 end;
@@ -695,7 +703,7 @@ end;
 function TSAXAttributes.Last: PSAXAttribute;
 begin
   if fAttributeTokens.Count >= 0 then
-    Result := fAttributeTokens[fAttributeTokens.Count-1]
+    Result := PSAXAttribute(fAttributeTokens[fAttributeTokens.Count-1])
   else
     Result := nil;
 end;

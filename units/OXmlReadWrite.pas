@@ -265,7 +265,7 @@ type
     rtDocType//doctype: <!DOCTYPE value> -> value is not unescaped by reader!!!
     );
 
-  TXMLReaderToken = record
+  TXMLReaderToken = packed record
     TokenName: OWideString;
     TokenValue: OWideString;
     TokenType: TXMLReaderTokenType;

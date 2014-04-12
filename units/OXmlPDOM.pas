@@ -143,7 +143,7 @@ type
     //find all possible (and existing) qualified names for a localname with URI
     procedure FindQualifiedNames(const aNameSpaceURIId: OHashedStringsIndex;
       const aLocalName: OWideString;
-      const aQualifiedNameIds: TODictionary);
+      var ioQualifiedNameIds: TXMLIntArray);
   public
     //create and append an element child
     function AddChild(const aElementName: OWideString): PXMLNode;
@@ -1190,21 +1190,17 @@ end;
 function TXMLNode.FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString;
   var outAttr: PXMLNode): Boolean;
 var
-  xQualifiedNameIds: TODictionary;
+  xQualifiedNameIds: TXMLIntArray;
   I: Integer;
 begin
-  xQualifiedNameIds := TODictionary.Create;
-  try
-    FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
+  SetLength(xQualifiedNameIds, 0);
+  FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
 
-    for I := 0 to xQualifiedNameIds.Count-1 do
-    if FindAttributeById(xQualifiedNameIds[I], outAttr) then
-    begin
-      Result := True;
-      Exit;
-    end;
-  finally
-    xQualifiedNameIds.Free;
+  for I := Low(xQualifiedNameIds) to High(xQualifiedNameIds) do
+  if FindAttributeById(xQualifiedNameIds[I], outAttr) then
+  begin
+    Result := True;
+    Exit;
   end;
 
   Result := False;
@@ -1371,15 +1367,27 @@ end;
 
 procedure TXMLNode.FindQualifiedNames(const aNameSpaceURIId: OHashedStringsIndex;
   const aLocalName: OWideString;
-  const aQualifiedNameIds: TODictionary);
+  var ioQualifiedNameIds: TXMLIntArray);
 
   procedure _Add(const bQualifiedName: OWideString);
   var
     xQualifiedNameId: OHashedStringsIndex;
+    I: Integer;
   begin
     xQualifiedNameId := fOwnerDocument.IndexOfString(bQualifiedName);
     if xQualifiedNameId >= 0 then
-      aQualifiedNameIds.Add(xQualifiedNameId);
+    begin
+      //we don't expect too many prefixes connected with aNameSpaceURIId (basically only one),
+      //  so using an array is better and faster than TODictionary or some other sorted/unique list/dictionary
+      //  (the overload connected with creating an indexed list is higher)
+
+      for I := Low(ioQualifiedNameIds) to High(ioQualifiedNameIds) do//be sure ids are unique
+      if ioQualifiedNameIds[I] = xQualifiedNameId then
+        Exit;
+
+      SetLength(ioQualifiedNameIds, Length(ioQualifiedNameIds)+1);
+      ioQualifiedNameIds[High(ioQualifiedNameIds)] := xQualifiedNameId;
+    end;
   end;
 var
   xAttr: PXMLNode;
@@ -1407,7 +1415,7 @@ begin
   end;
 
   if Assigned(ParentNode) then
-    ParentNode.FindQualifiedNames(aNameSpaceURIId, aLocalName, aQualifiedNameIds);
+    ParentNode.FindQualifiedNames(aNameSpaceURIId, aLocalName, ioQualifiedNameIds);
 end;
 
 function TXMLNode.GetAttribute(const aName: OWideString): OWideString;
@@ -1564,30 +1572,29 @@ function TXMLNode.GetElementsByTagNameNS(const aNameSpaceURI,
   aLocalName: OWideString; var outNodeList: IXMLNodeList): Boolean;
 var
   xNode: PXMLNode;
-  xQualifiedNameIds: TODictionary;
+  xQualifiedNameIds: TXMLIntArray;
+  I: Integer;
 begin
   outNodeList := nil;
 
-  xQualifiedNameIds := TODictionary.Create;
-  try
-    FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
+  SetLength(xQualifiedNameIds, 0);
+  FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
 
-    if xQualifiedNameIds.Count > 0 then
+  if Length(xQualifiedNameIds) > 0 then
+  begin
+    xNode := FirstChild;
+    while Assigned(xNode) do
     begin
-      xNode := FirstChild;
-      while Assigned(xNode) do
+      for I := Low(xQualifiedNameIds) to High(xQualifiedNameIds) do
+      if xQualifiedNameIds[I] = xNode.fNodeNameId then
       begin
-        if xQualifiedNameIds.IndexOf(xNode.fNodeNameId) >= 0 then
-        begin
-          if not Assigned(outNodeList) then
-            outNodeList := TXMLResNodeList.Create;
-          outNodeList.Add(xNode);
-        end;
-        xNode := xNode.fNextSibling;
+        if not Assigned(outNodeList) then
+          outNodeList := TXMLResNodeList.Create;
+        outNodeList.Add(xNode);
+        Break;
       end;
+      xNode := xNode.fNextSibling;
     end;
-  finally
-    xQualifiedNameIds.Free;
   end;
 
   Result := Assigned(outNodeList);
