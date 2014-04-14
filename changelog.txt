@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 0.11 2014-04-14 [SVN commit: 24, https://sourceforge.net/p/oxml/code/24/]
+Version 0.11 2014-04-14 [SVN commit: 25, https://sourceforge.net/p/oxml/code/25/]
   - OASIS testing suite added. OXml offers 100% XML feature coverage (without DTD's)
     according to OASIS tests.
   - Partial DTD support: user-defined entities can be automatically read from the DTD.

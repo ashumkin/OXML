@@ -9,7 +9,7 @@ Author, initial developer of the OXml library:
 The contents of all files in the library are subject to the:
 
   1.) Common Public Attribution License Version 1.0 (CPAL-1.0)
-    -> see "license.CPAL 1.0.html" for full license text.
+    -> see "OXml license CPAL 1.0.html" for full license text.
 
   OR
 
@@ -38,8 +38,8 @@ License FAQ:
   Attribution Information each time an Executable or Source Code or a Larger Work
   is launched or initially run (which includes initiating a session).
 
-  You can find the text of the required attribution text in the file "license.CPAL 1.0.html"
-  in EXHIBIT B.
+  You can find the text of the required attribution text in the file 
+  "OXml license CPAL 1.0.html" in EXHIBIT B.
 
   If this is not an alternative for you, you can purchase a full commercial license
   from http://www.kluug.net that allows you to use OXml without any attribution.
