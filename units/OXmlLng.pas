@@ -7,7 +7,7 @@ unit OXmlLng;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -52,10 +52,12 @@ var
   OXmlLng_InvalidAttributeStartChar: String = 'An attribute cannot start with the character "%s".';
   OXmlLng_EqualSignMustFollowAttribute: String = 'Equal sign must follow the attribute "%s".';
   OXmlLng_AttributeValueMustBeEnclosed: String = '"%s" attribute value must be enclosed in quotes.';
+  OXmlLng_DTDEntityValueMustBeEnclosed: String = '"%s" entity value must be enclosed in quotes.';
   OXmlLng_TooManyElementsClosed: String = 'Too many elements closed.';
   OXmlLng_UnclosedElementsInTheEnd: String = 'There are unclosed elements in the document end.';
   OXmlLng_WrongElementClosed: String = 'Trying to close wrong element. Close="%s", open element="%s".';
   OXmlLng_InvalidEntity: String = '"%s" is not a valid entity.';
+  OXmlLng_EntityNameNotFound: String = 'The entity name "%s" was not found.';
   OXmlLng_ReadingAt: String =
     'Reading at:'+sLineBreak+
     'Line: %d'+sLineBreak+

@@ -1,3 +1,15 @@
+{
+
+  Author:
+    Ondrej Pokorny, http://www.kluug.net
+    All Rights Reserved.
+
+  License:
+    CPAL 1.0 or commercial
+    Please see the /license.txt file for more information.
+
+}
+
 {$IFDEF FPC}
   //FPC
   {$DEFINE CONDITIONALEXPRESSIONS}
@@ -12,7 +24,7 @@
     {$DEFINE MSWINDOWS}
     {$DEFINE O_RAWBYTESTRING}
 
-    {$IFDEF VER120}//delphi 4
+    {$IFDEF VER120}//DELPHI 4
     {$DEFINE O_DELPHI_4_DOWN}
     {$ELSE}
     {$DEFINE O_DELPHI_5_UP}
@@ -64,6 +76,9 @@
     {$IFEND}
 
 
+    {$IFNDEF O_DELPHI_XE_UP}
+      {$DEFINE O_DELPHI_2010_DOWN}
+    {$ENDIF}
     {$IFNDEF O_DELPHI_2009_UP}
       {$DEFINE O_DELPHI_2007_DOWN}
     {$ENDIF}
@@ -76,7 +91,7 @@
   {$ENDIF CONDITIONALEXPRESSIONS}
 {$ENDIF FPC}
 
-//COMMON CONTANTS
+//COMMON CONSTANTS
 {$IFDEF CONDITIONALEXPRESSIONS}
   {$IF DEFINED(O_DELPHI_2009_UP) OR DEFINED(FPC)}
     {$DEFINE O_UNICODE}
@@ -85,7 +100,10 @@
   {$IF DEFINED(O_DELPHI_2009_UP)}
     {$DEFINE O_GENERICS}
     {$DEFINE O_ANONYMOUS_METHODS}
-    {$DEFINE O_GENERICBYTES}
+  {$IFEND}
+
+  {$IF DEFINED(O_DELPHI_XE_UP)}
+    {$DEFINE O_GENERICARRAY}
   {$IFEND}
 
   {$IF DEFINED(FPC) OR NOT DEFINED(NEXTGEN)}

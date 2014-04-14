@@ -7,7 +7,7 @@ unit OHashedStrings;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }

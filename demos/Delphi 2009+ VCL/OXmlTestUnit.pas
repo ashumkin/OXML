@@ -1039,6 +1039,7 @@ procedure TForm1.BtnResaveTestClick(Sender: TObject);
           rtFinishOpenElementClose: xXmlWriter.FinishOpenElementClose;
           rtCloseElement: xXmlWriter.CloseElement(xE.TokenName);
           rtText: xXmlWriter.Text(xE.TokenValue);
+          rtEntityReference: xXmlWriter.EntityReference(xE.TokenName);
           rtCData: xXmlWriter.CData(xE.TokenValue);
           rtComment: xXmlWriter.Comment(xE.TokenValue);
           rtProcessingInstruction: xXmlWriter.ProcessingInstruction(xE.TokenName, xE.TokenValue);

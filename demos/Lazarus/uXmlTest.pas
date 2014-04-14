@@ -10,7 +10,7 @@ unit uXmlTest;
 {.$DEFINE USE_SIMPLEXML}      //compare OXml with SimpleXML        http://www.audio-data.de/simplexml.html
 {.$DEFINE USE_DIXML}          //compare OXml with DIXml            http://www.yunqa.de/delphi/doku.php/products/xml/index?DokuWiki=kg5ade2rod3o49f5v1anmf7ol1
 {.$DEFINE USE_ALCINOE}        //compare OXml with Alcinoe          https://sourceforge.net/projects/alcinoe/
-{.$DEFINE USE_LAZARUSDOMXML}  //compare OXml with Lazarus DOM XML
+{$DEFINE USE_LAZARUSDOMXML}  //compare OXml with Lazarus DOM XML
 
 {$IFDEF FPC}
   {$DEFINE USE_FORIN}

@@ -7,7 +7,7 @@ unit OXmlSAX;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -54,7 +54,7 @@ uses
     {$ENDIF}
   {$ENDIF}
 
-  OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding, OHashedStrings;
+  OWideSupp, OXmlUtils, OTextReadWrite, OXmlReadWrite, OEncoding, OHashedStrings;
 
 type
   TSAXParser = class;
@@ -160,7 +160,7 @@ type
     fOnStartElement: TSAXStartElementEvent;
     fOnEndElement: TSAXEndElementEvent;
 
-    fParseError: IXMLParseError;
+    fParseError: IOTextParseError;
 
     procedure DoOnStartDocument;
     procedure DoOnEndDocument;
@@ -198,12 +198,10 @@ type
     {$IFDEF O_RAWBYTESTRING}
     function ParseXML_UTF8(const aXML: ORawByteString): Boolean;
     {$ENDIF}
-    {$IFDEF O_GENERICBYTES}
     //parse document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     function ParseBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
-    {$ENDIF}
   public
     //call StopParsing from an event or anonymous method to stop parsing
     //  When stopped, parsing cannot be continued again.
@@ -255,7 +253,7 @@ type
     property ParsingStopped: Boolean read fStopParsing;
 
     //ParseError has information about the error that occured when parsing a document
-    property ParseError: IXMLParseError read fParseError;
+    property ParseError: IOTextParseError read fParseError;
   end;
 
   ESAXParserException = class(Exception);
@@ -342,25 +340,20 @@ begin
   Result := fReader.StreamSize;
 end;
 
-{$IFDEF O_GENERICBYTES}
 function TSAXParser.ParseBuffer(const aBuffer: TBytes;
   const aForceEncoding: TEncoding): Boolean;
 var
-  xLength: Integer;
   xStream: TVirtualMemoryStream;
 begin
   xStream := TVirtualMemoryStream.Create;
   try
-    xLength := Length(aBuffer);
-    if xLength > 0 then
-      xStream.SetPointer(@aBuffer[0], xLength);
+    xStream.SetBuffer(aBuffer);
 
     Result := ParseStream(xStream, aForceEncoding);
   finally
     xStream.Free;
   end;
 end;
-{$ENDIF}
 
 function TSAXParser.ParseFile(const aFileName: String;
   const aForceEncoding: TEncoding): Boolean;
@@ -395,14 +388,11 @@ end;
 
 function TSAXParser.ParseXML(const aXML: OWideString): Boolean;
 var
-  xLength: Integer;
   xStream: TVirtualMemoryStream;
 begin
   xStream := TVirtualMemoryStream.Create;
   try
-    xLength := Length(aXML);
-    if xLength > 0 then
-      xStream.SetPointer(@aXML[1], xLength * SizeOf(OWideChar));
+    xStream.SetString(aXML);
 
     Result := ParseStream(xStream, TEncoding.OWideStringEncoding);
   finally
@@ -413,14 +403,11 @@ end;
 {$IFDEF O_RAWBYTESTRING}
 function TSAXParser.ParseXML_UTF8(const aXML: ORawByteString): Boolean;
 var
-  xLength: Integer;
   xStream: TVirtualMemoryStream;
 begin
   xStream := TVirtualMemoryStream.Create;
   try
-    xLength := Length(aXML);
-    if xLength > 0 then
-      xStream.SetPointer(@aXML[1], xLength);
+    xStream.SetString_UTF8(aXML);
 
     Result := ParseStream(xStream, TEncoding.UTF8);
   finally
@@ -483,7 +470,7 @@ begin
             DoOnEndElement(xReaderToken.TokenName);
         end;
         rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
-        rtText, rtCData:
+        rtText, rtCData, rtEntityReference:
           if fDataRead or not OXmlIsWhiteSpace(xReaderToken.TokenValue)
           then//omit empty text before root node
             DoOnCharacters(xReaderToken.TokenValue);

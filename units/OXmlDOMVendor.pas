@@ -7,7 +7,7 @@ unit OXmlDOMVendor;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -61,7 +61,7 @@ uses
   SysUtils, Classes, Variants, xmldom,
   {$ENDIF}
 
-  OWideSupp, OXmlUtils, OXmlPDOM;
+  OWideSupp, OXmlUtils, OTextReadWrite, OXmlPDOM;
 
 const
   sOXmlDOMVendor = 'OXml';
@@ -383,11 +383,12 @@ begin
       ntElement: xNewClass := TOXmlDOMElement;
       ntAttribute: xNewClass := TOXmlDOMAttr;
       ntText: xNewClass := TOXmlDOMText;
+      ntEntityReference: xNewClass := TOXmlDOMEntityReference;
       ntCData: xNewClass := TOXmlDOMCDATASection;
       ntComment: xNewClass := TOXmlDOMComment;
       ntProcessingInstruction: xNewClass := TOXmlDOMProcessingInstruction;
     else
-      raise Exception.Create('TOXmlDOMNode.get_nodeType: wrong implementation');
+      raise Exception.Create('MakeNode: wrong implementation');
     end;
     Result := xNewClass.Create(Node)
   end
@@ -561,6 +562,7 @@ begin
     ntElement: Result := ELEMENT_NODE;
     ntAttribute: Result := ATTRIBUTE_NODE;
     ntText: Result := TEXT_NODE;
+    ntEntityReference: Result := ENTITY_REFERENCE_NODE;
     ntCData: Result := CDATA_SECTION_NODE;
     ntComment: Result := COMMENT_NODE;
     ntProcessingInstruction: Result := PROCESSING_INSTRUCTION_NODE;
@@ -1128,7 +1130,7 @@ end;
 function TOXmlDOMDocument.createEntityReference(
   const name: DOMString): IDOMEntityReference;
 begin
-  DOMVendorNotSupported('createEntityReference', sOXmlDOMVendor);
+  Result := TOXmlDOMEntityReference.Create(FOXmlDocument.CreateEntityReference(name));
 end;
 
 function TOXmlDOMDocument.createProcessingInstruction(const target,

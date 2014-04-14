@@ -7,7 +7,7 @@ unit OXmlUtils;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -39,21 +39,12 @@ uses
   SysUtils, Classes,
   {$ENDIF}
 
-  {$IFDEF O_GENERICS}
-    {$IFDEF O_NAMESPACES}
-    System.Generics.Collections,
-    {$ELSE}
-    Generics.Collections,
-    {$ENDIF}
-  {$ELSE}
-  OHashedStrings,
-  {$ENDIF}
-
   OWideSupp, OEncoding;
 
 type
   TXMLNodeType = (ntDocument, ntDocType, ntXMLDeclaration, ntElement,
-    ntAttribute, ntText, ntCData, ntComment, ntProcessingInstruction);
+    ntAttribute, ntText, ntEntityReference, ntCData, ntComment,
+    ntProcessingInstruction);
 
   EXMLDOMException = class(Exception);
 
@@ -69,12 +60,12 @@ type
   //wsPreserve: preserve white space
   //wsDefault: default handlign (do not preserve)
   TXMLPreserveWhiteSpace = (pwInherit, pwPreserve, pwDefault);
-  TXMLReaderErrorHandling = (ehSilent, ehRaiseAndEat, ehRaise);
   TXMLCharKind =
     (ckNewLine10, ckNewLine13, ckSingleQuote, ckDoubleQuote, ckAmpersand,
-     ckLowerThan, ckGreaterThan, ckCharacter, ckInvalid);
+     ckLowerThan, ckGreaterThan, ckSquareBracketOpen, ckSquareBracketClose,
+     ckCharacter, ckInvalid);
 
-  {$IFDEF O_GENERICS}
+  {$IFDEF O_GENERICARRAY}
   TXMLIntArray = TArray<Integer>;
   {$ELSE}
   TXMLIntArray = array of Integer;
@@ -116,18 +107,18 @@ const
   INUSE_ATTRIBUTE_ERR = 10;
 type
 
-  {$IFDEF O_GENERICS}
-  TXMLReaderEntityList = TDictionary<OWideString,OWideString>;
-  {$ELSE}
-  TXMLReaderEntityList = TOHashedStringDictionary;
-  {$ENDIF}
-
   //virtual MS above some custom buffer (may be string, array of byte etc.)
   //  MUST BE TCustomMemoryStream -> SO THAT THE MEMORY POINTER WOULD NOT GET DESTROYED IN .Destroy!!!
   TVirtualMemoryStream = class(TCustomMemoryStream)
   public
     procedure SetPointer(aPtr: Pointer; const aSize: Longint); reintroduce;//public
     function Write(const {%H-}Buffer; {%H-}Count: Longint): Longint; override;
+  public
+    procedure SetString(const aString: OWideString);
+    {$IFDEF O_RAWBYTESTRING}
+    procedure SetString_UTF8(const aString: ORawByteString);
+    {$ENDIF}
+    procedure SetBuffer(const aBuffer: TBytes);
   end;
 
 function OXmlIsNameStartChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -145,11 +136,13 @@ function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean; {$IFDEF 
 function OXmlIsWhiteSpace(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsNumber(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
+function OXmlValidEntityReference(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlValidCData(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlValidComment(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlValidPIContent(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 function OXmlValidName(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OXmlValidChars(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 function OXmlPreserveToStr(const aPreserveWhiteSpace: TXMLPreserveWhiteSpace): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -248,6 +241,17 @@ begin
   end;
 end;
 
+function OXmlValidChars(const aText: OWideString): Boolean;
+var I: Integer;
+begin
+  Result := True;
+  for I := 1 to Length(aText) do begin
+    Result := OXmlIsChar(aText[I]);
+    if not Result then
+      Exit;
+  end;
+end;
+
 function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean;
 var
   I, xLength: Integer;
@@ -306,6 +310,53 @@ begin
   end;
 
   Result := True;
+end;
+
+function OXmlValidEntityReference(const aText: OWideString): Boolean;
+var
+  I: Integer;
+begin
+  case Length(aText) of
+    0: Result := False;
+    1: Result := OXmlIsNameStartChar(aText[1]);
+  else
+    if aText[1] = '#' then
+    begin
+      if aText[2] = 'x' then
+      begin
+        //HEXADECIMAL
+        for I := 3 to Length(aText)-1 do
+        if not OXmlIsHexadecimalChar(aText[I]) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end else
+      begin
+        //DECIMAL
+        for I := 2 to Length(aText)-1 do
+        if not OXmlIsDecimalChar(aText[I]) then
+        begin
+          Result := False;
+          Exit;
+        end;
+      end;
+    end else
+    begin
+      //TEXT
+      Result := OXmlIsNameStartChar(aText[1]);
+      if not Result then Exit;
+
+      for I := 2 to Length(aText)-1 do
+      if not OXmlIsNameChar(aText[I]) then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+
+    Result := True;
+  end;
 end;
 
 function OXmlValidCData(const aText: OWideString): Boolean;
@@ -403,10 +454,12 @@ begin
     Ord(''''): Result := ckSingleQuote;//#$27
     Ord('<'): Result := ckLowerThan;//#$3C
     Ord('>'): Result := ckGreaterThan;//#$3E
+    Ord('['): Result := ckSquareBracketOpen;
+    Ord(']'): Result := ckSquareBracketClose;
     10: Result := ckNewLine10;
     13: Result := ckNewLine13;
     09,
-    $20, $21, $23..$25, $28..$3B, $3D, $3F..$FF//except '"&<>
+    $20, $21, $23..$25, $28..$3B, $3D, $3F..$5A, $5C, $5E..$FF//except '"&<>[]
     {$IFNDEF FPC}
     ,
     $0100..$FFFD
@@ -489,10 +542,45 @@ end;
 
 { TVirtualMemoryStream }
 
+procedure TVirtualMemoryStream.SetBuffer(const aBuffer: TBytes);
+var
+  xLength: Integer;
+begin
+  xLength := Length(aBuffer);
+  if xLength > 0 then
+    SetPointer(@aBuffer[0], xLength)
+  else
+    SetPointer(nil, 0);
+end;
+
 procedure TVirtualMemoryStream.SetPointer(aPtr: Pointer; const aSize: Integer);
 begin
   inherited SetPointer(aPtr, aSize);
 end;
+
+procedure TVirtualMemoryStream.SetString(const aString: OWideString);
+var
+  xLength: Integer;
+begin
+  xLength := Length(aString);
+  if xLength > 0 then
+    SetPointer(@aString[1], xLength * SizeOf(OWideChar))
+  else
+    SetPointer(nil, 0);
+end;
+
+{$IFDEF O_RAWBYTESTRING}
+procedure TVirtualMemoryStream.SetString_UTF8(const aString: ORawByteString);
+var
+  xLength: Integer;
+begin
+  xLength := Length(aString);
+  if xLength > 0 then
+    SetPointer(@aString[1], xLength)
+  else
+    SetPointer(nil, 0);
+end;
+{$ENDIF}
 
 function TVirtualMemoryStream.{%H-}Write(const Buffer; Count: Integer): Longint;
 begin

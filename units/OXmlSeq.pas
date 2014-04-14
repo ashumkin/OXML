@@ -7,7 +7,7 @@ unit OXmlSeq;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -45,7 +45,7 @@ uses
   SysUtils, Classes,
   {$ENDIF}
 
-  OWideSupp, OXmlUtils, OXmlReadWrite, OEncoding, OXmlPDOM;
+  OWideSupp, OXmlUtils, OTextReadWrite, OXmlReadWrite, OEncoding, OXmlPDOM;
 
 type
 
@@ -57,7 +57,7 @@ type
     fTempReaderPath: TOWideStringList;
     fTempNodePath: TOWideStringList;
     fXmlDoc: TXMLDocument;
-    fParseError: IXMLParseError;
+    fParseError: IOTextParseError;
 
     function ReadNextChildNodeCustom(const aOnlyElementHeader: Boolean;
       var outElementIsOpen: Boolean): Boolean;
@@ -95,12 +95,10 @@ type
     {$IFDEF O_RAWBYTESTRING}
     procedure InitXML_UTF8(const aXML: ORawByteString);
     {$ENDIF}
-    {$IFDEF O_GENERICBYTES}
     //init document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil);
-    {$ENDIF}
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -156,7 +154,7 @@ type
     //size of original stream
     property StreamSize: ONativeInt read GetStreamSize;
 
-    property ParseError: IXMLParseError read fParseError;
+    property ParseError: IOTextParseError read fParseError;
   end;
 
 implementation
@@ -281,14 +279,12 @@ begin
   ReleaseDocument;
 end;
 
-{$IFDEF O_GENERICBYTES}
 procedure TXMLSeqParser.InitBuffer(const aBuffer: TBytes;
   const aForceEncoding: TEncoding);
 begin
   fReader.InitBuffer(aBuffer, aForceEncoding);
   DoInit;
 end;
-{$ENDIF}
 
 procedure TXMLSeqParser.InitFile(const aFileName: String;
   const aForceEncoding: TEncoding);

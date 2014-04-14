@@ -7,7 +7,7 @@ unit OTextReadWrite;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -52,6 +52,12 @@ uses
 
 type
 
+  IOTextParseError = interface;
+  TOTextParseError = class;
+  TOTextParseErrorClass = class of TOTextParseError;
+
+  TOTextReaderErrorHandling = (ehSilent, ehRaiseAndEat, ehRaise);
+
   TOTextReader = class(TObject)
   private
     fTempString: OWideString;
@@ -79,16 +85,27 @@ type
     fPreviousChar: OWideChar;
     fReadFromUndo: Boolean;
 
+    fErrorHandling: TOTextReaderErrorHandling;
+    fParseError: IOTextParseError;
+
     procedure SetEncoding(const Value: TEncoding);
 
     function GetApproxStreamPosition: OStreamInt;
 
     procedure LoadStringFromStream;
+    function GetTempStringPosition: Integer;
 
   protected
     procedure DoCreate(const aBufferSize: Integer); virtual;
     procedure DoInit(const aNewStream: TStream; const aNewOwnsStream: Boolean;
       const aDefaultEncoding: TEncoding); virtual;
+  protected
+    procedure DoRaiseException;
+  public
+    procedure RaiseException(const aErrorClass: TOTextParseErrorClass;
+      const aReason: String);
+    procedure RaiseExceptionFmt(const aErrorClass: TOTextParseErrorClass;
+      const aReason: String; const aArgs: array of OWideString);
   public
     //create
     constructor Create(const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE); overload;
@@ -118,12 +135,10 @@ type
     {$IFDEF O_RAWBYTESTRING}
     procedure InitString_UTF8(const aString: ORawByteString);
     {$ENDIF}
-    {$IFDEF O_GENERICBYTES}
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil);
-    {$ENDIF}
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -163,8 +178,12 @@ type
     property FilePosition: OStreamInt read fFilePosition;//absolute character position in file, 1-based
     property LinePosition: OStreamInt read fLinePosition;//current character in line, 1-based
     property Line: OStreamInt read fLine;//current line, 1-based
+    property TempStringPosition: Integer read GetTempStringPosition;//Position in current TempStream, 1-based
     //size of original stream
     property StreamSize: OStreamInt read fStreamSize;
+
+    property ParseError: IOTextParseError read fParseError;
+    property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;
   end;
 
   TOTextWriter = class(TObject)
@@ -227,6 +246,115 @@ type
 
   EOTextReader = class(Exception);
 
+  EOTextReaderException = class(Exception)
+  private
+    fReason: String;
+    fFilePos: OStreamInt;
+    fLinePos: OStreamInt;
+    fLine: OStreamInt;
+    fSrcText: OWideString;
+    fSrcTextPos: Integer;
+  protected
+    procedure DoCreate(const aError: TOTextParseError; const aReason: string);
+  public
+    constructor Create(const aError: TOTextParseError; const aReason: string);
+  public
+    //formatted error text
+    function GetFormattedErrorText: OWideString;
+    //error code
+    class function GetErrorCode: Integer; virtual;
+  public
+    //error code
+    property ErrorCode: Integer read GetErrorCode;
+    //reason
+    property Reason: String read fReason;
+    //Character position in text (when error was detected)
+    //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
+    //  -> in Delphi the position is always correct
+    property FilePos: OStreamInt read fFilePos;//absolute character position in file (in character units, not bytes), 1-based
+    property LinePos: OStreamInt read fLinePos;//current character in line, 1-based
+    property Line: OStreamInt read fLine;//current line, 1-based
+    //Source code stub
+    property SrcText: OWideString read fSrcText;
+    //position of error in SrcText, 1-based
+    property SrcTextPos: Integer read fSrcTextPos;
+  end;
+  EOTextReaderExceptionClass = class of EOTextReaderException;
+
+  EOTextReaderInvalidCharacter = class(EOTextReaderException)
+  public
+    class function GetErrorCode: Integer; override;
+  end;
+
+  IOTextParseError = interface
+    ['{B2008FD1-65E2-44BE-97DA-38D42E44326C}']
+
+    function GetExceptionClass: EOTextReaderExceptionClass;
+    function GetErrorCode: Integer;
+    function GetURL: OWideString;
+    function GetReason: OWideString;
+    function GetSrcText: OWideString;
+    function GetSrcTextPos: Integer;
+    function GetLine: OStreamInt;
+    function GetLinePos: OStreamInt;
+    function GetFilePos: OStreamInt;
+
+    procedure RaiseException;
+    procedure RaiseAndEatException;
+
+    property ErrorCode: Integer read GetErrorCode;
+    property FilePos: OStreamInt read GetFilePos;
+    property Line: OStreamInt read GetLine;
+    property LinePos: OStreamInt read GetLinePos;
+    property Reason: OWideString read GetReason;
+    property SrcText: OWideString read GetSrcText;
+    property SrcTextPos: Integer read GetSrcTextPos;
+    property URL: OWideString read GetURL;
+  end;
+
+  TOTextParseError = class(TInterfacedObject, IOTextParseError)
+  private
+    fURL: string;
+    fReason: OWideString;
+    fSrcText: OWideString;
+    fSrcTextPos: Integer;
+    fLine: OStreamInt;
+    fLinePos: OStreamInt;
+    fFilePos: OStreamInt;
+  protected
+    function GetExceptionClass: EOTextReaderExceptionClass; virtual; abstract;
+    function GetErrorCode: Integer;
+    function GetURL: OWideString;
+    function GetReason: OWideString;
+    function GetSrcText: OWideString;
+    function GetSrcTextPos: Integer;
+    function GetLine: OStreamInt;
+    function GetLinePos: OStreamInt;
+    function GetFilePos: OStreamInt;
+
+    procedure DoCreate(const aReader: TOTextReader; const aReason: string);
+  public
+    constructor Create(const aReader: TOTextReader; const aReason: string);
+    constructor CreateFmt(const aReader: TOTextReader; const aReason: string;
+      const aArgs: array of const);
+  public
+    procedure RaiseException;
+    procedure RaiseAndEatException;
+  public
+    property URL: OWideString read GetURL;
+    property ErrorCode: Integer read GetErrorCode;
+    property FilePos: OStreamInt read GetFilePos;
+    property Line: OStreamInt read GetLine;
+    property LinePos: OStreamInt read GetLinePos;
+    property Reason: OWideString read GetReason;
+    property SrcText: OWideString read GetSrcText;
+    property SrcTextPos: Integer read GetSrcTextPos;
+  end;
+
+  TOTextParseErrorInvalidCharacter = class(TOTextParseError)
+    function GetExceptionClass: EOTextReaderExceptionClass; override;
+  end;
+
 //decide what encoding is used in a stream (BOM markers are searched for)
 //  only UTF-8, UTF-16, UTF-16BE can be recognized
 function GetEncodingFromStream(const aStream: TStream;
@@ -243,6 +371,15 @@ uses
 
 var
   OTextReadWrite_CannotUndo2Times: OWideString = 'Unsupported: you tried to run the undo function two times in a row.';
+  OTextReadWrite_ReadingAt: String =
+    'Reading at:'+sLineBreak+
+    'Line: %d'+sLineBreak+
+    'Char: %d'+sLineBreak+
+    //'XML token line: %d'+sLineBreak+
+    //'XML token char: %d'+sLineBreak+
+    'Position in source stub: %d'+sLineBreak+
+    'Source stub:'+sLineBreak+
+    '%s';
 
 function GetEncodingFromStream(const aStream: TStream;
   var ioTempStringPosition: OStreamInt;
@@ -269,7 +406,7 @@ begin
   aStream.ReadBuffer(xBuffer[TEncodingBuffer_FirstElement], xSize);
   xEncoding := nil;
   ioTempStringPosition := ioTempStringPosition +
-    TEncoding.GetEncodingFromBOM(xBuffer, xEncoding {$IFDEF O_DELPHI_XE_UP}, Result{$ENDIF});
+    TEncoding.GetEncodingFromBOM(xBuffer, xEncoding, Result);
 
   if Assigned(xEncoding) then
     Result := xEncoding;
@@ -338,6 +475,7 @@ begin
   fStreamPosition := fStream.Position;
   fStreamStartPosition := fStreamPosition;
   fStreamSize := fStream.Size;
+  fParseError := nil;
 
   BlockFlushTempBuffer;//block because GetEncodingFromStream seeks back in stream!
   try
@@ -360,6 +498,14 @@ begin
   fLine := 1;
 end;
 
+procedure TOTextReader.DoRaiseException;
+begin
+  case fErrorHandling of
+    ehRaiseAndEat: fParseError.RaiseAndEatException;
+    ehRaise: fParseError.RaiseException;
+  end;
+end;
+
 function TOTextReader.GetApproxStreamPosition: OStreamInt;
 begin
   //YOU CAN'T KNOW IT EXACTLY!!! (due to Lazarus Unicode->UTF8 or Delphi UTF8->Unicode conversion etc.)
@@ -367,7 +513,13 @@ begin
   Result := fStreamPosition - fStreamStartPosition + fTempStringPosition;
 end;
 
-{$IFDEF O_GENERICBYTES}
+function TOTextReader.GetTempStringPosition: Integer;
+begin
+  Result := fTempStringPosition;
+  if fReadFromUndo then
+    Dec(Result);
+end;
+
 procedure TOTextReader.InitBuffer(const aBuffer: TBytes;
   const aDefaultEncoding: TEncoding);
 var
@@ -383,7 +535,6 @@ begin
 
   DoInit(xNewStream, True, aDefaultEncoding);
 end;
-{$ENDIF}
 
 procedure TOTextReader.InitFile(const aFileName: String;
   const aDefaultEncoding: TEncoding);
@@ -518,6 +669,37 @@ begin
 end;
 {$ENDIF}
 
+procedure TOTextReader.RaiseException(const aErrorClass: TOTextParseErrorClass;
+  const aReason: String);
+begin
+  fParseError := aErrorClass.Create(Self, aReason);
+  DoRaiseException;
+end;
+
+procedure TOTextReader.RaiseExceptionFmt(
+  const aErrorClass: TOTextParseErrorClass; const aReason: String;
+  const aArgs: array of OWideString);
+var
+  xArray: array of TVarRec;
+  I: Integer;
+begin
+  SetLength(xArray, Length(aArgs));
+  for I := Low(xArray) to High(xArray) do
+  begin
+    {$IFDEF O_DELPHI_2009_UP}
+    xArray[I].VPWideChar := PWideChar(aArgs[I]);
+    xArray[I].VType := vtPWideChar;
+    {$ELSE}
+    //we need to convert OWideString to (Ansi)String because non-unicode delphi does not support WideString as Format argument
+    xArray[I].VPChar := PChar(String(aArgs[I]));
+    xArray[I].VType := vtPChar;
+    {$ENDIF}
+  end;
+
+  fParseError := aErrorClass.CreateFmt(Self, aReason, xArray);
+  DoRaiseException;
+end;
+
 function TOTextReader.ReadNextChar(var outChar: OWideChar): Boolean;
 begin
   if fReadFromUndo then begin
@@ -564,16 +746,19 @@ end;
 function TOTextReader.ReadPreviousString(const aMaxChars: Integer;
   const aBreakAtNewLine: Boolean): OWideString;
 var
+  xTempStringPosition: Integer;
   xReadChars: Integer;
   I: Integer;
 begin
-  xReadChars := fTempStringPosition-1;
+  xTempStringPosition := TempStringPosition;
+
+  xReadChars := xTempStringPosition-1;
   if xReadChars > aMaxChars then
     xReadChars := aMaxChars;
 
   if xReadChars > 0 then
   begin
-    Result := Copy(fTempString, fTempStringPosition-xReadChars, xReadChars);
+    Result := Copy(fTempString, xTempStringPosition-xReadChars, xReadChars);
 
     if aBreakAtNewLine then
     for I := Length(Result) downto 1 do
@@ -855,6 +1040,147 @@ begin
 
   if xBytesLength > 0 then
     fStream.WriteBuffer(xBytes[TEncodingBuffer_FirstElement], xBytesLength);
+end;
+
+{ EXmlReaderException }
+
+constructor EOTextReaderException.Create(const aError: TOTextParseError;
+  const aReason: string);
+begin
+  DoCreate(aError, aReason);
+
+  inherited Create(
+    aReason+
+    sLineBreak+sLineBreak+
+    GetFormattedErrorText);
+end;
+
+procedure EOTextReaderException.DoCreate(const aError: TOTextParseError;
+  const aReason: string);
+begin
+  fReason := aReason;
+  fLinePos := aError.LinePos;
+  fLine := aError.Line;
+  fSrcText := aError.SrcText;
+  fSrcTextPos := aError.SrcTextPos;
+end;
+
+class function EOTextReaderException.GetErrorCode: Integer;
+begin
+  Result := 0;
+end;
+
+function EOTextReaderException.GetFormattedErrorText: OWideString;
+begin
+  Result :=
+    Format(OTextReadWrite_ReadingAt, [
+      Line,
+      LinePos,
+      SrcTextPos,
+      SrcText]);
+end;
+
+{ TOTextParseError }
+
+constructor TOTextParseError.Create(const aReader: TOTextReader;
+  const aReason: string);
+begin
+  inherited Create;
+
+  DoCreate(aReader, aReason);
+end;
+
+constructor TOTextParseError.CreateFmt(const aReader: TOTextReader;
+  const aReason: string; const aArgs: array of const);
+var
+  xReason: string;
+begin
+  inherited Create;
+
+  xReason := Format(aReason, aArgs);
+  DoCreate(aReader, xReason);
+end;
+
+procedure TOTextParseError.DoCreate(const aReader: TOTextReader;
+  const aReason: string);
+begin
+  fReason := aReason;
+  fLinePos := aReader.LinePosition;
+  fLine := aReader.Line;
+  fSrcText := aReader.ReadPreviousString(30, True);
+  fSrcTextPos := Length(fSrcText);
+  fSrcText := fSrcText + aReader.ReadString(10, True);
+end;
+
+function TOTextParseError.GetErrorCode: Integer;
+begin
+  Result := GetExceptionClass.GetErrorCode;
+end;
+
+function TOTextParseError.GetFilePos: OStreamInt;
+begin
+  Result := fFilePos;
+end;
+
+function TOTextParseError.GetLine: OStreamInt;
+begin
+  Result := fLine;
+end;
+
+function TOTextParseError.GetLinePos: OStreamInt;
+begin
+  Result := fLinePos;
+end;
+
+function TOTextParseError.GetReason: OWideString;
+begin
+  Result := fReason;
+end;
+
+function TOTextParseError.GetSrcText: OWideString;
+begin
+  Result := fSrcText;
+end;
+
+function TOTextParseError.GetSrcTextPos: Integer;
+begin
+  Result := fSrcTextPos;
+end;
+
+function TOTextParseError.GetURL: OWideString;
+begin
+  Result := fURL;
+end;
+
+procedure TOTextParseError.RaiseAndEatException;
+begin
+  try
+    RaiseException;
+  except
+    on EOTextReaderException do
+    begin
+      //eat EOTextReaderException
+    end;
+  end;
+end;
+
+procedure TOTextParseError.RaiseException;
+begin
+  raise GetExceptionClass.Create(Self, fReason);
+end;
+
+{ TOTextParseErrorInvalidCharacter }
+
+function TOTextParseErrorInvalidCharacter.GetExceptionClass: EOTextReaderExceptionClass;
+begin
+  Result := EOTextReaderInvalidCharacter;
+end;
+
+{ EOTextReaderInvalidCharacter }
+
+class function EOTextReaderInvalidCharacter.GetErrorCode: Integer;
+begin
+  Result := 0;
 end;
 
 end.

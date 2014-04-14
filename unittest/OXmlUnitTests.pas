@@ -13,22 +13,31 @@ unit OXmlUnitTests;
 
 interface
 
-uses Classes, SysUtils, OWideSupp, OXmlUtils, OXmlReadWrite, OXmlPDOM, OXmlCDOM,
-  OHashedStrings, OXmlSAX, OXmlSeq;
+uses
+  Classes, SysUtils, OWideSupp, OXmlUtils, OEncoding,
+  OTextReadWrite, OXmlReadWrite,
+  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq
+
+  {$IFDEF NEXTGEN}, System.IOUtils{$ENDIF}
+  ;
 
 const
-  cTestCount = 30;
+  cTestCount = 39;
   
 type
   TObjFunc = function(): Boolean of object;
 
   TOXmlUnitTest = class(TObject)
   private
+    fStrList: TStrings;
     fPassNameIfFalse: TStringList;
     fPassedCount: Integer;
 
     function GetAllTestCount: Integer;
     procedure ExecuteFunction(const aFunction: TObjFunc; const aFunctionName: String);
+  private
+    //OTextReadWrite.pas
+    function Test_TOTextReader_InitBuffer: Boolean;
   private
     //OXmlReadWrite.pas
     function Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
@@ -47,6 +56,10 @@ type
     function Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces2: Boolean;
+    function Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
+    function Test_OXmlPDOM_EntityTest1: Boolean;
+    function Test_OXmlPDOM_ExternalDTD: Boolean;
+    function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
     function Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
@@ -60,6 +73,10 @@ type
     function Test_OXmlCDOM_TXMLDocument_WrongDocument3: Boolean;
     function Test_OXmlCDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlCDOM_TXMLDocument_NameSpaces2: Boolean;
+    function Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
+    function Test_OXmlCDOM_EntityTest1: Boolean;
+    function Test_OXmlCDOM_ExternalDTD: Boolean;
+    function Test_OXmlCDOM_OASIS: Boolean;
   private
     //OWideSupp.pas
     function Test_TOTextBuffer: Boolean;
@@ -77,6 +94,9 @@ type
   private
     //OXmlXPath.pas
     function Test_OXmlXPath_Test1: Boolean;
+  private
+    //oasis tests
+    function Test_OASIS(const aIsPDOM: Boolean): Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
@@ -125,6 +145,12 @@ begin
   //we cannot use RTTI to call all test functions automatically
   // -> call here all functions manually
 
+  fStrList := aStrList;
+  aStrList.Clear;
+
+  ExecuteFunction(Test_OXmlPDOM_OASIS, 'Test_OASIS_PDOM');
+  ExecuteFunction(Test_OXmlCDOM_OASIS, 'Test_OASIS_CDOM');
+  ExecuteFunction(Test_TOTextReader_InitBuffer, 'Test_TOTextReader_InitBuffer');
   ExecuteFunction(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
   ExecuteFunction(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute');
@@ -139,6 +165,9 @@ begin
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument3, 'Test_OXmlPDOM_TXMLDocument_WrongDocument3');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces1, 'Test_OXmlPDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces2, 'Test_OXmlPDOM_TXMLDocument_NameSpaces2');
+  ExecuteFunction(Test_OXmlPDOM_DoctypeEntityTest1, 'Test_OXmlPDOM_DoctypeEntityTest1');
+  ExecuteFunction(Test_OXmlPDOM_EntityTest1, 'Test_OXmlPDOM_EntityTest1');
+  ExecuteFunction(Test_OXmlPDOM_ExternalDTD, 'Test_OXmlPDOM_ExternalDTD');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -150,13 +179,14 @@ begin
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument3, 'Test_OXmlCDOM_TXMLDocument_WrongDocument3');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces1, 'Test_OXmlCDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces2, 'Test_OXmlCDOM_TXMLDocument_NameSpaces2');
+  ExecuteFunction(Test_OXmlCDOM_DoctypeEntityTest1, 'Test_OXmlCDOM_DoctypeEntityTest1');
+  ExecuteFunction(Test_OXmlCDOM_EntityTest1, 'Test_OXmlCDOM_EntityTest1');
+  ExecuteFunction(Test_OXmlCDOM_ExternalDTD, 'Test_OXmlCDOM_ExternalDTD');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
   ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
-
-  aStrList.Clear;
 
   if fPassNameIfFalse.Count = 0 then
     aStrList.Add(Format('OXml: all tests from %d passed.', [GetAllTestCount]))
@@ -172,7 +202,7 @@ begin
   if (GetAllTestCount <> cTestCount) then
   begin
     aStrList.Add('');
-    aStrList.Add('ERROR OXmlUnitTest: test count is invalid.');
+    aStrList.Add('WARNING OXml: test count is invalid.');
     aStrList.Add(Format('tests runned: %d, tests expected: %d',
       [GetAllTestCount, cTestCount]));
   end;
@@ -316,6 +346,36 @@ begin
   end;
 end;
 
+function TOXmlUnitTest.Test_TOTextReader_InitBuffer: Boolean;
+const
+  inText: string = 'xmlTest';
+var
+  xReader: TOTextReader;
+  xBuffer: TBytes;
+  I: Integer;
+  xC: OWideChar;
+begin
+  SetLength(xBuffer, Length(inText));
+  for I := 1 to Length(inText) do
+    xBuffer[I-1] := Byte(inText[I]);
+
+  xReader := TOTextReader.Create;
+  try
+    xReader.InitBuffer(xBuffer);
+
+    for I := 1 to Length(inText) do
+    begin
+      Result := xReader.ReadNextChar({%H-}xC) and (xC = OWideChar(inText[I]));
+      if not Result then
+        Exit;
+    end;
+
+    Result := not xReader.ReadNextChar(xC) and xReader.EOF;
+  finally
+    xReader.Free;
+  end;
+end;
+
 function TOXmlUnitTest.Test_TSAXParser_HashIndex: Boolean;
 var
   xStream: TMemoryStream;
@@ -388,6 +448,175 @@ begin
     aAttributes.Find(xAttrName, {%H-}xAttrValue);
     Assert(xAttrName = xAttrValue);
   end;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
+const
+  inXML: OWideString =
+    '<!DOCTYPE elem'+sLineBreak+
+    '['+sLineBreak+
+    '<!ELEMENT elem (#PCDATA|elem)*>'+sLineBreak+
+    '<!ENTITY ent "<elem>CharData</elem>">'+sLineBreak+
+    '<!ENTITY ent2 "&ent; &gt;">'+sLineBreak+
+    ']>'+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+  outXML: OWideString =
+    '<!DOCTYPE elem'+sLineBreak+
+    '['+sLineBreak+
+    '<!ELEMENT elem (#PCDATA|elem)*>'+sLineBreak+
+    '<!ENTITY ent "<elem>CharData</elem>">'+sLineBreak+
+    '<!ENTITY ent2 "&ent; &gt;">'+sLineBreak+
+    ']>'+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData '+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<?pi?>&lt;elem&gt;CharData&lt;/elem&gt;"'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xEntityValue: OWideString{$IFDEF FPC} = ''{$ENDIF};
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.LoadFromXML(inXML);
+
+  Result := xXML.XML = outXML;
+  if not Result then Exit;
+
+  Result := xXML.ReaderSettings.EntityList.Find('ent', xEntityValue) and (xEntityValue = '<elem>CharData</elem>');
+  if not Result then Exit;
+
+  Result := xXML.ReaderSettings.EntityList.Find('ent2', xEntityValue) and (xEntityValue = '<elem>CharData</elem> >');
+  if not Result then Exit;
+
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_EntityTest1: Boolean;
+const
+  inXML: Array [0..11] of OWideString = (
+    ('<xml> & </xml>'),
+    ('<xml> &a </xml>'),
+    ('<xml> &a% </xml>'),
+    ('<xml> &% </xml>'),
+    ('<xml> &unknown; </xml>'),
+    ('<xml> &#a </xml>'),
+    ('<xml> &#xa </xml>'),
+    ('<xml> &#32 </xml>'),
+    ('<xml> &#x20 </xml>'),
+    ('<xml> &#3232323232; </xml>'),
+    ('<xml> &#x2020202020; </xml>'),
+    ('')
+    );
+  outXML: Array [0..11] of OWideString = (
+    ('<xml> &amp; </xml>'),
+    ('<xml> &amp;a </xml>'),
+    ('<xml> &amp;a% </xml>'),
+    ('<xml> &amp;% </xml>'),
+    ('<xml> &amp;unknown; </xml>'),
+    ('<xml> &amp;#a </xml>'),
+    ('<xml> &amp;#xa </xml>'),
+    ('<xml> &amp;#32 </xml>'),
+    ('<xml> &amp;#x20 </xml>'),
+    ('<xml> &amp;#3232323232; </xml>'),
+    ('<xml> &amp;#x2020202020; </xml>'),
+    ('')
+    );
+var
+  I: Integer;
+  xXML: OXmlPDOM.IXMLDocument;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.ReaderSettings.StrictXML := False;
+  xXML.ReaderSettings.ExpandEntities := False;
+
+  for I := Low(inXML) to High(outXML) do
+  begin
+    xXML.LoadFromXML(inXML[I]);
+
+    Result := (xXML.XML = outXML[I]);
+    if not Result then
+      Exit;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_ExternalDTD: Boolean;
+const
+  inDTD: OWideString =
+    '<!ELEMENT elem (#PCDATA|elem)*>'+sLineBreak+
+    '<!ENTITY ent "<elem>CharData</elem>">'+sLineBreak+
+    '<!ENTITY ent2 "&ent; '+sLineBreak+' &gt;">'+sLineBreak+
+    '';
+  inXML: OWideString =
+    '<elem>'+sLineBreak+
+    '<?pi?>&ent2;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+  outXML: OWideString =
+    '<elem>'+sLineBreak+
+    '<?pi?>&lt;elem&gt;CharData&lt;/elem&gt; '+sLineBreak+' &gt;"'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xEntityValue: OWideString{$IFDEF FPC} = ''{$ENDIF};
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.ReaderSettings.LoadDTDFromString(inDTD);
+  xXML.LoadFromXML(inXML);
+
+  Result := xXML.XML = outXML;
+  if not Result then Exit;
+
+  Result := xXML.ReaderSettings.EntityList.Find('ent', xEntityValue) and (xEntityValue = '<elem>CharData</elem>');
+  if not Result then Exit;
+
+  Result := xXML.ReaderSettings.EntityList.Find('ent2', xEntityValue) and (xEntityValue = '<elem>CharData</elem> '+sLineBreak+' >');
+  if not Result then Exit;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_OASIS: Boolean;
+begin
+  Result := Test_OASIS(True);
 end;
 
 function TOXmlUnitTest.Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
@@ -756,7 +985,7 @@ end;
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
 const
   inXML: OWideString =
-    '<Test> /> </Test>';
+    '<Test> /]]> </Test>';
 var
   xXML: OXmlPDOM.IXMLDocument;
 begin
@@ -768,7 +997,7 @@ begin
     not xXML.LoadFromXML(inXML);
   Result := Result and
     (xXML.ParseError.Line = 1) and
-    (xXML.ParseError.LinePos = 9) and
+    (xXML.ParseError.LinePos = 11) and
     (xXML.ParseError.ErrorCode = INVALID_CHARACTER_ERR);
 
   if not Result then
@@ -781,7 +1010,7 @@ begin
     xXML.LoadFromXML(inXML);
 
   Result := Result and
-    (xXML.Node.SelectNode('/Test').Text = ' /> ');
+    (xXML.Node.SelectNode('/Test').Text = ' /]]> ');
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Clone: Boolean;
@@ -870,6 +1099,436 @@ begin
   xAttribute.NodeValue := 'value';
 
   Result := (xXML.XML = '<root attr="value"/>');
+end;
+
+function TOXmlUnitTest.Test_OASIS(const aIsPDOM: Boolean): Boolean;
+var
+  xOASISTestPassedCount: Integer;
+  xOASISTestOmittedCount: Integer;
+
+  function _GetDOMName: String;
+  begin
+    if aIsPDOM then
+      Result := 'PDOM'
+    else
+      Result := 'CDOM';
+  end;
+
+  function _GetOutFileName(const bFileName: String): String;
+  begin
+    Result := ExtractFilePath(bFileName)+'outOXml'+PathDelim+ExtractFileName(bFileName);
+  end;
+
+  procedure _FileSaveToBuffer(const {%H-}bFileName: String;
+    bXml: OXmlReadWrite.ICustomXMLDocument; var bBuffer: TBytes; bEncoding: TEncoding;
+    {%H-}bSaveForCompare: Boolean);
+  var
+    xStream: TMemoryStream;
+    xWriter: TXMLWriter;
+  begin
+    xStream := TMemoryStream.Create;
+    try
+      xWriter := TXMLWriter.Create;
+      try
+        xWriter.InitStream(xStream);
+        xWriter.WriterSettings.Assign(bXml.WriterSettings);
+        xWriter.Encoding := bEncoding;
+
+        bXml.SaveToWriter(xWriter);
+      finally
+        xWriter.Free;
+      end;
+
+      SetLength(bBuffer, xStream.Size);
+      if xStream.Size > 0 then begin
+        xStream.Seek(0, soFromBeginning);
+        xStream.ReadBuffer(bBuffer[0], xStream.Size);
+      end;
+
+      // uncomment to write current (correct) output to check it back in the future
+      {if bSaveForCompare then
+      begin
+        xStream.Seek(0, soFromBeginning);
+        xStream.SaveToFile(_GetOutFileName(bFileName));
+      end;{}
+    finally
+      xStream.Free;
+    end;
+  end;
+
+  function _FileRunTest(const bFileName: String; const bCompareWithOriginal, bExpandRoot: Boolean): Boolean;
+  var
+    xXml: OXmlReadWrite.ICustomXMLDocument;
+    xOriginalFileBuffer, xResavedFileBuffer: TBytes;
+    xOriginalEncoding: TEncoding;
+    xFS: TFileStream;
+  begin
+    xFS := TFileStream.Create(bFileName, fmOpenRead or fmShareDenyNone);
+    try
+      SetLength(xOriginalFileBuffer, xFS.Size);
+      xFS.ReadBuffer(xOriginalFileBuffer[0], xFS.Size);
+    finally
+      xFS.Free;
+    end;
+
+    if Length(xOriginalFileBuffer) = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+
+    if aIsPDOM then
+      xXml := OXmlPDOM.CreateXMLDoc
+    else
+      xXml := OXmlCDOM.CreateXMLDoc;
+
+    xXml.ReaderSettings.ErrorHandling := ehRaiseAndEat;
+    xXml.ReaderSettings.ExpandEntities := False;
+    xXml.ReaderSettings.BreakReading := brNone;
+    xXml.WhiteSpaceHandling := wsPreserveAll;
+    xXml.WriterSettings.UseGreaterThanEntity := False;
+    xXml.LoadFromBuffer(xOriginalFileBuffer);
+
+    Result := not Assigned(xXml.ParseError);
+    if not Result then Exit;
+
+    if TEncoding.GetEncodingFromBOM(xOriginalFileBuffer, {%H-}xOriginalEncoding, TEncoding.UTF8) > 0 then
+      //bom found
+      xXml.WriterSettings.WriteBOM := True
+    else
+      xXml.WriterSettings.WriteBOM := False;
+
+    //compare files
+
+    //the xmltest uses expanded root element "<doc></doc>" a lot, fake it
+    if bExpandRoot then
+    begin
+      if aIsPDOM then
+        OXmlPDOM.IXMLDocument(xXml).DocumentElement.AddText('x').NodeValue := ''
+      else
+        OXmlCDOM.IXMLDocument(xXml).DocumentElement.AddText('x').NodeValue := ''
+    end;
+    _FileSaveToBuffer({%H-}bFileName, xXml, {%H-}xResavedFileBuffer, xOriginalEncoding, not bCompareWithOriginal);
+
+    if not bCompareWithOriginal then
+    begin
+      if not FileExists(_GetOutFileName(bFileName)) then
+        Exit;
+
+      xFS := TFileStream.Create(_GetOutFileName(bFileName), fmOpenRead or fmShareDenyNone);
+      try
+        SetLength(xOriginalFileBuffer, xFS.Size);
+        xFS.ReadBuffer(xOriginalFileBuffer[0], xFS.Size);
+      finally
+        xFS.Free;
+      end;
+    end;
+
+    Result := Length(xOriginalFileBuffer) = Length(xResavedFileBuffer);
+    if not Result then Exit;
+
+    Result := CompareMem(@xOriginalFileBuffer[0], @xResavedFileBuffer[0], Length(xResavedFileBuffer));
+  end;
+
+  function _DirRunTests(bDirID: Integer; bDirectory, bFilter: String; bExpandRoot: Boolean): Boolean;
+  var
+    xSearchRes: TSearchRec;
+    xCompareFiles: Boolean;
+  begin
+    bDirectory := StringReplace(bDirectory, '\', PathDelim, [rfReplaceAll]);
+
+    Result := True;
+
+    if FindFirst(bDirectory+bFilter, faAnyFile, xSearchRes) = 0 then
+    try
+      repeat
+        if//specific XML features not supported by OXml
+          ((bDirID = 0) and (xSearchRes.Name = 'p66pass1.xml')) or//entity with invalid unicode data  <<< doable?
+          ((bDirID = 0) and (xSearchRes.Name = 'p73pass1.xml')) or//externally-defined entity
+          ((bDirID = 0) and (xSearchRes.Name = 'p74pass1.xml')) or//externally-defined entity
+          ((bDirID = 0) and (xSearchRes.Name = 'p75pass1.xml')) or//externally-defined entity
+          ((bDirID = 0) and (xSearchRes.Name = 'p76pass1.xml')) or//externally-defined entity
+
+          ((bDirID = 1) and (xSearchRes.Name = '064.xml')) or//crazy unicode entity     <<< doable?
+          ((bDirID = 1) and (xSearchRes.Name = '082.xml')) or//externally-defined entity
+          ((bDirID = 1) and (xSearchRes.Name = '083.xml')) or//externally-defined entity
+          ((bDirID = 1) and (xSearchRes.Name = '089.xml')) or//entity with invalid unicode data
+          ((bDirID = 1) and (xSearchRes.Name = '091.xml')) or//externally-defined entity
+          ((bDirID = 1) and (xSearchRes.Name = '097.xml')) or//externally-defined entity
+          ((bDirID = 1) and (xSearchRes.Name = '100.xml')) or//externally-defined entity
+          ((bDirID = 1) and (xSearchRes.Name = '114.xml')) or//CDATA in entity not supported
+          ((bDirID = 1) and (xSearchRes.Name = '115.xml')) or//one entity defined before the other in DTD
+
+          {$IFDEF FPC}
+          //Lazarus cannot validate unicode element names because it reads the document in UTF-8 instead of UTF-16
+          ((bDirID = 0) and (xSearchRes.Name = 'p04pass1.xml')) or
+          ((bDirID = 1) and (xSearchRes.Name = '051.xml')) or
+          ((bDirID = 1) and (xSearchRes.Name = '063.xml')) or
+          {$ENDIF}
+          False
+
+        then
+        begin
+          Inc(xOASISTestOmittedCount);
+          Continue;
+        end;
+
+        //There are some files that produce different output by OXml design.
+        //The files below are tested on read but the output can't be compared to the original file,
+        //which is absolutely OK.
+        xCompareFiles := not(
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p10')) or//entities in attribute name is always expanded
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p24')) or//single quotes in attributes are converted to double quotes by OXml
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p25')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p32')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p40')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p41')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p42')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 0) and (Copy(xSearchRes.Name, 1, 3) = 'p44')) or//whitespace in attributes is removed by OXml
+
+          ((bDirID = 1) and (xSearchRes.Name = '002.xml')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 1) and (xSearchRes.Name = '003.xml')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 1) and (xSearchRes.Name = '005.xml')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 1) and (xSearchRes.Name = '006.xml')) or//single quotes
+          ((bDirID = 1) and (xSearchRes.Name = '010.xml')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 1) and (xSearchRes.Name = '025.xml')) or//"<foo></foo>" converted to "<foo/>"
+          ((bDirID = 1) and (xSearchRes.Name = '026.xml')) or//"<foo></foo>" converted to "<foo/>"
+          ((bDirID = 1) and (xSearchRes.Name = '027.xml')) or//"<foo></foo>" converted to "<foo/>"
+          ((bDirID = 1) and (xSearchRes.Name = '029.xml')) or//single quotes
+          ((bDirID = 1) and (xSearchRes.Name = '030.xml')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 1) and (xSearchRes.Name = '031.xml')) or//single quotes
+          ((bDirID = 1) and (xSearchRes.Name = '032.xml')) or//single quotes
+          ((bDirID = 1) and (xSearchRes.Name = '033.xml')) or//single quotes
+          ((bDirID = 1) and (xSearchRes.Name = '034.xml')) or//<doc/>
+          ((bDirID = 1) and (xSearchRes.Name = '035.xml')) or//<doc/>
+          ((bDirID = 1) and (xSearchRes.Name = '040.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '041.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '054.xml')) or//whitespace in attributes is removed by OXml
+          ((bDirID = 1) and (xSearchRes.Name = '066.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '093.xml')) or//#10 converted to #10#13
+          ((bDirID = 1) and (xSearchRes.Name = '102.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '105.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '106.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '107.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '108.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '110.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '111.xml')) or//entities in attribute name are always expanded
+          ((bDirID = 1) and (xSearchRes.Name = '112.xml')) or//<a></a> => <a/>
+          False);
+
+        Result := _FileRunTest(bDirectory+xSearchRes.Name, xCompareFiles, bExpandRoot);
+        if not Result then
+        begin
+          fStrList.Add('OASIS '+_GetDOMName+' Hint: test not passed: '+xSearchRes.Name);
+          fStrList.Add('');
+          Exit;
+        end else
+        begin
+          Inc(xOASISTestPassedCount);
+        end;
+      until FindNext(xSearchRes) <> 0;
+
+    finally
+      FindClose(xSearchRes);
+    end;
+  end;
+
+var
+  xDir: String;
+begin
+  {$IFDEF NEXTGEN}
+  xDir := TPath.Combine(TPath.GetDocumentsPath, 'oasis'+PathDelim);
+  {$ELSE}
+  xDir := ExtractFilePath(ParamStr(0)) + '..\..\oasis\xmlconf\';
+  {$ENDIF}
+
+  {$IFNDEF VER130}
+  if not DirectoryExists(xDir) then
+  begin
+    fStrList.Add('OASIS '+_GetDOMName+' Hint: test directory not found.');
+    fStrList.Add('');
+    fStrList.Add('If you want to run OASIS tests, download the OASIS test package from');
+    fStrList.Add('https://www.oasis-open.org/committees/xml-conformance/suite-v1se/xmlconf-20010315.htm');
+    fStrList.Add('and unzip it into OXml\oasis directory.');
+    fStrList.Add('');
+    fStrList.Add('');
+    Result := True;
+    Exit;
+  end;
+  {$ENDIF}
+
+  xOASISTestPassedCount := 0;
+  xOASISTestOmittedCount := 0;
+  Result := _DirRunTests(0, xDir + 'oasis\', '*pass*.xml', False);
+  if not Result then Exit;
+  Result := _DirRunTests(1, xDir + 'xmltest\valid\sa\', '*.xml', True);
+  if not Result then Exit;
+
+  if Result and (xOASISTestPassedCount > 0) then
+  begin
+    fStrList.Add(
+      Format('OASIS '+_GetDOMName+': all tests from %d passed (%d omitted on purpose).',
+        [xOASISTestPassedCount, xOASISTestOmittedCount]));
+    fStrList.Add('');
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
+const
+  inXML: OWideString =
+    '<!DOCTYPE elem'+sLineBreak+
+    '['+sLineBreak+
+    '<!ELEMENT elem (#PCDATA|elem)*>'+sLineBreak+
+    '<!ENTITY ent "<elem>CharData</elem>">'+sLineBreak+
+    ']>'+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+  outXML: OWideString =
+    '<!DOCTYPE elem'+sLineBreak+
+    '['+sLineBreak+
+    '<!ELEMENT elem (#PCDATA|elem)*>'+sLineBreak+
+    '<!ENTITY ent "<elem>CharData</elem>">'+sLineBreak+
+    ']>'+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData '+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<![CDATA['+sLineBreak+
+    '<elem>'+sLineBreak+
+    'CharData&#32;'+sLineBreak+
+    '<!--comment-->'+sLineBreak+
+    '<?pi?>&ent;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>'+sLineBreak+
+    ']]>'+sLineBreak+
+    '<?pi?>&lt;elem&gt;CharData&lt;/elem&gt;"'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.LoadFromXML(inXML);
+
+  Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_EntityTest1: Boolean;
+const
+  inXML: Array [0..11] of OWideString = (
+    ('<xml> & </xml>'),
+    ('<xml> &a </xml>'),
+    ('<xml> &a% </xml>'),
+    ('<xml> &% </xml>'),
+    ('<xml> &unknown; </xml>'),
+    ('<xml> &#a </xml>'),
+    ('<xml> &#xa </xml>'),
+    ('<xml> &#32 </xml>'),
+    ('<xml> &#x20 </xml>'),
+    ('<xml> &#3232323232; </xml>'),
+    ('<xml> &#x2020202020; </xml>'),
+    ('')
+    );
+  outXML: Array [0..11] of OWideString = (
+    ('<xml> &amp; </xml>'),
+    ('<xml> &amp;a </xml>'),
+    ('<xml> &amp;a% </xml>'),
+    ('<xml> &amp;% </xml>'),
+    ('<xml> &amp;unknown; </xml>'),
+    ('<xml> &amp;#a </xml>'),
+    ('<xml> &amp;#xa </xml>'),
+    ('<xml> &amp;#32 </xml>'),
+    ('<xml> &amp;#x20 </xml>'),
+    ('<xml> &amp;#3232323232; </xml>'),
+    ('<xml> &amp;#x2020202020; </xml>'),
+    ('')
+    );
+var
+  I: Integer;
+  xXML: OXmlCDOM.IXMLDocument;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.ReaderSettings.StrictXML := False;
+  xXML.ReaderSettings.ExpandEntities := False;
+
+  for I := Low(inXML) to High(outXML) do
+  begin
+    xXML.LoadFromXML(inXML[I]);
+
+    Result := (xXML.XML = outXML[I]);
+    if not Result then
+      Exit;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_ExternalDTD: Boolean;
+const
+  inDTD: OWideString =
+    '<!ELEMENT elem (#PCDATA|elem)*>'+sLineBreak+
+    '<!ENTITY ent "<elem>CharData</elem>">'+sLineBreak+
+    '<!ENTITY ent2 "&ent; '+sLineBreak+' &gt;">'+sLineBreak+
+    '';
+  inXML: OWideString =
+    '<elem>'+sLineBreak+
+    '<?pi?>&ent2;&quot;'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+  outXML: OWideString =
+    '<elem>'+sLineBreak+
+    '<?pi?>&lt;elem&gt;CharData&lt;/elem&gt; '+sLineBreak+' &gt;"'+sLineBreak+
+    'CharData'+sLineBreak+
+    '</elem>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xEntityValue: OWideString{$IFDEF FPC} = ''{$ENDIF};
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.ReaderSettings.LoadDTDFromString(inDTD);
+  xXML.LoadFromXML(inXML);
+
+  Result := xXML.XML = outXML;
+  if not Result then Exit;
+
+  Result := xXML.ReaderSettings.EntityList.Find('ent', xEntityValue) and (xEntityValue = '<elem>CharData</elem>');
+  if not Result then Exit;
+
+  Result := xXML.ReaderSettings.EntityList.Find('ent2', xEntityValue) and (xEntityValue = '<elem>CharData</elem> '+sLineBreak+' >');
+  if not Result then Exit;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_OASIS: Boolean;
+begin
+  Result := Test_OASIS(False);
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_AttributeIndex: Boolean;
@@ -1110,7 +1769,7 @@ end;
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WrongDocument3: Boolean;
 const
   inXML: OWideString =
-    '<Test> /> </Test>';
+    '<Test> /]]> </Test>';
 var
   xXML: OXmlCDOM.IXMLDocument;
 begin
@@ -1122,7 +1781,7 @@ begin
     not xXML.LoadFromXML(inXML);
   Result := Result and
     (xXML.ParseError.Line = 1) and
-    (xXML.ParseError.LinePos = 9) and
+    (xXML.ParseError.LinePos = 11) and
     (xXML.ParseError.ErrorCode = INVALID_CHARACTER_ERR);
 
   if not Result then
@@ -1135,7 +1794,7 @@ begin
     xXML.LoadFromXML(inXML);
 
   Result := Result and
-    (xXML.Node.SelectNode('/Test').Text = ' /> ');
+    (xXML.Node.SelectNode('/Test').Text = ' /]]> ');
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_Clone: Boolean;

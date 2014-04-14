@@ -1,7 +1,23 @@
 OXml Change Log
 ---------------
 
-Version 0.10 2014-04-09  [SVN commit: 21, https://sourceforge.net/p/oxml/code/21/]
+Version 0.11 2014-04-14 [SVN commit: 23, https://sourceforge.net/p/oxml/code/23/]
+  - OASIS testing suite added. OXml offers 100% XML feature coverage (without DTD's)
+    according to OASIS tests.
+  - Partial DTD support: user-defined entities can be automatically read from the DTD.
+    Not supported DTD features:
+      - Externally defined user entities (entities linking to other files).
+        (Internally defined user entities are supported!)
+      - Entity definition referencing a later defined entity.
+      - CDATA in entities.
+      - Any kind of validation is not supported for now.
+  - EntityReference node added (OXmlPDOM.pas, OXmlCDOM.pas).
+  - Some bug fixes (mostly in connection to the OASIS test suite).
+  - License change to "CPAL 1.0" or commercial. Please refer to "\license.txt" file!
+  - Probably the last version (or one of the last versions) before production state.
+
+
+Version 0.10 2014-04-09 [SVN commit: 21, https://sourceforge.net/p/oxml/code/21/]
   - Big file (> 4 GB) support also on 32bit systems.
   - Delphi 4 and Delphi 5 support.
   - Namespace support.

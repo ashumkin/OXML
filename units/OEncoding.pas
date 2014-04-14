@@ -7,7 +7,7 @@ unit OEncoding;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -84,17 +84,13 @@ const
   CP_UTF7 = 65000;//Unicode (UTF-7)
   CP_UTF8 = 65001;//Unicode (UTF-8)
 
-{$IFDEF O_DELPHI_2009_UP}
 type
   TEncodingBuffer = TBytes;
 const
   TEncodingBuffer_FirstElement = 0;
-{$ELSE}
-type
-  TEncodingBuffer = array of Byte;
-const
-  TEncodingBuffer_FirstElement = 0;
 
+
+{$IFNDEF O_DELPHI_2009_UP}
 type
 
   TEncoding = class(TObject)
@@ -702,7 +698,7 @@ begin
   if xCharCount > 0 then
     Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount);
   {$ELSE}
-    {$IFDEF O_DELPHI_5_DOWN}
+    {$IFDEF MSWINDOWS}
     //IMPORTANT: S is WITH a NULL TERMINATOR -> xCharCount is ALSO WITH NULL TERMINATOR!!!
     xCharCount := WideCharToMultiByte(CP_UTF8, 0,
       PWideChar(S), -1, nil, 0, nil, nil);
@@ -756,7 +752,7 @@ begin
   Move(aBytes[TEncodingBuffer_FirstElement], outString[1], xByteCount);
   {$ELSE}
   //DELPHI
-    {$IFDEF O_DELPHI_5_DOWN}
+    {$IFDEF MSWINDOWS}
     //IMPORTANT: xByteCount is WITHOUT the NULL character -> xCharCount is ALSO WITHOUT the NULL CHARACTER!!!
     xCharCount := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
     SetLength(outString, xCharCount);

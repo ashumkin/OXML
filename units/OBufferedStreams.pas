@@ -7,7 +7,7 @@ unit OBufferedStreams;
     All Rights Reserved.
 
   License:
-    MPL 1.1 / GPLv2 / LGPLv2 / FPC modified LGPLv2
+    CPAL 1.0 or commercial
     Please see the /license.txt file for more information.
 
 }
@@ -58,11 +58,7 @@ type
     fStreamPosition: OStreamInt;
     fStreamSize: OStreamInt;
 
-    {$IFDEF O_GENERICBYTES}
     fTempBuffer: TBytes;
-    {$ELSE}
-    fTempBuffer: Array of Byte;
-    {$ENDIF}
     fTempBufferUsedLength: Integer;
     fBufferSize: Integer;
   protected
@@ -96,11 +92,7 @@ type
     fStream: TStream;
     fStreamPosition: OStreamInt;
     fStreamSize: OStreamInt;
-    {$IFDEF O_GENERICBYTES}
     fTempBuffer: TBytes;
-    {$ELSE}
-    fTempBuffer: Array of Byte;
-    {$ENDIF}
     fTempBufferPosition: Integer;
     fTempBufferUsedLength: Integer;
     fBlockFlushTempBuffer: Integer;
