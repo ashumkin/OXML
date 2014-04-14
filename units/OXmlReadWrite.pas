@@ -694,6 +694,16 @@ begin
   end;
 end;
 
+{$IFDEF O_DELPHI_5_DOWN}
+function TryStrToInt(const S: string; out Value: Integer): Boolean;
+var
+  xError: Integer;
+begin
+  Val(S, Value, xError);
+  Result := (xError = 0);
+end;
+{$ENDIF}
+
 function ProcessEntity(
   const aReaderSettings: TXMLReaderSettings;
   const aCustomReader: TOTextReader;
@@ -1745,16 +1755,6 @@ procedure TXMLReader.InitXML_UTF8(const aXML: ORawByteString);
 begin
   fReader.InitString_UTF8(aXML);
   DoInit(TEncoding.UTF8);
-end;
-{$ENDIF}
-
-{$IFDEF O_DELPHI_5_DOWN}
-function TryStrToInt(const S: string; out Value: Integer): Boolean;
-var
-  E: Integer;
-begin
-  Val(S, Value, E);
-  Result := E = 0;
 end;
 {$ENDIF}
 
