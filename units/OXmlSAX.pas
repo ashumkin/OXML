@@ -201,7 +201,8 @@ type
     //parse document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function ParseBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
+    function ParseBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
+    function ParseBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
   public
     //call StopParsing from an event or anonymous method to stop parsing
     //  When stopped, parsing cannot be continued again.
@@ -348,6 +349,21 @@ begin
   xStream := TVirtualMemoryStream.Create;
   try
     xStream.SetBuffer(aBuffer);
+
+    Result := ParseStream(xStream, aForceEncoding);
+  finally
+    xStream.Free;
+  end;
+end;
+
+function TSAXParser.ParseBuffer(const aBuffer;
+  const aBufferLength: Integer; const aForceEncoding: TEncoding): Boolean;
+var
+  xStream: TVirtualMemoryStream;
+begin
+  xStream := TVirtualMemoryStream.Create;
+  try
+    xStream.SetPointer(@aBuffer, aBufferLength);
 
     Result := ParseStream(xStream, aForceEncoding);
   finally

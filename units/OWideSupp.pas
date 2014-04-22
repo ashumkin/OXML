@@ -91,6 +91,7 @@ type
     ORealWideString = UnicodeString;//UTF-16
     OWideChar = Char;
     POWideChar = PChar;
+    PORealWideChar = PWideChar;
     ORawByteString = AnsiString;
     ONativeInt = NativeInt;
     ONativeUInt = NativeUInt;
@@ -100,6 +101,7 @@ type
       ORealWideString = String;//UTF-16
       OWideChar = Char;
       POWideChar = PChar;
+      PORealWideChar = PChar;
       {$IFDEF O_RAWBYTESTRING}
       ORawByteString = RawByteString;
       {$ENDIF}
@@ -116,6 +118,7 @@ type
       ORealWideString = WideString;//UTF-16
       OWideChar = WideChar;
       POWideChar = PWideChar;
+      PORealWideChar = PWideChar;
       ORawByteString = AnsiString;
       ONativeInt = Integer;
       ONativeUInt = Cardinal;
@@ -143,7 +146,7 @@ type
   UTF8String = AnsiString;
   {$ENDIF}
 
-  {$IFNDEF O_UNICODE}
+  {$IFNDEF O_DELPHI_2009_UP}
   TBytes = Array of Byte;
   {$ENDIF}
 
@@ -852,7 +855,7 @@ begin
   if GetLastError = ERROR_CALL_NOT_IMPLEMENTED then
     Result := CompareText(S1, S2);
   {$ELSE}
-  {$IFDEF UNICODE}
+  {$IFDEF O_UNICODE}
   Result := CompareText(S1, S2);
   {$ELSE}
   Result := WideCompareText(S1, S2);
@@ -868,7 +871,7 @@ begin
   if GetLastError = ERROR_CALL_NOT_IMPLEMENTED then
     Result := CompareStr(S1, S2);
   {$ELSE}
-  {$IFDEF UNICODE}
+  {$IFDEF O_UNICODE}
   Result := CompareStr(S1, S2);
   {$ELSE}
   Result := WideCompareStr(S1, S2);
@@ -1573,4 +1576,4 @@ begin
   end;
 end;
 
-end.
+end.

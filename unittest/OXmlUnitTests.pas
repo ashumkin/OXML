@@ -22,7 +22,7 @@ uses
   ;
 
 const
-  cTestCount = 39;
+  cTestCount = 40;
   
 type
   TObjFunc = function(): Boolean of object;
@@ -59,6 +59,7 @@ type
     function Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlPDOM_EntityTest1: Boolean;
     function Test_OXmlPDOM_ExternalDTD: Boolean;
+    function Test_OXmlPDOM_RussianANSI: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
@@ -168,6 +169,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_DoctypeEntityTest1, 'Test_OXmlPDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlPDOM_EntityTest1, 'Test_OXmlPDOM_EntityTest1');
   ExecuteFunction(Test_OXmlPDOM_ExternalDTD, 'Test_OXmlPDOM_ExternalDTD');
+  ExecuteFunction(Test_OXmlPDOM_RussianANSI, 'Test_OXmlPDOM_RussianANSI');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -541,8 +543,8 @@ const
     ('<xml> &#xa </xml>'),
     ('<xml> &#32 </xml>'),
     ('<xml> &#x20 </xml>'),
-    ('<xml> &#3232323232; </xml>'),
-    ('<xml> &#x2020202020; </xml>'),
+    ('<xml> &#32323232323232323232; </xml>'),
+    ('<xml> &#xFF2020202020202020; </xml>'),
     ('')
     );
   outXML: Array [0..11] of OWideString = (
@@ -555,8 +557,8 @@ const
     ('<xml> &amp;#xa </xml>'),
     ('<xml> &amp;#32 </xml>'),
     ('<xml> &amp;#x20 </xml>'),
-    ('<xml> &amp;#3232323232; </xml>'),
-    ('<xml> &amp;#x2020202020; </xml>'),
+    ('<xml> &amp;#32323232323232323232; </xml>'),
+    ('<xml> &amp;#xFF2020202020202020; </xml>'),
     ('')
     );
 var
@@ -617,6 +619,68 @@ end;
 function TOXmlUnitTest.Test_OXmlPDOM_OASIS: Boolean;
 begin
   Result := Test_OASIS(True);
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_RussianANSI: Boolean;
+  function _GetBytes(Chars: PChar; CharCount: Integer;
+    Bytes: PByteArray; ByteCount: Integer): Integer;
+  var
+    I: Integer;
+    C: {$IFDEF UNICODE}PWord{$ELSE}PByte{$ENDIF};
+  begin
+    Result := ByteCount;
+    if Result > CharCount then
+      Result := CharCount;
+
+    if Result > 0 then
+    begin
+      C := {$IFDEF UNICODE}PWord{$ELSE}PByte{$ENDIF}(Chars);
+      for I := 0 to Result-1 do
+      begin
+        Bytes[I] := (C^ and $FF);
+        Inc(C);
+      end;
+    end;
+  end;
+const
+  inXML: String = //MUST BE ORealWideString because of ARC Delphi / FPC
+    '<?xml version="1.0" encoding="windows-1251"?>'+
+    '<channel>'+
+    {$IFDEF FPC}
+    '<display-name>'+#$CF#$E5#$F0#$E2#$FB#$E9+'</display-name>'+
+    {$ELSE}
+    '<display-name>'+#$00CF#$00E5#$00F0#$00E2#$00FB#$00E9+'</display-name>'+
+    {$ENDIF}
+    '</channel>';
+  outXML: String = //MUST BE ORealWideString because of ARC Delphi / FPC
+    '<?xml version="1.0" encoding="utf-8"?>'+
+    '<channel>'+
+    {$IFDEF FPC}
+    '<display-name>'+#$D0#$9F#$D0#$B5#$D1#$80#$D0#$B2#$D1#$8B#$D0#$B9+'</display-name>'+//UTF-8
+    {$ELSE}
+    '<display-name>'+#$00D0#$009F#$00D0#$00B5#$00D1#$0080#$00D0#$00B2#$00D1#$008B#$00D0#$00B9+'</display-name>'+//UTF-8
+    {$ENDIF}
+    '</channel>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xInBuffer, xOutBuffer1, xOutBuffer2: TBytes;
+begin
+  SetLength(xInBuffer, Length(inXML));
+  _GetBytes(PChar(inXML), Length(inXML), @xInBuffer[0], Length(xInBuffer));
+
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.LoadFromBuffer(xInBuffer[0], Length(xInBuffer));
+  xXML.Encoding := 'utf-8';
+  xXML.WriterSettings.WriteBOM := False;
+  xXML.SaveToBuffer({%H-}xOutBuffer1);
+
+  SetLength(xOutBuffer2, Length(outXML));
+  _GetBytes(PChar(outXML), Length(outXML), @xOutBuffer2[0], Length(xOutBuffer2));
+
+  Result :=
+    (Length(xOutBuffer1) = Length(xOutBuffer2)) and
+    (Length(xOutBuffer1) > 0) and
+    CompareMem(@xOutBuffer1[0], @xOutBuffer2[0], Length(xOutBuffer1));
 end;
 
 function TOXmlUnitTest.Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
@@ -1120,7 +1184,7 @@ var
   end;
 
   procedure _FileSaveToBuffer(const {%H-}bFileName: String;
-    bXml: OXmlReadWrite.ICustomXMLDocument; var bBuffer: TBytes; bEncoding: TEncoding;
+    bXml: OXmlReadWrite.ICustomXMLDocument; var bBuffer: TEncodingBuffer; bEncoding: TEncoding;
     {%H-}bSaveForCompare: Boolean);
   var
     xStream: TMemoryStream;
@@ -1142,7 +1206,7 @@ var
       SetLength(bBuffer, xStream.Size);
       if xStream.Size > 0 then begin
         xStream.Seek(0, soFromBeginning);
-        xStream.ReadBuffer(bBuffer[0], xStream.Size);
+        xStream.ReadBuffer(bBuffer[TEncodingBuffer_FirstElement], xStream.Size);
       end;
 
       // uncomment to write current (correct) output to check it back in the future
@@ -1159,14 +1223,14 @@ var
   function _FileRunTest(const bFileName: String; const bCompareWithOriginal, bExpandRoot: Boolean): Boolean;
   var
     xXml: OXmlReadWrite.ICustomXMLDocument;
-    xOriginalFileBuffer, xResavedFileBuffer: TBytes;
+    xOriginalFileBuffer, xResavedFileBuffer: TEncodingBuffer;
     xOriginalEncoding: TEncoding;
     xFS: TFileStream;
   begin
     xFS := TFileStream.Create(bFileName, fmOpenRead or fmShareDenyNone);
     try
       SetLength(xOriginalFileBuffer, xFS.Size);
-      xFS.ReadBuffer(xOriginalFileBuffer[0], xFS.Size);
+      xFS.ReadBuffer(xOriginalFileBuffer[TEncodingBuffer_FirstElement], xFS.Size);
     finally
       xFS.Free;
     end;
@@ -1187,7 +1251,7 @@ var
     xXml.ReaderSettings.BreakReading := brNone;
     xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.WriterSettings.UseGreaterThanEntity := False;
-    xXml.LoadFromBuffer(xOriginalFileBuffer);
+    xXml.LoadFromBuffer(xOriginalFileBuffer[TEncodingBuffer_FirstElement], Length(xOriginalFileBuffer));
 
     Result := not Assigned(xXml.ParseError);
     if not Result then Exit;
@@ -1197,6 +1261,7 @@ var
       xXml.WriterSettings.WriteBOM := True
     else
       xXml.WriterSettings.WriteBOM := False;
+    xXml.WriterSettings.LineBreak := lbCRLF;
 
     //compare files
 
@@ -1218,7 +1283,7 @@ var
       xFS := TFileStream.Create(_GetOutFileName(bFileName), fmOpenRead or fmShareDenyNone);
       try
         SetLength(xOriginalFileBuffer, xFS.Size);
-        xFS.ReadBuffer(xOriginalFileBuffer[0], xFS.Size);
+        xFS.ReadBuffer(xOriginalFileBuffer[TEncodingBuffer_FirstElement], xFS.Size);
       finally
         xFS.Free;
       end;
@@ -1227,7 +1292,7 @@ var
     Result := Length(xOriginalFileBuffer) = Length(xResavedFileBuffer);
     if not Result then Exit;
 
-    Result := CompareMem(@xOriginalFileBuffer[0], @xResavedFileBuffer[0], Length(xResavedFileBuffer));
+    Result := CompareMem(@xOriginalFileBuffer[TEncodingBuffer_FirstElement], @xResavedFileBuffer[TEncodingBuffer_FirstElement], Length(xResavedFileBuffer));
   end;
 
   function _DirRunTests(bDirID: Integer; bDirectory, bFilter: String; bExpandRoot: Boolean): Boolean;
@@ -1339,7 +1404,7 @@ begin
   {$IFDEF NEXTGEN}
   xDir := TPath.Combine(TPath.GetDocumentsPath, 'oasis'+PathDelim);
   {$ELSE}
-  xDir := ExtractFilePath(ParamStr(0)) + '..\..\oasis\xmlconf\';
+  xDir := ExtractFilePath(ParamStr(0)) + '..'+PathDelim+'..'+PathDelim+'oasis'+PathDelim+'xmlconf'+PathDelim+'';
   {$ENDIF}
 
   {$IFNDEF VER130}
@@ -1359,9 +1424,9 @@ begin
 
   xOASISTestPassedCount := 0;
   xOASISTestOmittedCount := 0;
-  Result := _DirRunTests(0, xDir + 'oasis\', '*pass*.xml', False);
+  Result := _DirRunTests(0, xDir + 'oasis'+PathDelim+'', '*pass*.xml', False);
   if not Result then Exit;
-  Result := _DirRunTests(1, xDir + 'xmltest\valid\sa\', '*.xml', True);
+  Result := _DirRunTests(1, xDir + 'xmltest'+PathDelim+'valid'+PathDelim+'sa'+PathDelim+'', '*.xml', True);
   if not Result then Exit;
 
   if Result and (xOASISTestPassedCount > 0) then
@@ -1453,8 +1518,8 @@ const
     ('<xml> &#xa </xml>'),
     ('<xml> &#32 </xml>'),
     ('<xml> &#x20 </xml>'),
-    ('<xml> &#3232323232; </xml>'),
-    ('<xml> &#x2020202020; </xml>'),
+    ('<xml> &#32323232323232323232; </xml>'),
+    ('<xml> &#xFF2020202020202020; </xml>'),
     ('')
     );
   outXML: Array [0..11] of OWideString = (
@@ -1467,8 +1532,8 @@ const
     ('<xml> &amp;#xa </xml>'),
     ('<xml> &amp;#32 </xml>'),
     ('<xml> &amp;#x20 </xml>'),
-    ('<xml> &amp;#3232323232; </xml>'),
-    ('<xml> &amp;#x2020202020; </xml>'),
+    ('<xml> &amp;#32323232323232323232; </xml>'),
+    ('<xml> &amp;#xFF2020202020202020; </xml>'),
     ('')
     );
 var
@@ -1855,4 +1920,4 @@ begin
 end;
 
 end.
-
+

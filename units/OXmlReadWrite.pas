@@ -367,10 +367,11 @@ type
     function LoadDTDFromStream(const aStream: TStream; const aDefaultEncoding: TEncoding = nil): Boolean;
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function LoadDTDFromString(const aString: OWideString): Boolean;
-    {.$IFDEF O_RAWBYTESTRING}
+    {$IFDEF O_RAWBYTESTRING}
     function LoadDTDFromString_UTF8(const aString: ORawByteString): Boolean;
-    {.$ENDIF}
-    function LoadFromBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil): Boolean;
+    {$ENDIF}
+    function LoadFromBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil): Boolean; overload;
+    function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aDefaultEncoding: TEncoding = nil): Boolean; overload;
   public
     //process known entities. add user-defined entities here
     property EntityList: TXMLReaderEntityList read fEntityList;
@@ -600,7 +601,8 @@ type
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
+    function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
     //save document with custom writer
     procedure SaveToWriter(const aWriter: TXMLWriter);
@@ -617,7 +619,10 @@ type
     {$ENDIF}
 
     //returns XML as a buffer in encoding specified by the document
-    procedure SaveToBuffer(var outBuffer: TBytes);
+    procedure SaveToBuffer(var outBuffer: TBytes); overload;
+    {$IFDEF O_RAWBYTESTRING}
+    procedure SaveToBuffer(var outBuffer: ORawByteString); overload;
+    {$ENDIF}
 
   //public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
@@ -2783,6 +2788,7 @@ begin
   end;
 end;
 
+{$IFDEF O_RAWBYTESTRING}
 function TXMLReaderSettings.LoadDTDFromString_UTF8(
   const aString: ORawByteString): Boolean;
 var
@@ -2793,6 +2799,22 @@ begin
     xStream.SetString_UTF8(aString);
 
     Result := LoadDTDFromStream(xStream, TEncoding.UTF8);
+  finally
+    xStream.Free;
+  end;
+end;
+{$ENDIF}
+
+function TXMLReaderSettings.LoadFromBuffer(const aBuffer;
+  const aBufferLength: Integer; const aDefaultEncoding: TEncoding): Boolean;
+var
+  xStream: TVirtualMemoryStream;
+begin
+  xStream := TVirtualMemoryStream.Create;
+  try
+    xStream.SetPointer(@aBuffer, aBufferLength);
+
+    Result := LoadDTDFromStream(xStream, aDefaultEncoding);
   finally
     xStream.Free;
   end;

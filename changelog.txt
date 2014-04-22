@@ -1,6 +1,10 @@
 OXml Change Log
 ---------------
 
+Version 0.12 2014-04-22 [SVN commit: 27, https://sourceforge.net/p/oxml/code/27/]
+  - Compatibility bugs in connection with various compilers resolved (Delphi 2009, FPC).
+
+
 Version 0.11 2014-04-14 [SVN commit: 25, https://sourceforge.net/p/oxml/code/25/]
   - OASIS testing suite added. OXml offers 100% XML feature coverage (without DTD's)
     according to OASIS tests.

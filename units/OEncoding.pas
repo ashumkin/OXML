@@ -84,10 +84,20 @@ const
   CP_UTF7 = 65000;//Unicode (UTF-7)
   CP_UTF8 = 65001;//Unicode (UTF-8)
 
+{$IFDEF O_DELPHI_2009_UP}
 type
   TEncodingBuffer = TBytes;
 const
   TEncodingBuffer_FirstElement = 0;
+{$ELSE}
+//AnsiString is a better "byte buffer" than "Array of Byte" for non-unicode Delphi / FPC:
+//  Delphi 7: everybody uses it...
+//  FPC: default routines CP437ToUTF8 etc use AnsiString and not Array of Byte!
+type
+  TEncodingBuffer = AnsiString;
+const
+  TEncodingBuffer_FirstElement = 1;
+{$ENDIF}
 
 
 {$IFNDEF O_DELPHI_2009_UP}
@@ -385,16 +395,16 @@ class function TEncoding.GetEncodingFromBOM(const aBuffer: TEncodingBuffer;
   var outEncoding: TEncoding; aDefaultEncoding: TEncoding): Integer;
 begin
   if (Length(aBuffer) >= 3) and
-     (aBuffer[TEncodingBuffer_FirstElement+0] = $EF) and
-     (aBuffer[TEncodingBuffer_FirstElement+1] = $BB) and
-     (aBuffer[TEncodingBuffer_FirstElement+2] = $BF)
+     (aBuffer[TEncodingBuffer_FirstElement+0] = #$EF) and
+     (aBuffer[TEncodingBuffer_FirstElement+1] = #$BB) and
+     (aBuffer[TEncodingBuffer_FirstElement+2] = #$BF)
   then begin
     outEncoding := UTF8;
     Result := 3;
   end else
   if (Length(aBuffer) >= 2) and
-     (aBuffer[TEncodingBuffer_FirstElement+0] = $FF) and
-     (aBuffer[TEncodingBuffer_FirstElement+1] = $FE)
+     (aBuffer[TEncodingBuffer_FirstElement+0] = #$FF) and
+     (aBuffer[TEncodingBuffer_FirstElement+1] = #$FE)
   then begin
     outEncoding := Unicode;
     Result := 2;
@@ -637,8 +647,8 @@ end;
 function TUnicodeEncoding.GetBOM: TEncodingBuffer;
 begin
   SetLength(Result, 2);
-  Result[TEncodingBuffer_FirstElement+0] := $FF;
-  Result[TEncodingBuffer_FirstElement+1] := $FE;
+  Result[TEncodingBuffer_FirstElement+0] := #$FF;
+  Result[TEncodingBuffer_FirstElement+1] := #$FE;
 end;
 
 procedure TUnicodeEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
@@ -727,9 +737,9 @@ end;
 function TUTF8Encoding.GetBOM: TEncodingBuffer;
 begin
   SetLength(Result, 3);
-  Result[TEncodingBuffer_FirstElement+0] := $EF;
-  Result[TEncodingBuffer_FirstElement+1] := $BB;
-  Result[TEncodingBuffer_FirstElement+2] := $BF;
+  Result[TEncodingBuffer_FirstElement+0] := #$EF;
+  Result[TEncodingBuffer_FirstElement+1] := #$BB;
+  Result[TEncodingBuffer_FirstElement+2] := #$BF;
 end;
 
 procedure TUTF8Encoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);

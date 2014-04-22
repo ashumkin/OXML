@@ -587,4 +587,4 @@ begin
   raise Exception.Create(OXmlLng_CannotWriteToVirtualMemoryStream);
 end;
 
-end.
+end.

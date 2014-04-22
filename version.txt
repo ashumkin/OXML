@@ -1,5 +1,5 @@
 OXml Version
 ------------
 
-Version:       0.11 (beta)
-Release date:  2014-04-14
+Version:       0.12 (beta)
+Release date:  2014-04-22

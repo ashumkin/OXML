@@ -313,7 +313,8 @@ type
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
+    function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
     //save document with custom writer
     procedure SaveToWriter(const aWriter: TXMLWriter);
@@ -330,7 +331,10 @@ type
     {$ENDIF}
 
     //returns XML as a buffer in encoding specified by the document
-    procedure SaveToBuffer(var outBuffer: TBytes);
+    procedure SaveToBuffer(var outBuffer: TBytes); overload;
+    {$IFDEF O_RAWBYTESTRING}
+    procedure SaveToBuffer(var outBuffer: ORawByteString); overload;
+    {$ENDIF}
   public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function XML: OWideString; overload;
@@ -538,13 +542,17 @@ type
     {$IFDEF O_RAWBYTESTRING}
     function LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
     {$ENDIF}
-    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
+    function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
     procedure SaveToWriter(const aWriter: TXMLWriter);
     procedure SaveToFile(const aFileName: String);
     procedure SaveToStream(const aStream: TStream);
 
-    procedure SaveToBuffer(var outBuffer: TBytes);
+    procedure SaveToBuffer(var outBuffer: TBytes); overload;
+    {$IFDEF O_RAWBYTESTRING}
+    procedure SaveToBuffer(var outBuffer: ORawByteString); overload;
+    {$ENDIF}
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
     {$IFDEF O_RAWBYTESTRING}
@@ -1655,6 +1663,21 @@ begin
   end;
 end;
 
+function TXMLNode.LoadFromBuffer(const aBuffer;
+  const aBufferLength: Integer; const aForceEncoding: TEncoding): Boolean;
+var
+  xStream: TVirtualMemoryStream;
+begin
+  xStream := TVirtualMemoryStream.Create;
+  try
+    xStream.SetPointer(@aBuffer, aBufferLength);
+
+    Result := LoadFromStream(xStream, aForceEncoding);
+  finally
+    xStream.Free;
+  end;
+end;
+
 function TXMLNode.LoadFromFile(const aFileName: String;
   const aForceEncoding: TEncoding): Boolean;
 var
@@ -1940,6 +1963,26 @@ begin
       outNode := nil;
   end;
 end;
+
+{$IFDEF O_RAWBYTESTRING}
+procedure TXMLNode.SaveToBuffer(var outBuffer: ORawByteString);
+var
+  xStream: TMemoryStream;
+begin
+  xStream := TMemoryStream.Create;
+  try
+    SaveToStream(xStream);
+
+    SetLength(outBuffer, xStream.Size);
+    if xStream.Size > 0 then begin
+      xStream.Seek(0, soFromBeginning);
+      xStream.ReadBuffer(outBuffer[1], xStream.Size);
+    end;
+  finally
+    xStream.Free;
+  end;
+end;
+{$ENDIF}
 
 procedure TXMLNode.SaveToFile(const aFileName: String);
 var
@@ -2620,6 +2663,13 @@ begin
   Result := Node.LoadFromBuffer(aBuffer, aForceEncoding);
 end;
 
+function TXMLDocument.LoadFromBuffer(const aBuffer;
+  const aBufferLength: Integer; const aForceEncoding: TEncoding): Boolean;
+begin
+  Clear;
+  Result := Node.LoadFromBuffer(aBuffer, aBufferLength, aForceEncoding);
+end;
+
 function TXMLDocument.LoadFromFile(const aFileName: String;
   const aForceEncoding: TEncoding): Boolean;
 begin
@@ -2650,6 +2700,13 @@ function TXMLDocument.LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
 begin
   Clear;
   Result := Node.LoadFromXML_UTF8(aXML);
+end;
+{$ENDIF}
+
+{$IFDEF O_RAWBYTESTRING}
+procedure TXMLDocument.SaveToBuffer(var outBuffer: ORawByteString);
+begin
+  Node.SaveToBuffer(outBuffer);
 end;
 {$ENDIF}
 

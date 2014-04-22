@@ -27,6 +27,8 @@ begin
   end;
 
   Writeln;
+  {$IFDEF MSWINDOWS}
   Write('Press enter to close.');
   Readln;
-end.
+  {$ENDIF}
+end.

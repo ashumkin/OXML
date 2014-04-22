@@ -138,7 +138,8 @@ type
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil);
+    procedure InitBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil); overload;
+    procedure InitBuffer(const aBuffer; const aBufferLength: Integer; const aDefaultEncoding: TEncoding = nil); overload;
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -536,6 +537,20 @@ begin
   DoInit(xNewStream, True, aDefaultEncoding);
 end;
 
+procedure TOTextReader.InitBuffer(const aBuffer;
+  const aBufferLength: Integer; const aDefaultEncoding: TEncoding);
+var
+  xNewStream: TStream;
+begin
+  xNewStream := TMemoryStream.Create;
+
+  if aBufferLength > 0 then
+    xNewStream.WriteBuffer(aBuffer, aBufferLength);
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True, aDefaultEncoding);
+end;
+
 procedure TOTextReader.InitFile(const aFileName: String;
   const aDefaultEncoding: TEncoding);
 begin
@@ -646,6 +661,16 @@ begin
   {$ELSE}
   fEncoding.BufferToString(xBuffer, fTempString);
   {$ENDIF}
+  if (Length(xBuffer) > 0) and (fTempString = '') then
+  begin
+    //must be here -> default is UTF-8 -> if BOM not set and codepage is some ANSI, UTF-8 returns empty string -> try ASCII and read codepage from <?xml?> tag afterwards
+    {$IFDEF O_DELPHI_2009_UP}
+    fTempString := TEncoding.ASCII.GetString(xBuffer);
+    {$ELSE}
+    TEncoding.ASCII.BufferToString(xBuffer, fTempString);
+    {$ENDIF}
+  end;
+
   fTempStringLength := Length(fTempString);
   fTempStringRemain := fTempStringLength;
   fTempStringPosition := 1;
