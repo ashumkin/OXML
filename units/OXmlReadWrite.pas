@@ -1558,16 +1558,9 @@ begin
       begin
         FinishOpenElement;
       end else begin
-        if fReaderSettings.fStrictXML then begin
-          Result := False;
-          RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
-            OXmlLng_InvalidCharacterInText, [xC]);
-          Exit;
-        end else begin
-          //text
-          fReader.UndoRead;
-          Text;
-        end;
+        //text
+        fReader.UndoRead;
+        Text;
       end;
     end;
   else//case
