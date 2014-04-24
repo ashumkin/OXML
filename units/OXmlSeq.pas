@@ -65,8 +65,8 @@ type
     function GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
     procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
     function GetReaderSettings: TXMLReaderSettings;
-    function GetApproxStreamPosition: ONativeInt;
-    function GetStreamSize: ONativeInt;
+    function GetApproxStreamPosition: OStreamInt;
+    function GetStreamSize: OStreamInt;
   protected
     procedure DoCreate; virtual;
     procedure DoInit; virtual;
@@ -150,9 +150,9 @@ type
   public
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
-    property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    property ApproxStreamPosition: OStreamInt read GetApproxStreamPosition;
     //size of original stream
-    property StreamSize: ONativeInt read GetStreamSize;
+    property StreamSize: OStreamInt read GetStreamSize;
 
     property ParseError: IOTextParseError read fParseError;
   end;
@@ -204,7 +204,7 @@ begin
   fXmlDoc.Clear;
 end;
 
-function TXMLSeqParser.GetApproxStreamPosition: ONativeInt;
+function TXMLSeqParser.GetApproxStreamPosition: OStreamInt;
 begin
   Result := fReader.ApproxStreamPosition;
 end;
@@ -214,7 +214,7 @@ begin
   Result := fReader.ReaderSettings;//direct access to reader settings
 end;
 
-function TXMLSeqParser.GetStreamSize: ONativeInt;
+function TXMLSeqParser.GetStreamSize: OStreamInt;
 begin
   Result := fReader.StreamSize;
 end;

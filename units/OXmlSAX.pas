@@ -173,8 +173,8 @@ type
 
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
-    function GetApproxStreamPosition: ONativeInt;
-    function GetStreamSize: ONativeInt;
+    function GetApproxStreamPosition: OStreamInt;
+    function GetStreamSize: OStreamInt;
   protected
     function StartParsing: Boolean;
   public
@@ -246,9 +246,9 @@ type
 
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
-    property ApproxStreamPosition: ONativeInt read GetApproxStreamPosition;
+    property ApproxStreamPosition: OStreamInt read GetApproxStreamPosition;
     //size of original stream
-    property StreamSize: ONativeInt read GetStreamSize;
+    property StreamSize: OStreamInt read GetStreamSize;
 
     //determines if parsing has been stopped with the StopParsing procedure
     property ParsingStopped: Boolean read fStopParsing;
@@ -321,7 +321,7 @@ begin
     fOnStartElement(Self, aName, aAttributes);
 end;
 
-function TSAXParser.GetApproxStreamPosition: ONativeInt;
+function TSAXParser.GetApproxStreamPosition: OStreamInt;
 begin
   Result := fReader.ApproxStreamPosition;
 end;
@@ -336,7 +336,7 @@ begin
   Result := fReader.NodePathCount;
 end;
 
-function TSAXParser.GetStreamSize: ONativeInt;
+function TSAXParser.GetStreamSize: OStreamInt;
 begin
   Result := fReader.StreamSize;
 end;
