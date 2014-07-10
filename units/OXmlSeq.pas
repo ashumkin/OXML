@@ -98,7 +98,8 @@ type
     //init document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil);
+    procedure InitBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil); overload;
+    procedure InitBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil); overload;
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -232,14 +233,14 @@ begin
   while fReader.ReadNextToken(fReaderToken) do
   begin
     case fReaderToken.TokenType of
-      rtOpenElement: begin
+      rtOpenElement:
+      begin
         outElementName := fReaderToken.TokenName;
         Result := True;
         Exit;
       end;
-      rtCloseElement: begin
+      rtCloseElement:
         Break;//Result = False
-      end;
     end;
   end;
 
@@ -258,7 +259,8 @@ begin
   fReader.NodePathAssignTo(fTempReaderPath);
   OExpandPath(fTempReaderPath, fTempNodePath);
 
-  if fReader.NodePathMatch(fTempNodePath) then begin
+  if fReader.NodePathMatch(fTempNodePath) then
+  begin
     Result := True;
     Exit;
   end;
@@ -283,6 +285,13 @@ procedure TXMLSeqParser.InitBuffer(const aBuffer: TBytes;
   const aForceEncoding: TEncoding);
 begin
   fReader.InitBuffer(aBuffer, aForceEncoding);
+  DoInit;
+end;
+
+procedure TXMLSeqParser.InitBuffer(const aBuffer; const aBufferLength: Integer;
+  const aForceEncoding: TEncoding);
+begin
+  fReader.InitBuffer(aBuffer, aBufferLength, aForceEncoding);
   DoInit;
 end;
 
@@ -376,16 +385,20 @@ begin
   try
     fXmlDoc.Clear(False);
 
-    if fReaderToken.TokenType = rtOpenElement then begin
+    if Assigned(fReaderToken) and (fReaderToken.TokenType = rtOpenElement) then
+    begin
       //last found was opening element (most probably from GoToPath()), write it down!
       xLastNode := fXmlDoc.Node.AddChild(fReaderToken.TokenName)
-    end else begin
+    end else
+    begin
       //last found was something else
       xLastNode := fXmlDoc.Node;
 
       //go to next child
-      if aOnlyElementHeader then begin
-        while fReader.ReadNextToken(fReaderToken) do begin
+      if aOnlyElementHeader then
+      begin
+        while fReader.ReadNextToken(fReaderToken) do
+        begin
           case fReaderToken.TokenType of
             rtOpenElement://new element found
             begin
@@ -402,7 +415,8 @@ begin
       end;
     end;
 
-    if not aOnlyElementHeader then begin
+    if not aOnlyElementHeader then
+    begin
       //read whole element contents
       xBreakReading := fReader.ReaderSettings.BreakReading;
       fReader.ReaderSettings.BreakReading := brAfterDocumentElement;
@@ -411,9 +425,11 @@ begin
       finally
         fReader.ReaderSettings.BreakReading := xBreakReading;
       end;
-    end else begin
+    end else
+    begin
       //read only element header
-      while fReader.ReadNextToken(fReaderToken) do begin
+      while fReader.ReadNextToken(fReaderToken) do
+      begin
         case fReaderToken.TokenType of
           rtXMLDeclarationAttribute, rtAttribute:
             xLastNode.Attributes[fReaderToken.TokenName] := fReaderToken.TokenValue;

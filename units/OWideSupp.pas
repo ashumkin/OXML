@@ -147,7 +147,7 @@ type
   {$ENDIF}
 
   {$IFNDEF O_DELPHI_2009_UP}
-  TBytes = Array of Byte;
+  TBytes = array of Byte;
   {$ENDIF}
 
   {$IFNDEF O_UNICODE}

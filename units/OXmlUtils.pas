@@ -151,10 +151,204 @@ procedure OXmlResolveNameSpace(const aNodeName: OWideString; var outNameSpacePre
 function OXmlCheckNameSpace(const aNodeName, aNameSpacePrefix: OWideString; var outLocalName: OWideString): Boolean;
 function OXmlApplyNameSpace(const aNameSpacePrefix, aLocalName: OWideString): OWideString;
 
+function ISOFloatToStr(const aValue: Extended): String;
+function ISODateToStr(const aDate: TDateTime): String;
+function ISODateTimeToStr(const aDateTime: TDateTime): String;
+function ISOTimeToStr(const aTime: TDateTime): String;
+
+function ISOStrToFloat(const aString: String): Extended;
+function ISOStrToDate(const aString: String): TDateTime;
+function ISOStrToDateTime(const aString: String): TDateTime;
+function ISOStrToTime(const aString: String): TDateTime;
+
+function ISOStrToFloatDef(const aString: String; const aDefValue: Extended): Extended;
+function ISOStrToDateDef(const aString: String; const aDefDate: TDateTime): TDateTime;
+function ISOStrToDateTimeDef(const aString: String; const aDefDateTime: TDateTime): TDateTime;
+function ISOStrToTimeDef(const aString: String; const aDefTime: TDateTime): TDateTime;
+
+function ISOTryStrToFloat(const aString: String; var outValue: Extended): Boolean; overload;
+function ISOTryStrToFloat(const aString: String; var outValue: Double): Boolean; overload;
+function ISOTryStrToDate(const aString: String; var outDate: TDateTime): Boolean;
+function ISOTryStrToDateTime(const aString: String; var outDateTime: TDateTime): Boolean;
+function ISOTryStrToTime(const aString: String; var outTime: TDateTime): Boolean;
+
+{$IFDEF O_DELPHI_5_DOWN}
+//Delphi 5 compatibility functions
+function TryStrToFloat(const aStr: string; var outValue: Extended): Boolean; overload;
+function TryStrToFloat(const aStr: string; var outValue: Double): Boolean; overload;
+function TryEncodeDate(aYear, aMonth, aDay: Word; var outDate: TDateTime): Boolean;
+function TryEncodeTime(aHour, aMin, aSec, aMSec: Word; var outTime: TDateTime): Boolean;
+{$ENDIF}
+{$IFDEF O_TRYENCODEDATETIME}
+function TryEncodeDateTime(aYear, aMonth, aDay, aHour, aMin, aSec,
+  aMSec: Word; var outValue: TDateTime): Boolean;
+{$ENDIF}
+
 implementation
 
 uses
-  OXmlLng;
+  OXmlLng
+  {$IFDEF O_DELPHI_6_UP}, DateUtils{$ENDIF};
+
+function ISOFloatToStr(const aValue: Extended): String;
+var
+{$IFDEF O_DELPHI_6_DOWN}
+  I: Integer;
+  PResult: PChar;
+{$ELSE}
+  xFS: TFormatSettings;
+{$ENDIF}
+begin
+  {$IFDEF O_DELPHI_6_DOWN}
+  Result := FloatToStr(aValue);
+  if DecimalSeparator <> '.' then
+  begin
+    I := Pos(',', Result);
+    if I > 0 then
+    begin
+      PResult := PChar(Result);
+      PResult[I-1] := '.';
+    end;
+  end;
+  {$ELSE}
+  xFS := OGetLocaleFormatSettings;
+  xFS.DecimalSeparator := '.';
+  Result := FloatToStr(aValue, xFS);
+  {$ENDIF}
+end;
+
+function ISODateToStr(const aDate: TDateTime): String;
+begin
+  Result := FormatDateTime('yyyy-mm-dd', aDate);
+end;
+
+function ISODateTimeToStr(const aDateTime: TDateTime): String;
+begin
+  Result := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', aDateTime)
+end;
+
+function ISOTimeToStr(const aTime: TDateTime): String;
+begin
+  Result := FormatDateTime('hh:nn:ss', aTime);
+end;
+
+function ISOStrToFloat(const aString: String): Extended;
+begin
+  Result := ISOStrToFloatDef(aString, 0);
+end;
+
+function ISOStrToDate(const aString: String): TDateTime;
+begin
+  Result := ISOStrToDateDef(aString, 0);
+end;
+
+function ISOStrToDateTime(const aString: String): TDateTime;
+begin
+  Result := ISOStrToDateTimeDef(aString, 0);
+end;
+
+function ISOStrToTime(const aString: String): TDateTime;
+begin
+  Result := ISOStrToTimeDef(aString, 0);
+end;
+
+function ISOStrToFloatDef(const aString: String; const aDefValue: Extended): Extended;
+begin
+  if not ISOTryStrToFloat(aString, {%H-}Result) then
+    Result := aDefValue;
+end;
+
+function ISOStrToDateDef(const aString: String; const aDefDate: TDateTime): TDateTime;
+begin
+  if not ISOTryStrToDate(aString, {%H-}Result) then
+    Result := aDefDate;
+end;
+
+function ISOStrToDateTimeDef(const aString: String; const aDefDateTime: TDateTime): TDateTime;
+begin
+  if not ISOTryStrToDateTime(aString, {%H-}Result) then
+    Result := aDefDateTime;
+end;
+
+function ISOStrToTimeDef(const aString: String; const aDefTime: TDateTime): TDateTime;
+begin
+  if not ISOTryStrToTime(aString, {%H-}Result) then
+    Result := aDefTime;
+end;
+
+function ISOTryStrToFloat(const aString: String; var outValue: Extended): Boolean;
+var
+{$IFDEF O_DELPHI_6_DOWN}
+  xString: String;
+{$ELSE}
+  xFS: TFormatSettings;
+{$ENDIF}
+begin
+  {$IFDEF O_DELPHI_6_DOWN}
+  if DecimalSeparator <> '.' then
+  begin
+    xString := StringReplace(aString, '.', DecimalSeparator, []);
+    Result := TryStrToFloat(xString, outValue);
+  end else
+    Result := TryStrToFloat(aString, outValue);
+  {$ELSE}
+  xFS := OGetLocaleFormatSettings;
+  xFS.DecimalSeparator := '.';
+  Result := TryStrToFloat(aString, outValue, xFS);
+  {$ENDIF}
+end;
+
+function ISOTryStrToFloat(const aString: String; var outValue: Double): Boolean;
+var
+  xValue: Extended;
+begin
+  Result := ISOTryStrToFloat(aString, {%H-}xValue);
+  if Result then
+    outValue := xValue;
+end;
+
+function ISOTryStrToDate(const aString: String; var outDate: TDateTime): Boolean;
+var
+  xYear, xMonth, xDay: Integer;
+begin
+  xYear := StrToIntDef(Copy(aString, 1, 4), 0);
+  xMonth := StrToIntDef(Copy(aString, 6, 2), 0);
+  xDay := StrToIntDef(Copy(aString, 9, 2), 0);
+
+  Result := TryEncodeDate(xYear, xMonth, xDay, outDate);
+  if not Result then
+    outDate := 0;
+end;
+
+function ISOTryStrToDateTime(const aString: String; var outDateTime: TDateTime): Boolean;
+var
+  xYear, xMonth, xDay, xHour, xMinute, xSecond: Integer;
+begin
+  xYear := StrToIntDef(Copy(aString, 1, 4), 0);
+  xMonth := StrToIntDef(Copy(aString, 6, 2), 0);
+  xDay := StrToIntDef(Copy(aString, 9, 2), 0);
+
+  xHour := StrToIntDef(Copy(aString, 12, 2), 0);
+  xMinute := StrToIntDef(Copy(aString, 15, 2), 0);
+  xSecond := StrToIntDef(Copy(aString, 18, 2), 0);
+
+  Result := TryEncodeDateTime(xYear, xMonth, xDay, xHour, xMinute, xSecond, 0, outDateTime);
+  if not Result then
+    outDateTime := 0;
+end;
+
+function ISOTryStrToTime(const aString: String; var outTime: TDateTime): Boolean;
+var
+  xHour, xMinute, xSecond: Integer;
+begin
+  xHour := StrToIntDef(Copy(aString, 1, 2), 0);
+  xMinute := StrToIntDef(Copy(aString, 4, 2), 0);
+  xSecond := StrToIntDef(Copy(aString, 7, 2), 0);
+
+  Result := TryEncodeTime(xHour, xMinute, xSecond, 0, outTime);
+  if not Result then
+    outTime := 0;
+end;
 
 procedure OXmlResolveNameSpace(const aNodeName: OWideString; var outNameSpacePrefix, outLocalName: OWideString);
 var
@@ -540,6 +734,71 @@ begin
   end;
 end;
 
+{$IFDEF O_DELPHI_5_DOWN}
+//Delphi 5 compatibility functions
+
+function TryStrToFloat(const aStr: string; var outValue: Extended): Boolean;
+var
+  xValue: Extended;
+begin
+  Result := TextToFloat(PChar(aStr), xValue, fvExtended);
+  if Result then
+    outValue := xValue;
+end;
+
+function TryStrToFloat(const aStr: string; var outValue: Double): Boolean;
+var
+  xValue: Extended;
+begin
+  Result := TextToFloat(PChar(aStr), xValue, fvExtended);
+  if Result then
+    outValue := xValue;
+end;
+
+function TryEncodeDate(aYear, aMonth, aDay: Word; var outDate: TDateTime): Boolean;
+var
+  I: Integer;
+  xDayTable: PDayTable;
+begin
+  Result := False;
+  xDayTable := @MonthDays[IsLeapYear(aYear)];
+  if (aYear >= 1) and (aYear <= 9999) and (aMonth >= 1) and (aMonth <= 12) and
+    (aDay >= 1) and (aDay <= xDayTable^[aMonth]) then
+  begin
+    for I := 1 to aMonth - 1 do Inc(aDay, xDayTable^[I]);
+    I := aYear - 1;
+    outDate := I * 365 + I div 4 - I div 100 + I div 400 + aDay - DateDelta;
+    Result := True;
+  end;
+end;
+
+function TryEncodeTime(aHour, aMin, aSec, aMSec: Word; var outTime: TDateTime): Boolean;
+begin
+  Result := False;
+  if (aHour < 24) and (aMin < 60) and (aSec < 60) and (aMSec < 1000) then
+  begin
+    outTime := (aHour * 3600000 + aMin * 60000 + aSec * 1000 + aMSec) / MSecsPerDay;
+    Result := True;
+  end;
+end;
+{$ENDIF}
+
+{$IFDEF O_TRYENCODEDATETIME}
+function TryEncodeDateTime(aYear, aMonth, aDay, aHour, aMin, aSec,
+  aMSec: Word; var outValue: TDateTime): Boolean;
+var
+  xTime: TDateTime;
+begin
+  Result := TryEncodeDate(aYear, aMonth, aDay, outValue);
+  if Result then
+  begin
+    Result := TryEncodeTime(aHour, aMin, aSec, aMSec, xTime);
+    if Result then
+      outValue := outValue + xTime;
+  end;
+end;
+{$ENDIF}
+
 { TVirtualMemoryStream }
 
 procedure TVirtualMemoryStream.SetBuffer(const aBuffer: TBytes);
@@ -587,4 +846,4 @@ begin
   raise Exception.Create(OXmlLng_CannotWriteToVirtualMemoryStream);
 end;
 
-end.
+end.

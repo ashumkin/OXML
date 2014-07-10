@@ -82,6 +82,7 @@ var
   OXmlLng_NodeMustBeDOMDocumentOrElement: String = 'Node must be a DOMDocument or an element.';
   OXmlLng_CannotSetText: String = 'You can''t set the text property of this node. Use NodeValue instead.';
   OXmlLng_ChildNotFound: String = 'Child not found.';
+  OXmlLng_NodeNotFound: String = 'Node not found.';
   OXmlLng_ListIndexOutOfRange: String = 'List index out of range.';
   OXmlLng_FeatureNotSupported: String = 'This feature is not supported.';
   OXmlLng_CannotWriteAttributesWhenFinished: String = 'You can''t add an attribute %s="%s" when the element header ("%s") has been finished.';
@@ -89,6 +90,9 @@ var
   OXmlLng_NodeNameCannotBeEmpty: String = 'Node name cannot be empty.';
   OXmlLng_XPathCannotBeEmpty: String = 'XPath cannot be empty.';
   OXmlLng_CannotWriteToVirtualMemoryStream: String = 'You cannot write to a TVirtualMemoryStream.';
+
+  OXmlLng_CannotChangeRootNodeName: String = 'Cannot change RootNodeName after data has been written.';
+  OXmlLng_WrongDeserializerSequence: String = 'TXMLDeserializer: wrong ReadObjectInfo/ReadObject call sequence.';
 
 implementation
 

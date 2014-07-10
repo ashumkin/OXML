@@ -147,7 +147,6 @@ type
   TSAXParser = class(TObject)
   private
     fReader: TXMLReader;
-    fReaderSettings: TXMLReaderSettings;
     fDataRead: Boolean;
     fStopParsing: Boolean;
     fURL: String;
@@ -175,6 +174,7 @@ type
     function GetNodePathCount: Integer;
     function GetApproxStreamPosition: OStreamInt;
     function GetStreamSize: OStreamInt;
+    function GetReaderSettings: TXMLReaderSettings;
   protected
     function StartParsing: Boolean;
   public
@@ -224,7 +224,7 @@ type
     property OnEndElement: TSAXEndElementEvent read fOnEndElement write fOnEndElement;//element end </a> or <a />
 
     //XML reader settings
-    property ReaderSettings: TXMLReaderSettings read fReaderSettings;
+    property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
   public
     //following functions and properties can be called only from events or anonymous methods during parsing
 
@@ -267,12 +267,12 @@ constructor TSAXParser.Create;
 begin
   inherited Create;
 
-  fReaderSettings := TXMLReaderSettings.Create;
+  fReader := TXMLReader.Create;
 end;
 
 destructor TSAXParser.Destroy;
 begin
-  fReaderSettings.Free;
+  fReader.Free;
 
   inherited;
 end;
@@ -336,6 +336,11 @@ begin
   Result := fReader.NodePathCount;
 end;
 
+function TSAXParser.GetReaderSettings: TXMLReaderSettings;
+begin
+  Result := fReader.ReaderSettings;
+end;
+
 function TSAXParser.GetStreamSize: OStreamInt;
 begin
   Result := fReader.StreamSize;
@@ -389,16 +394,12 @@ end;
 function TSAXParser.ParseStream(const aStream: TStream;
   const aForceEncoding: TEncoding): Boolean;
 begin
-  fReader := TXMLReader.Create;
   try
-    fReader.ReaderSettings.Assign(fReaderSettings);
-
     fReader.InitStream(aStream, aForceEncoding);
 
     Result := StartParsing;
   finally
-    fReader.Free;
-    fReader := nil;
+    fReader.ReleaseDocument;
   end;
 end;
 
@@ -471,15 +472,19 @@ begin
   xAttributes := TSAXAttributes.Create;
   fReader.SetAttributeTokens(xAttributes.fAttributeTokens);
   try
-    while (not fStopParsing) and fReader.ReadNextToken({%H-}xReaderToken) do begin
+    while (not fStopParsing) and fReader.ReadNextToken({%H-}xReaderToken) do
+    begin
       case xReaderToken.TokenType of
-        rtOpenElement: begin
-          if not fDataRead then begin
+        rtOpenElement:
+        begin
+          if not fDataRead then
+          begin
             DoOnStartDocument;
             fDataRead := True;
           end;
         end;
-        rtFinishOpenElementClose, rtFinishOpenElement: begin
+        rtFinishOpenElementClose, rtFinishOpenElement:
+        begin
           xAttributes.CreateIndex;
           DoOnStartElement(xReaderToken.TokenName, xAttributes);
           if xReaderToken.TokenType = rtFinishOpenElementClose then
@@ -496,17 +501,16 @@ begin
     end;
 
     if fDataRead and not fStopParsing then
-    begin
       DoOnEndDocument;
-    end;
 
+  finally
     if Assigned(fReader.ParseError) then
     begin
       fParseError := fReader.ParseError;
 
       Result := False;
     end;
-  finally
+
     fReader.SetAttributeTokens(nil);
     xAttributes.Free;
 
@@ -601,7 +605,8 @@ begin
   else
   begin//hash index not used
     for I := 0 to Count-1 do
-    if fAttributeTokens[I].TokenName = aAttrName then begin
+    if fAttributeTokens[I].TokenName = aAttrName then
+    begin
       Result := I;
       Exit;
     end;
@@ -669,7 +674,8 @@ begin
     Exit;
   end;
 
-  if Assigned(ioAttrEnum) then begin
+  if Assigned(ioAttrEnum) then
+  begin
     //get prev/next
     if not(
        (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount) and
@@ -677,8 +683,8 @@ begin
     then//ioAttrEnum is NOT the last iterator -> we have to find it
       fIteratorCurrent := fAttributeTokens.IndexOf(PXMLReaderToken(ioAttrEnum));
 
-    if (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount)
-    then begin
+    if (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount) then
+    begin
       fIteratorCurrent := fIteratorCurrent + aInc;
       Result := (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount);
       if Result then
@@ -686,7 +692,8 @@ begin
       else
         ioAttrEnum := nil;
     end;
-  end else begin
+  end else
+  begin
     //return first or last element
     if aInc > 0 then
       fIteratorCurrent := 0

@@ -1,6 +1,12 @@
 OXml Change Log
 ---------------
 
+Version 1.0 2014-07-10 [SVN commit: 30, https://sourceforge.net/p/oxml/code/30/]
+  - First stable release. Leaving beta.
+  - Some bug fixes and library enhancements.
+  - License change to "CPAL 1.0" or commercial. Please refer to "\license.txt" file!
+
+
 Version 0.12 2014-04-22 [SVN commit: 27, https://sourceforge.net/p/oxml/code/27/]
   - Compatibility bugs in connection with various compilers resolved (Delphi 2009, FPC).
 

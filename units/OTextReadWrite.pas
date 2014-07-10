@@ -48,7 +48,7 @@ uses
   SysUtils, Classes,
   {$ENDIF}
 
-  OBufferedStreams, OEncoding, OWideSupp;
+  OBufferedStreams, OEncoding, OWideSupp, OXmlUtils;
 
 type
 

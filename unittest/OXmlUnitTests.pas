@@ -4,17 +4,21 @@ unit OXmlUnitTests;
   {$MODE DELPHI}{$H+}
 {$ENDIF}
 
-{$IFNDEF FPC}{$IFDEF CONDITIONALEXPRESSIONS}
-  {$IF CompilerVersion >= 25}
-    {$ZEROBASEDSTRINGS OFF}
-    {$LEGACYIFEND ON}
-  {$IFEND}
-{$ENDIF}{$ENDIF}
+{$IFNDEF FPC}
+  {$IFDEF CONDITIONALEXPRESSIONS}
+    {$IF CompilerVersion >= 25}
+      {$ZEROBASEDSTRINGS OFF}
+      {$LEGACYIFEND ON}
+    {$IFEND}
+  {$ENDIF}
+{$ENDIF}
 
 interface
 
 uses
-  Classes, SysUtils, OWideSupp, OXmlUtils, OEncoding,
+  Classes, SysUtils, TypInfo,
+
+  OWideSupp, OXmlUtils, OEncoding,
   OTextReadWrite, OXmlReadWrite,
   OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq
 
@@ -22,8 +26,8 @@ uses
   ;
 
 const
-  cTestCount = 40;
-  
+  cTestCount = 45;
+
 type
   TObjFunc = function(): Boolean of object;
 
@@ -60,6 +64,9 @@ type
     function Test_OXmlPDOM_EntityTest1: Boolean;
     function Test_OXmlPDOM_ExternalDTD: Boolean;
     function Test_OXmlPDOM_RussianANSI: Boolean;
+    function Test_OXmlPDOM_ChildCount: Boolean;
+    function Test_OXmlPDOM_Id: Boolean;
+    function Test_OXmlPDOM_NextNodeInTree: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
@@ -77,6 +84,8 @@ type
     function Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlCDOM_EntityTest1: Boolean;
     function Test_OXmlCDOM_ExternalDTD: Boolean;
+    function Test_OXmlCDOM_ChildCount: Boolean;
+    function Test_OXmlCDOM_NextNodeInTree: Boolean;
     function Test_OXmlCDOM_OASIS: Boolean;
   private
     //OWideSupp.pas
@@ -107,6 +116,11 @@ type
 
 implementation
 
+{$IFDEF VER130}
+//Delphi 5 compatibility
+type
+  PByte = ^Byte;
+{$ENDIF}
 
 { TOXmlUnitTest }
 
@@ -170,6 +184,9 @@ begin
   ExecuteFunction(Test_OXmlPDOM_EntityTest1, 'Test_OXmlPDOM_EntityTest1');
   ExecuteFunction(Test_OXmlPDOM_ExternalDTD, 'Test_OXmlPDOM_ExternalDTD');
   ExecuteFunction(Test_OXmlPDOM_RussianANSI, 'Test_OXmlPDOM_RussianANSI');
+  ExecuteFunction(Test_OXmlPDOM_ChildCount, 'Test_OXmlPDOM_ChildCount');
+  ExecuteFunction(Test_OXmlPDOM_Id, 'Test_OXmlPDOM_Id');
+  ExecuteFunction(Test_OXmlPDOM_NextNodeInTree, 'Test_OXmlPDOM_NextNodeInTree');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -184,6 +201,8 @@ begin
   ExecuteFunction(Test_OXmlCDOM_DoctypeEntityTest1, 'Test_OXmlCDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlCDOM_EntityTest1, 'Test_OXmlCDOM_EntityTest1');
   ExecuteFunction(Test_OXmlCDOM_ExternalDTD, 'Test_OXmlCDOM_ExternalDTD');
+  ExecuteFunction(Test_OXmlCDOM_ChildCount, 'Test_OXmlCDOM_ChildCount');
+  ExecuteFunction(Test_OXmlCDOM_NextNodeInTree, 'Test_OXmlCDOM_NextNodeInTree');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
@@ -452,6 +471,34 @@ begin
   end;
 end;
 
+function TOXmlUnitTest.Test_OXmlPDOM_ChildCount: Boolean;
+const
+  inXML: OWideString =
+    '<?xml version="1.0" encoding="windows-1250"?>'+
+    '<ROOT attribute="1">'+
+    '  <CHILD1></CHILD1>'+
+    '  <CHILD2></CHILD2>'+
+    '  <CHILD3></CHILD3>'+
+    '  <CHILD4></CHILD4>'+
+    '</ROOT>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xRoot: OXmlPDOM.PXMLNode;
+  {%H-}xDummy: String;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+
+  xXML.LoadFromXML(inXML);
+  xRoot := xXML.DocumentElement;
+  xDummy := xRoot.AttributeNodes[0].NodeName;
+  Result := xRoot.ChildCount = 4;
+  if not Result then Exit;
+
+  xXML.LoadFromXML(inXML);
+  xRoot := xXML.DocumentElement;
+  Result := xRoot.ChildCount = 4;
+end;
+
 function TOXmlUnitTest.Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
 const
   inXML: OWideString =
@@ -614,6 +661,97 @@ begin
 
   Result := xXML.ReaderSettings.EntityList.Find('ent2', xEntityValue) and (xEntityValue = '<elem>CharData</elem> '+sLineBreak+' >');
   if not Result then Exit;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_Id: Boolean;
+var
+  I: Integer;
+  xXML: OXmlPDOM.IXMLDocument;
+  xRoot, xNode: PXMLNode;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc('root');
+  xRoot := xXML.DocumentElement;
+
+  for I := 2 to 10*1000 do
+  begin
+    xNode := xRoot.AddChild('c');
+    Result := (xNode.Id = XMLNodeId(I)) and (xXML.GetNodeById(I) = xNode);
+
+    if not Result then
+      Exit;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_NextNodeInTree: Boolean;
+var
+  I: Integer;
+
+  function NextId: String;
+  begin
+    Result := IntToStr(I);
+    Inc(I);
+  end;
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xNode: PXMLNode;
+begin
+  I := 1;
+  xXML := OXmlPDOM.CreateXMLDoc(NextId);
+  xNode := xXML.DocumentElement;
+  begin
+    xNode.AddChild(NextId);
+    xNode := xNode.AddChild(NextId);
+    begin
+      xNode.AddChild(NextId);
+      xNode.AddChild(NextId);
+      xNode := xNode.AddChild(NextId);
+      begin
+        xNode.AddChild(NextId);
+        xNode.AddChild(NextId);
+
+        xNode := xNode.ParentNode;
+      end;
+      xNode := xNode.ParentNode;
+    end;
+    xNode.AddChild(NextId);
+    xNode := xNode.AddChild(NextId);
+    begin
+      xNode := xNode.AddChild(NextId);
+      begin
+        xNode.AddChild(NextId);
+        xNode := xNode.ParentNode;
+      end;
+      xNode.AddChild(NextId);
+      xNode := xNode.ParentNode;
+    end;
+    xNode.AddChild(NextId);
+    xNode := xNode.ParentNode;
+  end;
+
+  Result := True;
+  I := 1;
+  xNode := xXML.DocumentElement;
+  while Assigned(xNode) do
+  begin
+    Result := (xNode.NodeName = IntToStr(I));
+    Inc(I);
+    if not Result then
+      Exit;
+
+    xNode := xNode.NextNodeInTree;
+  end;
+
+  xNode := xXML.DocumentElement.LastChild;
+  I := StrToInt(xNode.NodeName);
+  while Assigned(xNode) and (I > 0) do
+  begin
+    Result := (xNode.NodeName = IntToStr(I));
+    Dec(I);
+    if not Result then
+      Exit;
+
+    xNode := xNode.PreviousNodeInTree;
+  end;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_OASIS: Boolean;
@@ -1438,6 +1576,34 @@ begin
   end;
 end;
 
+function TOXmlUnitTest.Test_OXmlCDOM_ChildCount: Boolean;
+const
+  inXML: OWideString =
+    '<?xml version="1.0" encoding="windows-1250"?>'+
+    '<ROOT attribute="1">'+
+    '  <CHILD1></CHILD1>'+
+    '  <CHILD2></CHILD2>'+
+    '  <CHILD3></CHILD3>'+
+    '  <CHILD4></CHILD4>'+
+    '</ROOT>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xRoot: OXmlCDOM.TXMLNode;
+  {%H-}xDummy: String;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+
+  xXML.LoadFromXML(inXML);
+  xRoot := xXML.DocumentElement;
+  xDummy := xRoot.AttributeNodes[0].NodeName;
+  Result := xRoot.ChildCount = 4;
+  if not Result then Exit;
+
+  xXML.LoadFromXML(inXML);
+  xRoot := xXML.DocumentElement;
+  Result := xRoot.ChildCount = 4;
+end;
+
 function TOXmlUnitTest.Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
 const
   inXML: OWideString =
@@ -1589,6 +1755,78 @@ begin
 
   Result := xXML.ReaderSettings.EntityList.Find('ent2', xEntityValue) and (xEntityValue = '<elem>CharData</elem> '+sLineBreak+' >');
   if not Result then Exit;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_NextNodeInTree: Boolean;
+var
+  I: Integer;
+
+  function NextId: String;
+  begin
+    Result := IntToStr(I);
+    Inc(I);
+  end;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xNode: TXMLNode;
+begin
+  I := 1;
+  xXML := OXmlCDOM.CreateXMLDoc(NextId);
+  xNode := xXML.DocumentElement;
+  begin
+    xNode.AddChild(NextId);
+    xNode := xNode.AddChild(NextId);
+    begin
+      xNode.AddChild(NextId);
+      xNode.AddChild(NextId);
+      xNode := xNode.AddChild(NextId);
+      begin
+        xNode.AddChild(NextId);
+        xNode.AddChild(NextId);
+
+        xNode := xNode.ParentNode;
+      end;
+      xNode := xNode.ParentNode;
+    end;
+    xNode.AddChild(NextId);
+    xNode := xNode.AddChild(NextId);
+    begin
+      xNode := xNode.AddChild(NextId);
+      begin
+        xNode.AddChild(NextId);
+        xNode := xNode.ParentNode;
+      end;
+      xNode.AddChild(NextId);
+      xNode := xNode.ParentNode;
+    end;
+    xNode.AddChild(NextId);
+    xNode := xNode.ParentNode;
+  end;
+
+  Result := True;
+  I := 1;
+  xNode := xXML.DocumentElement;
+  while Assigned(xNode) do
+  begin
+    Result := (xNode.NodeName = IntToStr(I));
+    Inc(I);
+    if not Result then
+      Exit;
+
+    xNode := xNode.NextNodeInTree;
+  end;
+
+  xNode := xXML.DocumentElement.LastChild;
+  I := StrToInt(xNode.NodeName);
+  while Assigned(xNode) and (I > 0) do
+  begin
+    Result := (xNode.NodeName = IntToStr(I));
+    Dec(I);
+    if not Result then
+      Exit;
+
+    xNode := xNode.PreviousNodeInTree;
+  end;
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_OASIS: Boolean;
@@ -1920,4 +2158,4 @@ begin
 end;
 
 end.
-
+

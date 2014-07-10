@@ -137,6 +137,7 @@ type
     {$ENDIF}
     {$IFDEF O_DELPHI_4_DOWN}
     procedure Delete(Index: Integer);
+    procedure Clear; override;
     {$ENDIF}
     function Extract(aKey: ONativeInt): ONativeInt;
     function First: ONativeInt;
@@ -260,6 +261,16 @@ begin
 
   if xTemp <> nil then
     Notify(xTemp, lnDeleted);
+end;
+
+procedure TODictionary.Clear;
+var
+  I: Integer;
+begin
+  for I := 0 to Count-1 do
+    Notify(Items[I], lnDeleted);
+
+  inherited Clear;
 end;
 {$ENDIF}
 
