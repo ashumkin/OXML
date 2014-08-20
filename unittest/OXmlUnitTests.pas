@@ -26,7 +26,7 @@ uses
   ;
 
 const
-  cTestCount = 45;
+  cTestCount = 46;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -60,6 +60,7 @@ type
     function Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces2: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces: Boolean;
     function Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlPDOM_EntityTest1: Boolean;
     function Test_OXmlPDOM_ExternalDTD: Boolean;
@@ -180,6 +181,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument3, 'Test_OXmlPDOM_TXMLDocument_WrongDocument3');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces1, 'Test_OXmlPDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces2, 'Test_OXmlPDOM_TXMLDocument_NameSpaces2');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces, 'Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces');
   ExecuteFunction(Test_OXmlPDOM_DoctypeEntityTest1, 'Test_OXmlPDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlPDOM_EntityTest1, 'Test_OXmlPDOM_EntityTest1');
   ExecuteFunction(Test_OXmlPDOM_ExternalDTD, 'Test_OXmlPDOM_ExternalDTD');
@@ -1032,6 +1034,20 @@ begin
   end;
 
   Result := True;//always true -> check for assertions in Test_TSAXParser_HashIndex_SAXStartElement
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces: Boolean;
+const
+  inXML: OWideString = '<?xml version="1.0" encoding = "UTF-8"?><HeaderFooterSettings version = "8.0">test</HeaderFooterSettings>';
+  outXML: OWideString = '<?xml version="1.0" encoding="UTF-8"?><HeaderFooterSettings version="8.0">test</HeaderFooterSettings>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = outXML);
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_InvalidDocument1: Boolean;

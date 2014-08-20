@@ -167,7 +167,9 @@ function ISOStrToDateTimeDef(const aString: String; const aDefDateTime: TDateTim
 function ISOStrToTimeDef(const aString: String; const aDefTime: TDateTime): TDateTime;
 
 function ISOTryStrToFloat(const aString: String; var outValue: Extended): Boolean; overload;
+{$IFDEF O_EXTENDEDTYPE}
 function ISOTryStrToFloat(const aString: String; var outValue: Double): Boolean; overload;
+{$ENDIF}
 function ISOTryStrToDate(const aString: String; var outDate: TDateTime): Boolean;
 function ISOTryStrToDateTime(const aString: String; var outDateTime: TDateTime): Boolean;
 function ISOTryStrToTime(const aString: String; var outTime: TDateTime): Boolean;
@@ -298,6 +300,7 @@ begin
   {$ENDIF}
 end;
 
+{$IFDEF O_EXTENDEDTYPE}
 function ISOTryStrToFloat(const aString: String; var outValue: Double): Boolean;
 var
   xValue: Extended;
@@ -306,6 +309,7 @@ begin
   if Result then
     outValue := xValue;
 end;
+{$ENDIF}
 
 function ISOTryStrToDate(const aString: String; var outDate: TDateTime): Boolean;
 var

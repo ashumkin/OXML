@@ -213,9 +213,13 @@ type
     function SetAttributeNS(const aNameSpaceURI, aQualifiedName, aValue: OWideString): PXMLNode;
 
     //atribute nodes
+    // for performance reasons please avoid using AttributeNodes - use FirstAttribute+NextSibling instead!
+    // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property AttributeNodes: TXMLChildNodeList read GetAttributeNodes;
     property AttributeCount: Integer read GetAttributeCount;
     //element children
+    // for performance reasons please avoid using ChildNodes - use FirstChild+NextSibling instead!
+    // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property ChildNodes: TXMLChildNodeList read GetChildNodes;
     property ChildCount: Integer read GetChildCount;
 
