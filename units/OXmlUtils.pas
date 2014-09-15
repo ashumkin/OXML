@@ -150,6 +150,8 @@ function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace; {$I
 procedure OXmlResolveNameSpace(const aNodeName: OWideString; var outNameSpacePrefix, outLocalName: OWideString);
 function OXmlCheckNameSpace(const aNodeName, aNameSpacePrefix: OWideString; var outLocalName: OWideString): Boolean;
 function OXmlApplyNameSpace(const aNameSpacePrefix, aLocalName: OWideString): OWideString;
+function OXmlIsLocalName(const aNodeName, aLocalName: OWideString): Boolean;
+function OXmlIsLocalNameNS(const aNodeName, aNameSpace, aLocalName: OWideString): Boolean;
 
 function ISOFloatToStr(const aValue: Extended): String;
 function ISODateToStr(const aDate: TDateTime): String;
@@ -398,10 +400,55 @@ function OXmlApplyNameSpace(const aNameSpacePrefix, aLocalName: OWideString): OW
 begin
   if (aNameSpacePrefix <> '') and (aLocalName <> '') then
     Result := aNameSpacePrefix+':'+aLocalName
-  else if aNameSpacePrefix <> '' then
-    Result := aNameSpacePrefix
+  else if aLocalName <> '' then
+    Result := aLocalName
   else
-    Result := aLocalName;
+    Result := '';
+end;
+
+function OXmlIsLocalName(const aNodeName, aLocalName: OWideString): Boolean;
+var
+  xLengthNodeName, xLengthLocalName: Integer;
+begin
+  xLengthLocalName := Length(aLocalName);
+  xLengthNodeName := Length(aNodeName);
+
+  Result :=
+    (xLengthNodeName > xLengthLocalName) and
+    CompareMem(
+      @(aLocalName[1]),
+      @(aNodeName[1+xLengthNodeName-xLengthLocalName]),
+      xLengthLocalName*SizeOf(OWideChar))
+    and
+      ((xLengthLocalName = xLengthNodeName) or
+      (aNodeName[xLengthNodeName-xLengthLocalName] = ':'));
+end;
+
+function OXmlIsLocalNameNS(const aNodeName, aNameSpace, aLocalName: OWideString): Boolean;
+var
+  xLengthNodeName, xLengthLocalName, xLengthNameSpace: Integer;
+begin
+  xLengthNameSpace := Length(aNameSpace);
+  xLengthLocalName := Length(aLocalName);
+  xLengthNodeName := Length(aNodeName);
+
+  if xLengthNameSpace = 0 then
+  begin
+    Result := (aNodeName = aLocalName);
+  end else
+  begin
+    Result :=
+      (xLengthNodeName = (xLengthLocalName+xLengthNameSpace+1)) and
+      CompareMem(
+        @(aLocalName[1]),
+        @(aNodeName[2+xLengthNameSpace]),
+        xLengthLocalName*SizeOf(OWideChar)) and
+      CompareMem(
+        @(aNameSpace[1]),
+        @(aNodeName[1]),
+        xLengthNameSpace*SizeOf(OWideChar)) and
+      (aNodeName[1+xLengthNameSpace] = ':');
+  end;
 end;
 
 function OXmlStrToPreserve(const aStr: OWideString): TXMLPreserveWhiteSpace;

@@ -93,6 +93,9 @@ var
 
   OXmlLng_CannotChangeRootNodeName: String = 'Cannot change RootNodeName after data has been written.';
   OXmlLng_WrongDeserializerSequence: String = 'TXMLDeserializer: wrong ReadObjectInfo/ReadObject call sequence.';
+  OXmlLng_RTTIInternalError: String = 'RTTI Internal Error';
+  OXmlLng_DeserializerNotSupportedListItemType: String = 'TXMLRTTIDeserializer: the type %s is not supported for TList<T> or array enumeration.';
+  OXmlLng_DeserializerRegisterClass: String = 'TXMLRTTIDeserializer: you have to register the class %s with the RegisterClass method.';
 
 implementation
 

@@ -204,6 +204,9 @@ type
     function FindAttributeById(const {%H-}aNameId: OHashedStringsIndex; var outAttr: TXMLNode): Boolean; virtual;
     function FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString; var outAttr: TXMLNode): Boolean; overload;
     function FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString; var outValue: OWideString): Boolean; overload;
+    function FindAttributeByValue(const aValue: OWideString; var outAttr: TXMLNode): Boolean; overload;
+    function FindAttributeByValue(const aValue: OWideString; var outName: OWideString): Boolean; overload;
+    function FindAttributeByValueId(const aValueId: OHashedStringsIndex; var outAttr: TXMLNode): Boolean;
     //get attribute
     function GetAttribute(const aName: OWideString): OWideString;
     function GetAttributeNS(const aNameSpaceURI, aLocalName: OWideString): OWideString;
@@ -273,6 +276,8 @@ type
     //  The removed attribute is not destroyed in any case!
     function RemoveAttribute(const aOldAttribute: TXMLNode): TXMLNode;
     //clone node
+    //  aDeep = false: only node with attributes,
+    //  aDeep = true: node with attributes and all child tree
     function CloneNode(const aDeep: Boolean): TXMLNode;
     //consolidate adjacent text nodes and remove any empty text nodes
     procedure Normalize;
@@ -1037,6 +1042,47 @@ function TXMLNode.FindAttributeById(const aNameId: OHashedStringsIndex;
 begin
   Result := False;
   outAttr := nil;
+end;
+
+function TXMLNode.FindAttributeByValue(const aValue: OWideString;
+  var outAttr: TXMLNode): Boolean;
+begin
+  Result := FindAttributeByValueId(fOwnerDocument.IndexOfString(aValue), outAttr);
+end;
+
+function TXMLNode.FindAttributeByValue(const aValue: OWideString;
+  var outName: OWideString): Boolean;
+var
+  xAttr: PXMLNode;
+begin
+  Result := FindAttributeByValue(aValue, {%H-}xAttr);
+  if Result then
+    outName := xAttr.NodeName
+  else
+    outName := '';
+end;
+
+function TXMLNode.FindAttributeByValueId(const aValueId: OHashedStringsIndex;
+  var outAttr: TXMLNode): Boolean;
+begin
+  Result := False;
+  outAttr := nil;
+
+  if not HasAttributes or (aValueId < 0) then
+    Exit;
+
+  outAttr := FirstAttribute;
+  while Assigned(outAttr) do
+  begin
+    if outAttr.NodeValueId = aValueId then//attribute value found, exit -> outAttr has correct value
+    begin
+      Result := True;
+      Exit;
+    end;
+
+    outAttr := outAttr.NextSibling;
+  end;
+  //attribute value not found, -> outAttr has correct value (=nil), Result = False
 end;
 
 function TXMLNode.FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString;
@@ -3692,15 +3738,10 @@ end;
 function TXMLNodeWithChildren.FindAttributeById(const aNameId: OHashedStringsIndex;
   var outAttr: TXMLNode): Boolean;
 begin
-  if not HasAttributes then
+  if not HasAttributes or (aNameId < 0) then
   begin
     Result := False;
-    Exit;
-  end;
-
-  if aNameId < 0 then
-  begin
-    Result := False;
+    outAttr := nil;
     Exit;
   end;
 
