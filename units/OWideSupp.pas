@@ -144,6 +144,7 @@ type
   {$IFDEF O_DELPHI_5_DOWN}
   IInterface = IUnknown;
   UTF8String = AnsiString;
+  PByte = ^Byte;
   {$ENDIF}
 
   {$IFNDEF O_DELPHI_2009_UP}

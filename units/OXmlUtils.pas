@@ -188,11 +188,39 @@ function TryEncodeDateTime(aYear, aMonth, aDay, aHour, aMin, aSec,
   aMSec: Word; var outValue: TDateTime): Boolean;
 {$ENDIF}
 
+function SymbolNameToString(const aShortStringPointer: PByte): string;
+
 implementation
 
 uses
   OXmlLng
   {$IFDEF O_DELPHI_6_UP}, DateUtils{$ENDIF};
+
+function SymbolNameToString(const aShortStringPointer: PByte): string;
+var
+  xShortStringLength: Byte;
+  xShortString: TEncodingBuffer;
+begin
+  if not Assigned(aShortStringPointer) then
+    Result := ''
+  else
+  begin
+    xShortStringLength := aShortStringPointer^;
+    if xShortStringLength = 0 then
+      Result := ''
+    else
+    begin
+      SetLength(xShortString, xShortStringLength);
+      Move({%H-}PByte({%H-}ONativeUInt(aShortStringPointer)+1)^, xShortString[TEncodingBuffer_FirstElement], xShortStringLength);
+
+      {$IFDEF O_UNICODE}
+      TEncoding.ASCII.BufferToString(xShortString, Result);
+      {$ELSE}
+      Result := xShortString;
+      {$ENDIF}
+    end;
+  end;
+end;
 
 function ISOFloatToStr(const aValue: Extended): String;
 var

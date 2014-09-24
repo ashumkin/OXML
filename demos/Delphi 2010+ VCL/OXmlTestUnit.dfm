@@ -1,9 +1,9 @@
 object Form1: TForm1
-  Left = 239
-  Top = 139
-  Width = 1103
-  Height = 690
+  Left = 0
+  Top = 0
   Caption = 'Form1'
+  ClientHeight = 663
+  ClientWidth = 940
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -147,6 +147,42 @@ object Form1: TForm1
     TabOrder = 13
     OnClick = BtnEncodingTestClick
   end
+  object BtnSerialize: TButton
+    Left = 616
+    Top = 80
+    Width = 97
+    Height = 25
+    Caption = 'Serialize'
+    TabOrder = 14
+    OnClick = BtnSerializeClick
+  end
+  object BtnDeserialize: TButton
+    Left = 712
+    Top = 80
+    Width = 97
+    Height = 25
+    Caption = 'Deserialize'
+    TabOrder = 15
+    OnClick = BtnDeserializeClick
+  end
+  object BtnSerializeRTTI: TButton
+    Left = 616
+    Top = 112
+    Width = 97
+    Height = 25
+    Caption = 'Serialize RTTI'
+    TabOrder = 16
+    OnClick = BtnSerializeRTTIClick
+  end
+  object BtnDeserializeRTTI: TButton
+    Left = 712
+    Top = 112
+    Width = 97
+    Height = 25
+    Caption = 'Deserialize RTTI'
+    TabOrder = 17
+    OnClick = BtnDeserializeRTTIClick
+  end
   object Memo1: TMemo
     Left = 16
     Top = 160
@@ -155,7 +191,7 @@ object Form1: TForm1
     Lines.Strings = (
       'Memo1')
     ScrollBars = ssBoth
-    TabOrder = 14
+    TabOrder = 18
   end
   object Memo2: TMemo
     Left = 312
@@ -165,6 +201,6 @@ object Form1: TForm1
     Lines.Strings = (
       'Memo2')
     ScrollBars = ssBoth
-    TabOrder = 15
+    TabOrder = 19
   end
 end

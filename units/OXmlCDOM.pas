@@ -1053,7 +1053,7 @@ end;
 function TXMLNode.FindAttributeByValue(const aValue: OWideString;
   var outName: OWideString): Boolean;
 var
-  xAttr: PXMLNode;
+  xAttr: TXMLNode;
 begin
   Result := FindAttributeByValue(aValue, {%H-}xAttr);
   if Result then

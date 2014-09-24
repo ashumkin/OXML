@@ -1,4 +1,4 @@
-﻿unit OXmlTestUnit;
+unit OXmlTestUnit;
 
 {.$DEFINE USE_DELPHIXML}      //compare OXml with Delphi XML
 {.$DEFINE USE_MSXML}          //compare OXml with MS XML
@@ -17,6 +17,9 @@
     {$DEFINE USE_FORIN}
     {$DEFINE USE_ANONYMOUS_METHODS}
   {$IFEND}
+  {$IF CompilerVersion >= 21}//D2010
+    {$DEFINE USE_RTTI}
+  {$IFEND}
   {$IF CompilerVersion >= 23}//DXE2
     {$DEFINE USE_ADOM}
   {$IFEND}
@@ -27,7 +30,7 @@ interface
 uses
   {$IFDEF FPC}LCLIntf, {$ELSE}Windows, {$ENDIF}
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  ComCtrls,
+  ComCtrls, DateUtils,
   //BEGIN XML LIBRARIES UNITS
   {$IFDEF USE_DELPHIXML}
   XMLIntf, XMLDoc, xmldom, msxmldom, {$IFDEF USE_ADOM}adomxmldom,{$ENDIF} OXmlDOMVendor,
@@ -58,9 +61,16 @@ uses
   {$ENDIF}
   //END XML LIBRARIES UNITS
   OEncoding, OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
-  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlSeq;
+  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlSeq, OXmlSerialize
+  {$IFDEF USE_RTTI}
+  , OXmlRTTISerialize
+  {$ENDIF}
+  ;
 
 type
+
+  { TForm1 }
+
   TForm1 = class(TForm)
     BtnReadPerformanceTest: TButton;
     BtnWritePerformanceTest: TButton;
@@ -77,6 +87,10 @@ type
     BtnTestWriteInvalid: TButton;
     BtnEncodingTest: TButton;
     LblTimeInfo: TLabel;
+    BtnSerialize: TButton;
+    BtnDeserialize: TButton;
+    BtnSerializeRTTI: TButton;
+    BtnDeserializeRTTI: TButton;
     Memo1: TMemo;
     Memo2: TMemo;
     procedure BtnXmlDirectWriteClick(Sender: TObject);
@@ -94,6 +108,10 @@ type
     procedure BtnResaveTestClick(Sender: TObject);
     procedure BtnAttributeTestClick(Sender: TObject);
     procedure BtnTest4GBClick(Sender: TObject);
+    procedure BtnSerializeClick(Sender: TObject);
+    procedure BtnDeserializeClick(Sender: TObject);
+    procedure BtnSerializeRTTIClick(Sender: TObject);
+    procedure BtnDeserializeRTTIClick(Sender: TObject);
   private
     procedure DoNothing(const {%H-}aStr1, {%H-}aStr2: OWideString);
 
@@ -116,6 +134,58 @@ type
   protected
     procedure DoCreate; override;
   end;
+
+  TText_OXmlSerializer_Test1_Enum = (enOne, enTwo, enThree);
+  TText_OXmlSerializer_Test1_Set = set of TText_OXmlSerializer_Test1_Enum;
+
+  TText_OXmlSerializer_Test1_Class2 = class(TPersistent)
+  private
+    fMyInt: Integer;
+  published
+    property MyInt: Integer read fMyInt write fMyInt;
+  end;
+
+  TText_OXmlSerializer_Test1_Class = class(TPersistent)
+  private
+    fMyInt: Integer;
+    fMyEnum: TText_OXmlSerializer_Test1_Enum;
+    fMySet: TText_OXmlSerializer_Test1_Set;
+    fMyDate: TDate;
+    fMyDateTime: TDateTime;
+    fMyTime: TTime;
+    fMyFloat: Double;
+    fMyString: String;
+    fMyWideString: WideString;
+    fMyClass: TText_OXmlSerializer_Test1_Class2;
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    MyPublicVar: Integer;
+    property MyPublicProp: Integer read MyPublicVar write MyPublicVar;
+    property MyPublicHiddenProp: Integer read MyPublicVar write MyPublicVar;
+  published
+    property MyInt: Integer read fMyInt write fMyInt;
+    property MyEnum: TText_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum;
+    property MySet: TText_OXmlSerializer_Test1_Set read fMySet write fMySet;
+    property MyDate: TDate read fMyDate write fMyDate;
+    property MyDateTime: TDateTime read fMyDateTime write fMyDateTime;
+    property MyTime: TTime read fMyTime write fMyTime;
+    property MyFloat: Double read fMyFloat write fMyFloat;
+    property MyString: String read fMyString write fMyString;
+    property MyWideString: WideString read fMyWideString write fMyWideString;
+    property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
+  end;
+
+  {$IFDEF USE_RTTI}
+  TText_OXmlSerializer_Test1_Record = record
+  private
+    fMyInt: Integer;
+  public
+    MyIntVar: Integer;
+    property MyInt: Integer read fMyInt write fMyInt;
+  end;
+  {$ENDIF}
 
 function SAXEscapeString(const aString: OWideString): OWideString;
 
@@ -1245,6 +1315,113 @@ begin
 
 end;
 
+procedure TForm1.BtnSerializeClick(Sender: TObject);
+var
+  xStream: TMemoryStream;
+  xSerializer: TXMLSerializer;
+  xReader: TOTextReader;
+  xObject: TText_OXmlSerializer_Test1_Class;
+begin
+  xStream := TMemoryStream.Create;
+  xSerializer := TXMLSerializer.Create;
+  xObject := TText_OXmlSerializer_Test1_Class.Create;
+  try
+    xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.InitStream(xStream);
+
+    xObject.MyInt := 15;
+    xObject.MyEnum := enTwo;
+    xObject.MySet := [enOne, enThree];
+    xObject.MyDate := Trunc(Now);//get date only
+    xObject.MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+    xObject.MyTime := Frac(xObject.MyDateTime);//get time only
+    xObject.MyFloat := 3.14;
+    xObject.MyString := 'Kluug.net';
+    xObject.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+    xObject.MyClass.MyInt := 97;
+
+    xSerializer.WriteObject(xObject);
+
+    xSerializer.ReleaseDocument;
+
+    xStream.Position := 0;
+    xReader := TOTextReader.Create(xStream, TEncoding.UTF8);
+    try
+      Memo1.Lines.Text := xReader.ReadString(High(Integer));
+    finally
+      xReader.Free;
+    end;
+
+  finally
+    xSerializer.Free;
+    xStream.Free;
+    xObject.Free;
+  end;
+end;
+
+procedure TForm1.BtnSerializeRTTIClick(Sender: TObject);
+{$IFDEF USE_RTTI}
+var
+  xStream: TMemoryStream;
+  xSerializer: TXMLRTTISerializer;
+  xReader: TOTextReader;
+  xObject: TText_OXmlSerializer_Test1_Class;
+  xRecord: TText_OXmlSerializer_Test1_Record;
+  xInt: Integer;
+  xDouble: Double;
+begin
+  xStream := TStringStream.Create('', TEncoding.UTF8);
+  xSerializer := TXMLRTTISerializer.Create;
+  xObject := TText_OXmlSerializer_Test1_Class.Create;
+  try
+    xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.InitStream(xStream);
+
+    xObject.MyInt := 15;
+    xObject.MyEnum := enTwo;
+    xObject.MySet := [enOne, enThree];
+    xObject.MyDate := Trunc(Now);//get date only
+    xObject.MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+    xObject.MyTime := Frac(xObject.MyDateTime);//get time only
+    xObject.MyFloat := 3.14;
+    xObject.MyString := 'Kluug.net';
+    xObject.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+    xObject.MyClass.MyInt := 97;
+    xObject.MyPublicVar := 18;
+
+    xSerializer.WriteObject(xObject);
+
+    xRecord.MyInt := 7;
+    xRecord.MyIntVar := 8;
+    xSerializer.WriteObject(xRecord);
+
+    xInt := 5;
+    xSerializer.WriteObject(xInt);
+
+    xDouble := 3.14;
+    xSerializer.WriteObject(xDouble);
+
+    xSerializer.ReleaseDocument;
+
+    xStream.Position := 0;
+    xReader := TOTextReader.Create(xStream, TEncoding.UTF8);
+    try
+      Memo1.Lines.Text := xReader.ReadString(High(Integer));
+    finally
+      xReader.Free;
+    end;
+
+  finally
+    xSerializer.Free;
+    xStream.Free;
+    xObject.Free;
+  end;
+{$ELSE}
+begin
+  ShowMessage('Enhanced RTTI is available only in Delphi 2010 and newer.');
+{$ENDIF}
+end;
+
 function SAXEscapeString(const aString: OWideString): OWideString;
 begin
   Result := aString;
@@ -2036,6 +2213,85 @@ begin
     'Create: ' + FloatToStr((xT2-xT1) / 1000)+sLineBreak+
     'Get: ' + FloatToStr((xT3-xT2) / 1000)+sLineBreak;
   Memo2.Lines.Clear;
+end;
+
+procedure TForm1.BtnDeserializeClick(Sender: TObject);
+var
+  xDeserializer: TXMLDeserializer;
+  xObject: TText_OXmlSerializer_Test1_Class;
+  xClassName: String;
+begin
+  xDeserializer := TXMLDeserializer.Create;
+  xObject := nil;
+  try
+    xDeserializer.InitXML(Memo1.Lines.Text);
+    xDeserializer.UseIndex := False;
+
+    while xDeserializer.ReadObjectInfo({%H-}xClassName) do
+    begin
+      if xClassName = TText_OXmlSerializer_Test1_Class.ClassName then
+      begin
+        xObject := TText_OXmlSerializer_Test1_Class.Create;
+
+        xDeserializer.ReadObject(xObject);
+
+        Break;//we want only one object
+      end else
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+    end;
+
+    if Assigned(xObject) then
+    begin
+      //do something with the object
+      ShowMessage('MyClass.MyInt = '+IntToStr(xObject.MyClass.MyInt));
+    end else
+      raise Exception.Create('Nothing to deserialize.');
+  finally
+    xDeserializer.Free;
+    xObject.Free;
+  end;
+end;
+
+procedure TForm1.BtnDeserializeRTTIClick(Sender: TObject);
+{$IFDEF USE_RTTI}
+var
+  xDeserializer: TXMLRTTIDeserializer;
+  xObject: TText_OXmlSerializer_Test1_Class;
+  xClassName: String;
+begin
+  xDeserializer := TXMLRTTIDeserializer.Create;
+  xObject := nil;
+  try
+    xDeserializer.InitXML(Memo1.Lines.Text);
+    xDeserializer.UseIndex := False;
+
+    while xDeserializer.ReadObjectInfo({%H-}xClassName) do
+    begin
+      if xClassName = TText_OXmlSerializer_Test1_Class.ClassName then
+      begin
+        xObject := TText_OXmlSerializer_Test1_Class.Create;
+
+        xDeserializer.ReadObject(xObject);
+
+        Break;//we want only one object
+      end else
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+    end;
+
+    if Assigned(xObject) then
+    begin
+      //do something with the object
+      ShowMessage('MyClass.MyInt = '+IntToStr(xObject.MyClass.MyInt));
+    end else
+      raise Exception.Create('Nothing to deserialize.');
+  finally
+    xDeserializer.Free;
+    xObject.Free;
+  end;
+{$ELSE}
+begin
+  ShowMessage('Enhanced RTTI is available only in Delphi 2010 and newer.');
+{$ENDIF}
 end;
 
 procedure TForm1.BtnDOMTestClick(Sender: TObject);
@@ -3051,7 +3307,7 @@ begin
   {$ENDIF}
     if xAttrStr <> '' then
       xAttrStr := xAttrStr + ', ';
-    xAttrStr := xAttrStr + SAXEscapeString(xAttr.TokenName)+'="'+SAXEscapeString(xAttr.TokenValue)+'"';
+    xAttrStr := xAttrStr + SAXEscapeString(xAttr.NodeName)+'="'+SAXEscapeString(xAttr.NodeValue)+'"';
   end;
   xAttrStr := '['+xAttrStr+']';
 
@@ -3062,6 +3318,22 @@ end;
 procedure TForm1.DoNothing(const aStr1, aStr2: OWideString);
 begin
   //nothing
+end;
+
+{ TText_OXmlSerializer_Test1_Class }
+
+constructor TText_OXmlSerializer_Test1_Class.Create;
+begin
+  fMyClass := TText_OXmlSerializer_Test1_Class2.Create;
+
+  inherited Create;
+end;
+
+destructor TText_OXmlSerializer_Test1_Class.Destroy;
+begin
+  fMyClass.Free;
+
+  inherited;
 end;
 
 end.

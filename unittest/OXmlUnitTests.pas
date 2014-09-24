@@ -10,23 +10,39 @@ unit OXmlUnitTests;
       {$ZEROBASEDSTRINGS OFF}
       {$LEGACYIFEND ON}
     {$IFEND}
+    {$IF CompilerVersion >= 21}
+      {$DEFINE USE_RTTI}
+    {$IFEND}
+    {$IF CompilerVersion < 20}
+      {$DEFINE USE_CONTROLS}
+    {$IFEND}
+    {$DEFINE USE_DATEUTILS}
+  {$ELSE}
+    //Delphi 5
+    {$DEFINE USE_CONTROLS}
   {$ENDIF}
+{$ELSE}
+  {$DEFINE USE_DATEUTILS}
 {$ENDIF}
 
 interface
 
 uses
   Classes, SysUtils, TypInfo,
+  {$IFDEF USE_DATEUTILS}DateUtils,{$ENDIF}
+  {$IFDEF USE_CONTROLS}Controls,{$ENDIF}
 
   OWideSupp, OXmlUtils, OEncoding,
   OTextReadWrite, OXmlReadWrite,
-  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq
+  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq,
+  OXmlSerialize
+  {$IFDEF USE_RTTI}, OXmlRTTISerialize, Generics.Collections{$ENDIF}
 
   {$IFDEF NEXTGEN}, System.IOUtils{$ENDIF}
   ;
 
 const
-  cTestCount = 46;
+  cTestCount = 50;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -108,12 +124,117 @@ type
   private
     //oasis tests
     function Test_OASIS(const aIsPDOM: Boolean): Boolean;
+  private
+    //OXmlSerialize.pas
+    function Text_OXmlSerializer_Test1(const aUseIndex: Boolean): Boolean;
+    function Text_OXmlSerializer_Test1True: Boolean;
+    function Text_OXmlSerializer_Test1False: Boolean;
+
+    //OXmlRTTISerialize.pas
+    function Text_OXmlRTTISerializer_Test1(const {%H-}aUseIndex: Boolean): Boolean;
+    function Text_OXmlRTTISerializer_Test1True: Boolean;
+    function Text_OXmlRTTISerializer_Test1False: Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
     constructor Create;
     destructor Destroy; override;
   end;
+
+  //custom classes for serializer tests
+  TText_OXmlSerializer_Test1_Enum = (enOne, enTwo, enThree);
+  TText_OXmlSerializer_Test1_Set = set of TText_OXmlSerializer_Test1_Enum;
+
+  TText_OXmlSerializer_Test1_Class2 = class(TPersistent)
+  private
+    fMyInt: Integer;
+  public
+    constructor Create; overload;
+    constructor Create(const aMyInt: Integer); overload;
+  published
+    property MyInt: Integer read fMyInt write fMyInt;
+  end;
+  TText_OXmlSerializer_Test1_Class2A = class(TText_OXmlSerializer_Test1_Class2)
+  end;
+
+  MyWideString = {$IFNDEF NEXTGEN}WideString{$ELSE}string{$ENDIF};
+
+  TText_OXmlSerializer_Test1_Class = class(TPersistent)
+  private
+    fMyInt: Integer;
+    fMyEnum: TText_OXmlSerializer_Test1_Enum;
+    fMySet: TText_OXmlSerializer_Test1_Set;
+    fMyDate: TDate;
+    fMyDateTime: TDateTime;
+    fMyTime: TTime;
+    fMyFloat: Double;
+    fMyString: String;
+    fMyWideString: MyWideString;
+    fMyClass: TText_OXmlSerializer_Test1_Class2;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function SameAs(aCompare: TText_OXmlSerializer_Test1_Class): Boolean;
+  published
+    property MyInt: Integer read fMyInt write fMyInt;
+    property MyEnum: TText_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum;
+    property MySet: TText_OXmlSerializer_Test1_Set read fMySet write fMySet;
+    property MyDate: TDate read fMyDate write fMyDate;
+    property MyDateTime: TDateTime read fMyDateTime write fMyDateTime;
+    property MyTime: TTime read fMyTime write fMyTime;
+    property MyFloat: Double read fMyFloat write fMyFloat;
+    property MyString: String read fMyString write fMyString;
+    property MyWideString: MyWideString read fMyWideString write fMyWideString;
+    property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
+  end;
+
+  {$IFDEF USE_RTTI}
+  TText_OXmlRTTISerializer_Test1_Record = record
+    MyInt: Integer;
+    MyString: string;
+    MyArray: array[1..2] of String;
+    MyDynArray: array of String;
+    MyDynArrayDate: array of TDateTime;
+  end;
+  PText_OXmlRTTISerializer_Test1_Record = ^TText_OXmlRTTISerializer_Test1_Record;
+
+  TText_OXmlRTTISerializer_Test1_Class = class(TPersistent)
+  private
+    fMyInt: Integer;
+    fMyEnum: TText_OXmlSerializer_Test1_Enum;
+    fMySet: TText_OXmlSerializer_Test1_Set;
+    fMyDate: TDate;
+    fMyDateTime: TDateTime;
+    fMyTime: TTime;
+    fMyFloat: Double;
+    fMyString: string;
+    fMyWideString: MyWideString;
+    fMyClass: TText_OXmlSerializer_Test1_Class2;
+    fMyRecord: TText_OXmlRTTISerializer_Test1_Record;
+    fMyStrList: TList<string>;
+    fMyObjList: TObjectList<TText_OXmlSerializer_Test1_Class2>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+
+    function SameAs(aCompare: TText_OXmlRTTISerializer_Test1_Class): Boolean;
+  public
+    property MyInt: Integer read fMyInt write fMyInt default 0;
+    property MyEnum: TText_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum default enOne;
+    property MySet: TText_OXmlSerializer_Test1_Set read fMySet write fMySet;
+    property MyDate: TDate read fMyDate write fMyDate;
+    property MyDateTime: TDateTime read fMyDateTime write fMyDateTime;
+    property MyTime: TTime read fMyTime write fMyTime;
+    property MyFloat: Double read fMyFloat write fMyFloat;
+    property MyString: string read fMyString write fMyString;
+    property MyWideString: MyWideString read fMyWideString write fMyWideString;
+    property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
+    property MyRecord: TText_OXmlRTTISerializer_Test1_Record read fMyRecord write fMyRecord;
+    property MyStrList: TList<string> read fMyStrList;
+    property MyObjList: TObjectList<TText_OXmlSerializer_Test1_Class2> read fMyObjList;
+  end;
+  {$ENDIF}
 
 implementation
 
@@ -210,6 +331,10 @@ begin
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
   ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
+  ExecuteFunction(Text_OXmlSerializer_Test1True, 'Text_OXmlSerializer_Test1True');
+  ExecuteFunction(Text_OXmlSerializer_Test1False, 'Text_OXmlSerializer_Test1False');
+  ExecuteFunction(Text_OXmlRTTISerializer_Test1True, 'Text_OXmlRTTISerializer_Test1True');
+  ExecuteFunction(Text_OXmlRTTISerializer_Test1False, 'Text_OXmlRTTISerializer_Test1False');
 
   if fPassNameIfFalse.Count = 0 then
     aStrList.Add(Format('OXml: all tests from %d passed.', [GetAllTestCount]))
@@ -727,7 +852,6 @@ begin
       xNode := xNode.ParentNode;
     end;
     xNode.AddChild(NextId);
-    xNode := xNode.ParentNode;
   end;
 
   Result := True;
@@ -949,6 +1073,219 @@ begin
   finally
     xXMLSeq.Free;
   end;
+end;
+
+function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1(
+  const aUseIndex: Boolean): Boolean;
+{$IFDEF USE_RTTI}
+var
+  xStream: TStream;
+  xSerializer: TXMLRTTISerializer;
+  xDeserializer: TXMLRTTIDeserializer;
+  I: Integer;
+  xObjectIn, xObjectOut: array[0..1] of TText_OXmlRTTISerializer_Test1_Class;
+  xClassName: String;
+  xRec: TText_OXmlRTTISerializer_Test1_Record;
+begin
+  Result := False;
+
+  xStream := TMemoryStream.Create;
+  xSerializer := TXMLRTTISerializer.Create;
+  xDeserializer := TXMLRTTIDeserializer.Create;
+  for I := Low(xObjectIn) to High(xObjectIn) do
+  begin
+    xObjectIn[I] := TText_OXmlRTTISerializer_Test1_Class.Create;
+    xObjectOut[I] := nil;
+  end;
+  try
+    xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.WriterSettings.WriteBOM := False;
+    xSerializer.InitStream(xStream);
+
+    for I := Low(xObjectIn) to High(xObjectIn) do
+    begin
+      xObjectIn[I].MyInt := I;
+      xObjectIn[I].MyEnum := enTwo;
+      xObjectIn[I].MySet := [enOne, enThree];
+      xObjectIn[I].MyDate := Trunc(Now) + I;//get date only
+      xObjectIn[I].MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+      xObjectIn[I].MyTime := Frac(xObjectIn[I].MyDateTime);//get time only
+      xObjectIn[I].MyFloat := 3.14;
+      xObjectIn[I].MyString := 'Kluug.net';
+      xObjectIn[I].MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+      xObjectIn[I].MyClass.MyInt := I + 10;
+      xRec.MyInt := I + 11;
+      xRec.MyString := 'hello';
+      SetLength(xRec.MyDynArray, 2);
+      xRec.MyDynArray[0] := 'zero';
+      xRec.MyDynArray[1] := 'one';
+      xRec.MyArray[1] := 'one';
+      xRec.MyArray[2] := 'two';
+      SetLength(xRec.MyDynArrayDate, 2);
+      xRec.MyDynArrayDate[0] := Now;
+      xRec.MyDynArrayDate[1] := Now-1;
+      xObjectIn[I].MyRecord := xRec;
+      xObjectIn[I].MyStrList.Add('first');
+      xObjectIn[I].MyStrList.Add('second');
+      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2A.Create(1));
+      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2.Create(2));
+      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2.Create(3));
+
+      xSerializer.WriteObject(xObjectIn[I]);
+    end;
+
+    xSerializer.ReleaseDocument;
+
+    xStream.Position := 0;
+
+    xDeserializer.InitStream(xStream);
+    xDeserializer.UseIndex := aUseIndex;
+    xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2A);
+
+    I := 0;
+    while xDeserializer.ReadObjectInfo({%H-}xClassName) do
+    begin
+      if xClassName = TText_OXmlRTTISerializer_Test1_Class.ClassName then
+      begin
+        xObjectOut[I] := TText_OXmlRTTISerializer_Test1_Class.Create;
+
+        xDeserializer.ReadObject(xObjectOut[I]);
+
+        Inc(I);
+      end else
+        raise Exception.Create('Text_OXmlRTTISerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+    end;
+
+    for I := Low(xObjectIn) to High(xObjectIn) do
+    begin
+      Result :=
+        Assigned(xObjectOut[I]) and
+        xObjectIn[I].SameAs(xObjectOut[I]);
+
+      if not Result then
+        Exit;
+    end;
+  finally
+    xSerializer.Free;
+    xDeserializer.Free;
+    xStream.Free;
+    for I := Low(xObjectIn) to High(xObjectIn) do
+    begin
+      xObjectIn[I].Free;
+      xObjectOut[I].Free;
+    end;
+  end;
+{$ELSE}
+begin
+  //FPC + Delphi 2009 -- no enhanced RTTI!
+  Result := True;
+{$ENDIF}
+end;
+
+function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1False: Boolean;
+begin
+  Result := Text_OXmlRTTISerializer_Test1(False);
+end;
+
+function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1True: Boolean;
+begin
+  Result := Text_OXmlRTTISerializer_Test1(True);
+end;
+
+function TOXmlUnitTest.Text_OXmlSerializer_Test1(
+  const aUseIndex: Boolean): Boolean;
+var
+  xStream: TStream;
+  xSerializer: TXMLSerializer;
+  xDeserializer: TXMLDeserializer;
+  I: Integer;
+  xObjectIn, xObjectOut: array[0..1] of TText_OXmlSerializer_Test1_Class;
+  xClassName: String;
+begin
+  Result := False;
+
+  xStream := TMemoryStream.Create;
+  xSerializer := TXMLSerializer.Create;
+  xDeserializer := TXMLDeserializer.Create;
+  for I := Low(xObjectIn) to High(xObjectIn) do
+  begin
+    xObjectIn[I] := TText_OXmlSerializer_Test1_Class.Create;
+    xObjectOut[I] := nil;
+  end;
+  try
+    xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.InitStream(xStream);
+
+    for I := Low(xObjectIn) to High(xObjectIn) do
+    begin
+      xObjectIn[I].MyInt := I;
+      xObjectIn[I].MyEnum := enTwo;
+      xObjectIn[I].MySet := [enOne, enThree];
+      xObjectIn[I].MyDate := Trunc(Now) + I;//get date only
+      {$IFDEF USE_DATEUTILS}
+      xObjectIn[I].MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+      {$ELSE}
+      xObjectIn[I].MyDateTime := Now;
+      {$ENDIF}
+      xObjectIn[I].MyTime := Frac(xObjectIn[I].MyDateTime);//get time only
+      xObjectIn[I].MyFloat := 3.14;
+      xObjectIn[I].MyString := 'Kluug.net';
+      xObjectIn[I].MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+      xObjectIn[I].MyClass.MyInt := I + 10;
+
+      xSerializer.WriteObject(xObjectIn[I]);
+    end;
+
+    xSerializer.ReleaseDocument;
+
+    xStream.Position := 0;
+
+    xDeserializer.InitStream(xStream);
+    xDeserializer.UseIndex := aUseIndex;
+
+    I := 0;
+    while xDeserializer.ReadObjectInfo({%H-}xClassName) do
+    begin
+      if xClassName = TText_OXmlSerializer_Test1_Class.ClassName then
+      begin
+        xObjectOut[I] := TText_OXmlSerializer_Test1_Class.Create;
+
+        xDeserializer.ReadObject(xObjectOut[I]);
+
+        Inc(I);
+      end else
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+    end;
+
+    for I := Low(xObjectIn) to High(xObjectIn) do
+    begin
+      Result :=
+        Assigned(xObjectOut[I]) and
+        xObjectIn[I].SameAs(xObjectOut[I]);
+
+      if not Result then
+        Exit;
+    end;
+  finally
+    xSerializer.Free;
+    xDeserializer.Free;
+    xStream.Free;
+    for I := Low(xObjectIn) to High(xObjectIn) do
+    begin
+      xObjectIn[I].Free;
+      xObjectOut[I].Free;
+    end;
+  end;
+end;
+
+function TOXmlUnitTest.Text_OXmlSerializer_Test1False: Boolean;
+begin
+  Result := Text_OXmlSerializer_Test1(False);
+end;
+
+function TOXmlUnitTest.Text_OXmlSerializer_Test1True: Boolean;
+begin
+  Result := Text_OXmlSerializer_Test1(True);
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
@@ -1816,7 +2153,6 @@ begin
       xNode := xNode.ParentNode;
     end;
     xNode.AddChild(NextId);
-    xNode := xNode.ParentNode;
   end;
 
   Result := True;
@@ -2171,6 +2507,133 @@ begin
   xAttribute.NodeValue := 'value';
 
   Result := (xXML.XML = '<root attr="value"/>');
+end;
+
+{$IFDEF USE_RTTI}
+{ TText_OXmlRTTISerializer_Test1_Class }
+
+constructor TText_OXmlRTTISerializer_Test1_Class.Create;
+begin
+  fMyClass := TText_OXmlSerializer_Test1_Class2.Create;
+  fMyStrList := TList<string>.Create;
+  fMyObjList := TObjectList<TText_OXmlSerializer_Test1_Class2>.Create;
+end;
+
+destructor TText_OXmlRTTISerializer_Test1_Class.Destroy;
+begin
+  fMyClass.Free;
+  fMyStrList.Free;
+  fMyObjList.Free;
+
+  inherited;
+end;
+
+function TText_OXmlRTTISerializer_Test1_Class.SameAs(
+  aCompare: TText_OXmlRTTISerializer_Test1_Class): Boolean;
+var
+  I: Integer;
+begin
+  Result :=
+    (MyInt = aCompare.MyInt) and
+    (MyEnum = aCompare.MyEnum) and
+    (MySet = aCompare.MySet) and
+    SameDate(MyDate, aCompare.MyDate) and
+    SameDateTime(MyDateTime, aCompare.MyDateTime) and
+    SameTime(MyTime, aCompare.MyTime) and
+    (MyFloat = aCompare.MyFloat) and
+    (MyString = aCompare.MyString) and
+    (MyWideString = aCompare.MyWideString) and
+    (MyClass.MyInt = aCompare.MyClass.MyInt) and
+    (MyRecord.MyInt = aCompare.MyRecord.MyInt) and
+    (MyRecord.MyString = aCompare.MyRecord.MyString) and
+    (Length(MyRecord.MyArray) = Length(aCompare.MyRecord.MyArray)) and
+    (Length(MyRecord.MyDynArray) = Length(aCompare.MyRecord.MyDynArray)) and
+    (Length(MyRecord.MyDynArrayDate) = Length(aCompare.MyRecord.MyDynArrayDate)) and
+    (MyStrList.Count = aCompare.MyStrList.Count) and
+    (MyObjList.Count = aCompare.MyObjList.Count);
+
+  if Result then
+  begin
+    for I := Low(MyRecord.MyArray) to High(MyRecord.MyArray) do
+    if not (MyRecord.MyArray[I] = aCompare.MyRecord.MyArray[I]) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    for I := Low(MyRecord.MyDynArray) to High(MyRecord.MyDynArray) do
+    if not (MyRecord.MyDynArray[I] = aCompare.MyRecord.MyDynArray[I]) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    for I := Low(MyRecord.MyDynArrayDate) to High(MyRecord.MyDynArrayDate) do
+    if not SameDateTime(MyRecord.MyDynArrayDate[I], aCompare.MyRecord.MyDynArrayDate[I]) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    for I := 0 to MyStrList.Count-1 do
+    if not (MyStrList[I] = aCompare.MyStrList[I]) then
+    begin
+      Result := False;
+      Exit;
+    end;
+    for I := 0 to MyObjList.Count-1 do
+    if not (MyObjList[I].MyInt = aCompare.MyObjList[I].MyInt) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+{$ENDIF}
+
+{ TText_OXmlSerializer_Test1_Class2 }
+
+constructor TText_OXmlSerializer_Test1_Class2.Create;
+begin
+  inherited Create;
+end;
+
+constructor TText_OXmlSerializer_Test1_Class2.Create(const aMyInt: Integer);
+begin
+  inherited Create;
+
+  fMyInt := aMyInt;
+end;
+
+{ TText_OXmlSerializer_Test1_Class }
+
+constructor TText_OXmlSerializer_Test1_Class.Create;
+begin
+  fMyClass := TText_OXmlSerializer_Test1_Class2.Create;
+
+  inherited Create;
+end;
+
+destructor TText_OXmlSerializer_Test1_Class.Destroy;
+begin
+  fMyClass.Free;
+
+  inherited;
+end;
+
+function TText_OXmlSerializer_Test1_Class.SameAs(
+  aCompare: TText_OXmlSerializer_Test1_Class): Boolean;
+begin
+  Result :=
+    (MyInt = aCompare.MyInt) and
+    (MyEnum = aCompare.MyEnum) and
+    (MySet = aCompare.MySet) and
+    {$IFDEF USE_DATEUTILS}
+    SameDate(MyDate, aCompare.MyDate) and
+    SameDateTime(MyDateTime, aCompare.MyDateTime) and
+    SameTime(MyTime, aCompare.MyTime) and
+    {$ENDIF}
+    (MyFloat = aCompare.MyFloat) and
+    (MyString = aCompare.MyString) and
+    (MyWideString = aCompare.MyWideString) and
+    (MyClass.MyInt = aCompare.MyClass.MyInt);
 end;
 
 end.

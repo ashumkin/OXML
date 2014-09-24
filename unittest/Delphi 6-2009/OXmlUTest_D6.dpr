@@ -21,7 +21,8 @@ uses
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
-  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas',
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 var
   xTest: TOXmlUnitTest;

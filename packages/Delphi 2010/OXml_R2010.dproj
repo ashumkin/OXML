@@ -65,6 +65,8 @@
 			<DCCReference Include="..\..\units\OEncoding.pas"/>
 			<DCCReference Include="..\..\units\OXmlPDOM.pas"/>
 			<DCCReference Include="..\..\units\OXmlCDOM.pas"/>
+			<DCCReference Include="..\..\units\OXmlRTTISerialize.pas"/>
+			<DCCReference Include="..\..\units\OXmlSerialize.pas"/>
 			<BuildConfiguration Include="Base">
 				<Key>Base</Key>
 			</BuildConfiguration>

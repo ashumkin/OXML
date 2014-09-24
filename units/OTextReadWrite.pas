@@ -656,19 +656,11 @@ begin
 
   Inc(fStreamPosition, xReadBytes+xUTF8Inc);
   SetLength(xBuffer, xReadBytes+xUTF8Inc);
-  {$IFDEF O_DELPHI_2009_UP}
-  fTempString := fEncoding.GetString(xBuffer);
-  {$ELSE}
   fEncoding.BufferToString(xBuffer, fTempString);
-  {$ENDIF}
   if (Length(xBuffer) > 0) and (fTempString = '') then
   begin
     //must be here -> default is UTF-8 -> if BOM not set and codepage is some ANSI, UTF-8 returns empty string -> try ASCII and read codepage from <?xml?> tag afterwards
-    {$IFDEF O_DELPHI_2009_UP}
-    fTempString := TEncoding.ASCII.GetString(xBuffer);
-    {$ELSE}
     TEncoding.ASCII.BufferToString(xBuffer, fTempString);
-    {$ENDIF}
   end;
 
   fTempStringLength := Length(fTempString);
@@ -1047,19 +1039,11 @@ begin
 
   if aMaxLength < 0 then begin
     //write complete string
-    {$IFDEF O_DELPHI_2009_UP}
-    xBytes := fEncoding.GetBytes(aString);
-    {$ELSE}
     fEncoding.StringToBuffer(aString, {%H-}xBytes);
-    {$ENDIF}
     xBytesLength := Length(xBytes);
   end else begin
     //write part of string
-    {$IFDEF O_DELPHI_2009_UP}
-    xBytes := fEncoding.GetBytes(Copy(aString, 1, aMaxLength));
-    {$ELSE}
     fEncoding.StringToBuffer(Copy(aString, 1, aMaxLength), {%H-}xBytes);
-    {$ENDIF}
     xBytesLength := Length(xBytes);
   end;
 

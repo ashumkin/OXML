@@ -107,7 +107,7 @@ type
   public
     //functions that convert strings to buffers and vice versa
     function BufferToString(const aBytes: TEncodingBuffer): OWideString; overload;
-    procedure BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString); overload; virtual; abstract;//faster in D7 and FPC than "function BufferToString"
+    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; overload; virtual; abstract;//faster in D7 and FPC than "function BufferToString"
     function StringToBuffer(const S: OWideString): TEncodingBuffer; overload;
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); overload; virtual; abstract;//faster in D7 and FPC than "function StringToBuffer"
 
@@ -146,7 +146,7 @@ type
   TUnicodeEncoding = class(TEncoding)
   public
     function GetBOM: TEncodingBuffer; override;
-    procedure BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString); override;
+    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; override;
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); override;
     class function IsSingleByte: Boolean; override;
     function EncodingName: OWideString; override;
@@ -155,7 +155,7 @@ type
   TUTF8Encoding = class(TEncoding)
   public
     function GetBOM: TEncodingBuffer; override;
-    procedure BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString); override;
+    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; override;
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); override;
     class function IsSingleByte: Boolean; override;
     function EncodingName: OWideString; override;
@@ -168,7 +168,7 @@ type
     constructor Create(aCodePage: Cardinal);
   public
     function GetBOM: TEncodingBuffer; override;
-    procedure BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString); override;
+    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; override;
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); override;
     class function IsSingleByte: Boolean; override;
     function EncodingName: OWideString; override;
@@ -200,6 +200,11 @@ type
     class function GetEncodingFromBOM(const aBuffer: TEncodingBuffer; var outEncoding: TEncoding;
       aDefaultEncoding: TEncoding): Integer; overload;
     function GetBOM: TEncodingBuffer;
+
+    function BufferToString(const aBytes: TEncodingBuffer): OWideString; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function StringToBuffer(const S: OWideString): TEncodingBuffer; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+    procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); overload; {$IFDEF O_INLINE}inline;{$ENDIF}
   end;
   TMBCSEncodingHelper = class helper for TMBCSEncoding
   public
@@ -568,7 +573,7 @@ begin
   SetLength(Result, 0);
 end;
 
-procedure TMBCSEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
+function TMBCSEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean;
 {$IFDEF MSWINDOWS}
   procedure _Convert(var aWS: ORealWideString);
   var
@@ -589,6 +594,7 @@ var
 begin
   if Length(aBytes) = 0 then begin
     outString := '';
+    Result := True;
     Exit;
   end;
 
@@ -602,6 +608,7 @@ begin
   {$ELSE}
   outString := CodePageToUTF8(aBytes, fCodePage);
   {$ENDIF}
+  Result := outString <> '';
 end;
 
 class function TMBCSEncoding.IsSingleByte: Boolean;
@@ -651,7 +658,7 @@ begin
   Result[TEncodingBuffer_FirstElement+1] := #$FE;
 end;
 
-procedure TUnicodeEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
+function TUnicodeEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean;
 var
   xByteCount: Integer;
   {$IFDEF FPC}
@@ -661,6 +668,7 @@ begin
   xByteCount := Length(aBytes);
   if xByteCount = 0 then begin
     outString := '';
+    Result := True;
     Exit;
   end;
   {$IFDEF FPC}
@@ -673,6 +681,7 @@ begin
   SetLength(outString, xByteCount div 2);
   Move(aBytes[TEncodingBuffer_FirstElement], outString[1], xByteCount);
   {$ENDIF}
+  Result := outString <> '';
 end;
 
 class function TUnicodeEncoding.IsSingleByte: Boolean;
@@ -742,7 +751,7 @@ begin
   Result[TEncodingBuffer_FirstElement+2] := #$BF;
 end;
 
-procedure TUTF8Encoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString);
+function TUTF8Encoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean;
 var
   {$IFNDEF FPC}
   xCharCount: Integer;
@@ -752,6 +761,7 @@ begin
   if Length(aBytes) = 0 then
   begin
     outString := '';
+    Result := True;
     Exit;
   end;
   xByteCount := Length(aBytes);
@@ -778,6 +788,7 @@ begin
       outString := '';
     {$ENDIF}
   {$ENDIF}
+  Result := outString <> '';
 end;
 
 class function TUTF8Encoding.IsSingleByte: Boolean;
@@ -938,6 +949,40 @@ begin
     Result := CP_UNICODE_BE
   else
     Result := 0;
+end;
+
+function TEncodingHelper.BufferToString(const aBytes: TEncodingBuffer): OWideString;
+begin
+  BufferToString(aBytes, Result);
+end;
+
+function TEncodingHelper.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean;
+var
+  xByteCount, xLength: Integer;
+begin
+  xByteCount := Length(aBytes);
+  if xByteCount = 0 then
+  begin
+    outString := '';
+    Result := True;
+    Exit;
+  end;
+
+  xLength := GetCharCount(aBytes, 0, xByteCount);
+  SetLength(outString, xLength);
+  Result := (xLength > 0);
+  if Result then
+    GetChars(@aBytes[0], xByteCount, PChar(outString), xLength);
+end;
+
+function TEncodingHelper.StringToBuffer(const S: OWideString): TEncodingBuffer;
+begin
+  Result := GetBytes(S);
+end;
+
+procedure TEncodingHelper.StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer);
+begin
+  outBuffer := GetBytes(S);
 end;
 
 { TMBCSEncodingHelper }

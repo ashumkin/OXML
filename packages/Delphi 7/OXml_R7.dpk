@@ -45,6 +45,7 @@ contains
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
-  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas',
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 end.

@@ -1,4 +1,4 @@
-program OXmlUTest_D2009;
+program OXmlUTest_D2010;
 
 {$APPTYPE CONSOLE}
 
@@ -21,7 +21,9 @@ uses
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
-  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas',
+  OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 var
   xTest: TOXmlUnitTest;

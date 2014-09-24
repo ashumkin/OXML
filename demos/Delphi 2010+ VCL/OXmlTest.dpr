@@ -17,7 +17,9 @@ uses
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
   OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas',
-  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas',
+  OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 {$R *.res}
 

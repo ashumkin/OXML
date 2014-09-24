@@ -43,6 +43,7 @@ contains
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   OEncoding in '..\..\units\OEncoding.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
-  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas',
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 end.
