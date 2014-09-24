@@ -151,10 +151,18 @@ type
   public
     constructor Create; overload;
     constructor Create(const aMyInt: Integer); overload;
+
+    function SameAs(const aComp: TText_OXmlSerializer_Test1_Class2): Boolean; virtual;
   published
     property MyInt: Integer read fMyInt write fMyInt;
   end;
   TText_OXmlSerializer_Test1_Class2A = class(TText_OXmlSerializer_Test1_Class2)
+  public
+    MyIntVar: Integer;
+  public
+    constructor Create(const aMyInt, aMyIntVar: Integer); overload;
+
+    function SameAs(const aComp: TText_OXmlSerializer_Test1_Class2): Boolean; override;
   end;
 
   MyWideString = {$IFNDEF NEXTGEN}WideString{$ELSE}string{$ENDIF};
@@ -1127,7 +1135,7 @@ begin
       xObjectIn[I].MyRecord := xRec;
       xObjectIn[I].MyStrList.Add('first');
       xObjectIn[I].MyStrList.Add('second');
-      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2A.Create(1));
+      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2A.Create(1, 5));
       xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2.Create(2));
       xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2.Create(3));
 
@@ -1140,6 +1148,7 @@ begin
 
     xDeserializer.InitStream(xStream);
     xDeserializer.UseIndex := aUseIndex;
+    xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2);
     xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2A);
 
     I := 0;
@@ -2579,7 +2588,7 @@ begin
       Exit;
     end;
     for I := 0 to MyObjList.Count-1 do
-    if not (MyObjList[I].MyInt = aCompare.MyObjList[I].MyInt) then
+    if not (MyObjList[I]).SameAs(aCompare.MyObjList[I]) then
     begin
       Result := False;
       Exit;
@@ -2600,6 +2609,12 @@ begin
   inherited Create;
 
   fMyInt := aMyInt;
+end;
+
+function TText_OXmlSerializer_Test1_Class2.SameAs(
+  const aComp: TText_OXmlSerializer_Test1_Class2): Boolean;
+begin
+  Result := fMyInt = aComp.fMyInt;
 end;
 
 { TText_OXmlSerializer_Test1_Class }
@@ -2634,6 +2649,31 @@ begin
     (MyString = aCompare.MyString) and
     (MyWideString = aCompare.MyWideString) and
     (MyClass.MyInt = aCompare.MyClass.MyInt);
+end;
+
+{ TText_OXmlSerializer_Test1_Class2A }
+
+constructor TText_OXmlSerializer_Test1_Class2A.Create(const aMyInt,
+  aMyIntVar: Integer);
+begin
+  inherited Create(aMyInt);
+
+  MyIntVar := aMyIntVar;
+end;
+
+function TText_OXmlSerializer_Test1_Class2A.SameAs(
+  const aComp: TText_OXmlSerializer_Test1_Class2): Boolean;
+var
+  xComp: TText_OXmlSerializer_Test1_Class2A;
+begin
+  Result := aComp is TText_OXmlSerializer_Test1_Class2A;
+  if Result then
+  begin
+    xComp := TText_OXmlSerializer_Test1_Class2A(aComp);
+    Result :=
+      inherited SameAs(aComp) and
+      (MyIntVar = xComp.MyIntVar);
+  end;
 end;
 
 end.

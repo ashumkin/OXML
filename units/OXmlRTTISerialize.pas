@@ -91,7 +91,7 @@ type
 
     procedure WriteObjectEnumeration(const aObject: TObject; const aType: TRttiType);
     procedure WriteObjectProperty(
-      const aTagName: OWideString; const aType: TRttiType;
+      const aTagName: OWideString; aType: TRttiType;
       const aValue: TValue;
       const aIsDefaultValue: Boolean);
     procedure _WriteObjectProperty(const aTagName, aValue: OWideString);
@@ -113,7 +113,6 @@ type
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
   public
-
     //Write an object to the XML file.
     procedure WriteObject<T>(const aObject: T);
   public
@@ -160,7 +159,7 @@ type
       const aType: TRttiType; const aValue: TValue;
       const aElementNode: PXMLNode);
     procedure ReadObjectPropertyValue(
-      const aType: TRttiType;
+      aType: TRttiType;
       const aElementValueNode: PXMLNode;
       var ioValue: TValue;
       var outValueDataChanged: Boolean); overload;
@@ -227,6 +226,13 @@ type
 
     //ParseError has information about the error that occured when parsing a document
     property ParseError: IOTextParseError read GetParseError;
+  end;
+
+  TRttiContextHelper = record helper for TRttiContext
+  public
+    //Get real object type -> especially for instances of classes
+    function GetRealObjectType<T>(const aObject: T): TRttiType; overload;
+    function GetRealObjectType(const aValue: TValue; const aDefType: TRttiType): TRttiType; overload;
   end;
 
   EXMLRTTISerializer = class(Exception);
@@ -334,11 +340,12 @@ end;
 procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T);
 var
   xType: TRttiType;
+  xValue: TValue;
 begin
   if not fRootElementWritten then
     WriteRootStartElement;
 
-  xType := fContext.GetType(TypeInfo(T));
+  xType := fContext.GetRealObjectType<T>(aObject);
 
   WriteObjectProperty(xType.ToString, xType, TValue.From<T>(aObject), False);
 end;
@@ -387,7 +394,8 @@ begin
     while xMoveNext.Invoke(xEnumObject, []).AsBoolean do
     begin
       xValue := xCurrent.GetValue(xEnumObject);
-      WriteObjectProperty(SymbolNameToString(@xValue.TypeInfo.Name), xItemType, xValue, False);
+      WriteObjectProperty(SymbolNameToString(@xValue.TypeInfo.Name),
+        xItemType, xValue, False);
     end;
     fWriter.CloseElement('_oxmldefenum', True);
 
@@ -397,7 +405,7 @@ begin
 end;
 
 procedure TXMLRTTISerializer.WriteObjectProperty(
-  const aTagName: OWideString; const aType: TRttiType;
+  const aTagName: OWideString; aType: TRttiType;
   const aValue: TValue;
   const aIsDefaultValue: Boolean);
 var
@@ -409,6 +417,8 @@ var
   xElementType: TRttiType;
   I: Integer;
 begin
+  aType := fContext.GetRealObjectType(aValue, aType);
+
   case aType.TypeKind of
     tkInteger, tkChar, tkWChar, tkEnumeration, tkSet:
     begin
@@ -689,7 +699,7 @@ begin
   if not Assigned(fCurrentElementNode) then
     raise EXMLRTTIDeserializer.Create(OXmlLng_WrongDeserializerSequence);
 
-  xType := fContext.GetType(TypeInfo(T));
+  xType := fContext.GetRealObjectType<T>(aObject);
 
   case xType.TypeKind of
     tkClass: xInstance := PObject(@aObject)^;
@@ -828,7 +838,7 @@ begin
 end;
 
 procedure TXMLRTTIDeserializer.ReadObjectPropertyValue(
-  const aType: TRttiType;
+  aType: TRttiType;
   const aElementValueNode: PXMLNode;
   var ioValue: TValue;
   var outValueDataChanged: Boolean);
@@ -842,6 +852,8 @@ var
   xArrayLength: ONativeInt;
   I: Integer;
 begin
+  aType := fContext.GetRealObjectType(ioValue, aType);
+
   outValueDataChanged := False;
   case aType.TypeKind of
     tkClass: ReadObjectProperties(ioValue.AsObject, aType, aElementValueNode);
@@ -946,6 +958,36 @@ end;
 function TValueHelper.AsSet: Integer;
 begin
   Result := Self.FData.FAsSLong;//get private field hook
+end;
+
+{ TRttiContextHelper }
+
+function TRttiContextHelper.GetRealObjectType(const aValue: TValue;
+  const aDefType: TRttiType): TRttiType;
+var
+  xObject: TObject;
+begin
+  Result := aDefType;
+  if aValue.IsObject and (aDefType.TypeKind = tkClass) then
+  begin
+    xObject := aValue.AsObject;
+    if Assigned(xObject) then
+      Result := Self.GetType(xObject.ClassType)
+  end;
+end;
+
+function TRttiContextHelper.GetRealObjectType<T>(
+  const aObject: T): TRttiType;
+var
+  xObject: TObject;
+begin
+  Result := Self.GetType(TypeInfo(T));//TypeInfo
+  if (Result.TypeKind = tkClass) then
+  begin
+    xObject := PObject(@aObject)^;
+    if Assigned(xObject) then
+      Result := Self.GetType(xObject.ClassType);
+  end;
 end;
 
 end.
