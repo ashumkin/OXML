@@ -68,22 +68,36 @@ type
   
   TMemberVisibilitySet = set of TMemberVisibility;
 
-  TXMLRTTISerializer = class(TObject)
+  TCustomXMLRTTISerDes = class(TObject)
+  private
+    fVisibility: TMemberVisibilitySet;
+
+    fContext: TRttiContext;
+  protected
+    procedure DoCreate; virtual;
+
+    property Context: TRttiContext read fContext;
+  public
+    constructor Create;
+    destructor Destroy; override;
+  public
+    //write properties only from a specific visibility
+    property Visibility: TMemberVisibilitySet read fVisibility write fVisibility;
+  end;
+
+  TXMLRTTISerializer = class(TCustomXMLRTTISerDes)
   private
     fWriter: TXMLWriter;
     fRootElementWritten: Boolean;
 
     fRootNodeName: OWideString;
     fWriteDefaultValues: Boolean;
-    fVisibility: TMemberVisibilitySet;
-
-    fContext: TRttiContext;
   private
     function GetWriterSettings: TXMLWriterSettings;
     procedure SetRootNodeName(const Value: OWideString);
 
   protected
-    procedure DoCreate; virtual;
+    procedure DoCreate; override;
     procedure DoInit; virtual;
 
     procedure WriteRootStartElement;
@@ -91,7 +105,7 @@ type
 
     procedure WriteObjectEnumeration(const aObject: TObject; const aType: TRttiType);
     procedure WriteObjectProperty(
-      const aTagName: OWideString; aType: TRttiType;
+      aTagName: OWideString; aType: TRttiType;
       const aValue: TValue;
       const aIsDefaultValue: Boolean);
     procedure _WriteObjectProperty(const aTagName, aValue: OWideString);
@@ -121,21 +135,19 @@ type
     //write object properties with default values?
     property WriteDefaultValues: Boolean read fWriteDefaultValues write fWriteDefaultValues;
     //write properties only from a specific visibility
-    property Visibility: TMemberVisibilitySet read fVisibility write fVisibility;
+    property Visibility;
 
     //XML writer settings
     property WriterSettings: TXMLWriterSettings read GetWriterSettings;
   end;
 
-  TXMLRTTIDeserializer = class(TObject)
+  TXMLRTTIDeserializer = class(TCustomXMLRTTISerDes)
   private
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
 
     fUseIndex: Boolean;
     fPropNameIndex: TDictionary<OHashedStringsIndex,PXMLNode>;
-
-    fContext: TRttiContext;
 
     fCreateClasses: TDictionary<string,TClass>;
 
@@ -144,11 +156,12 @@ type
     function GetReaderSettings: TXMLReaderSettings;
     function GetParseError: IOTextParseError;
   protected
+    procedure DoCreate; override;
     procedure DoInit; virtual;
 
     procedure BuildIndex(const aElementNode: PXMLNode);
     function CreateNewValue(const aType: TRttiType;
-      const aTypeName: string): TValue;
+      aTypeName: string; var outAllocatedData: Pointer): TValue;
     procedure ReadObjectEnumeration(const aObject: TObject;
       const aType: TRttiType; const aEnumerationNode: PXMLNode);
     procedure ReadObjectProperties(const aInstance: Pointer;
@@ -170,7 +183,6 @@ type
     procedure SetPropertyValue(const aInstance: Pointer;
       const aMember: TRttiMember; const aNewValue: TValue);
   public
-    constructor Create; virtual;
     destructor Destroy; override;
   public
     //The Init* procedures open and initialize a XML document for parsing.
@@ -226,6 +238,9 @@ type
 
     //ParseError has information about the error that occured when parsing a document
     property ParseError: IOTextParseError read GetParseError;
+
+    //write properties only from a specific visibility
+    property Visibility;
   end;
 
   TRttiContextHelper = record helper for TRttiContext
@@ -266,15 +281,11 @@ end;
 constructor TXMLRTTISerializer.Create;
 begin
   inherited Create;
-
-  DoCreate;
 end;
 
 constructor TXMLRTTISerializer.Create(const aStream: TStream);
 begin
   inherited Create;
-
-  DoCreate;
 
   InitStream(aStream);
 end;
@@ -283,17 +294,15 @@ destructor TXMLRTTISerializer.Destroy;
 begin
   ReleaseDocument;
   fWriter.Free;
-  fContext.Free;
 
   inherited;
 end;
 
 procedure TXMLRTTISerializer.DoCreate;
 begin
-  fWriter := TXMLWriter.Create;
-  fContext := TRttiContext.Create;
-  fVisibility := [mvPublic, mvPublished];
+  inherited DoCreate;
 
+  fWriter := TXMLWriter.Create;
   fRootNodeName := 'oxmlserializer';
 end;
 
@@ -345,7 +354,7 @@ begin
   if not fRootElementWritten then
     WriteRootStartElement;
 
-  xType := fContext.GetRealObjectType<T>(aObject);
+  xType := Context.GetRealObjectType<T>(aObject);
 
   WriteObjectProperty(xType.ToString, xType, TValue.From<T>(aObject), False);
 end;
@@ -353,13 +362,22 @@ end;
 procedure TXMLRTTISerializer.WriteObjectEnumeration(const aObject: TObject;
   const aType: TRttiType);
 var
-  xGetEnumerator: TRttiMethod;
+  xGetEnumerator, xAdd, xClear: TRttiMethod;
   xEnumObject: TObject;
   xEnumType, xItemType: TRttiType;
   xCurrent: TRttiProperty;
   xMoveNext: TRttiMethod;
   xValue: TValue;
 begin
+  //enumeration has to have add and clear methods
+  xClear := aType.GetMethod('Clear');
+  xAdd := aType.GetMethod('Add');
+  if not Assigned(xClear) or
+     not Assigned(xAdd) or
+     (Length(xAdd.GetParameters) <> 1)
+  then
+    Exit;
+
   xGetEnumerator := aType.GetMethod('GetEnumerator');
   if not Assigned(xGetEnumerator) or
      (xGetEnumerator.MethodKind <> mkFunction) or
@@ -372,12 +390,10 @@ begin
     Exit;
 
   try
-    xEnumType := fContext.GetType(xEnumObject.ClassInfo);
+    xEnumType := Context.GetType(xEnumObject.ClassInfo);
 
     xCurrent := xEnumType.GetProperty('Current');
-    if not Assigned(xCurrent) or
-       not (xCurrent.PropertyType.TypeKind in [tkString, tkUString, tkClass])
-    then
+    if not Assigned(xCurrent) then
       Exit;
 
     xMoveNext := xEnumType.GetMethod('MoveNext');
@@ -405,7 +421,7 @@ begin
 end;
 
 procedure TXMLRTTISerializer.WriteObjectProperty(
-  const aTagName: OWideString; aType: TRttiType;
+  aTagName: OWideString; aType: TRttiType;
   const aValue: TValue;
   const aIsDefaultValue: Boolean);
 var
@@ -417,7 +433,8 @@ var
   xElementType: TRttiType;
   I: Integer;
 begin
-  aType := fContext.GetRealObjectType(aValue, aType);
+  aTagName := OXmlNameToXML(aTagName);
+  aType := Context.GetRealObjectType(aValue, aType);
 
   case aType.TypeKind of
     tkInteger, tkChar, tkWChar, tkEnumeration, tkSet:
@@ -529,23 +546,17 @@ begin
   end;
 end;
 
-constructor TXMLRTTIDeserializer.Create;
-begin
-  inherited Create;
-
-  fXMLParser := TXMLSeqParser.Create;
-  fPropNameIndex := TDictionary<OHashedStringsIndex,PXMLNode>.Create;
-  fCreateClasses := TDictionary<string,TClass>.Create;
-end;
-
 function TXMLRTTIDeserializer.CreateNewValue(const aType: TRttiType;
-  const aTypeName: string): TValue;
+  aTypeName: string; var outAllocatedData: Pointer): TValue;
 var
   xCreateClass: TClass;
   xCreateClassType: TRttiType;
   xConstructorI, xConstructorFound: TRttiMethod;
   xConstructorParams: TArray<TRttiParameter>;
 begin
+  aTypeName := OXmlXMLToName(aTypeName);
+  outAllocatedData := nil;
+
   case aType.TypeKind of
     tkInteger: Result := TValue.From<Integer>(0);
     tkInt64: Result := TValue.From<Int64>(0);
@@ -574,7 +585,7 @@ begin
       begin
         if not fCreateClasses.TryGetValue(aTypeName, xCreateClass) then
           raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_DeserializerRegisterClass, [aTypeName]);
-        xCreateClassType := fContext.GetType(xCreateClass);
+        xCreateClassType := Context.GetType(xCreateClass);
       end else
       begin
         xCreateClassType := aType;
@@ -606,6 +617,11 @@ begin
         1: Result := xConstructorFound.Invoke(xCreateClass, [nil]);
       end;
     end;
+    tkRecord:
+    begin
+      outAllocatedData := AllocMem(aType.TypeSize);
+      TValue.Make(outAllocatedData, aType.Handle, Result);
+    end;
   else
     //error reading
     raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_DeserializerNotSupportedListItemType, [aType.Name]);
@@ -616,17 +632,24 @@ destructor TXMLRTTIDeserializer.Destroy;
 begin
   fPropNameIndex.Free;
   fXMLParser.Free;
-  fContext.Free;
   fCreateClasses.Free;
 
   inherited;
+end;
+
+procedure TXMLRTTIDeserializer.DoCreate;
+begin
+  inherited;
+
+  fXMLParser := TXMLSeqParser.Create;
+  fPropNameIndex := TDictionary<OHashedStringsIndex,PXMLNode>.Create;
+  fCreateClasses := TDictionary<string,TClass>.Create;
 end;
 
 procedure TXMLRTTIDeserializer.DoInit;
 begin
   fRootNode := nil;
   fCurrentElementNode := nil;
-  fContext := TRttiContext.Create;
 end;
 
 function TXMLRTTIDeserializer.GetApproxStreamPosition: OStreamInt;
@@ -699,7 +722,7 @@ begin
   if not Assigned(fCurrentElementNode) then
     raise EXMLRTTIDeserializer.Create(OXmlLng_WrongDeserializerSequence);
 
-  xType := fContext.GetRealObjectType<T>(aObject);
+  xType := Context.GetRealObjectType<T>(aObject);
 
   case xType.TypeKind of
     tkClass: xInstance := PObject(@aObject)^;
@@ -719,6 +742,7 @@ var
   xValue: TValue;
   xItemNode: PXMLNode;
   xItemType: TRttiType;
+  xNewValueAllocatedMemory: Pointer;
 begin
   xClear := aType.GetMethod('Clear');
   if not Assigned(xClear) then
@@ -737,9 +761,11 @@ begin
   xItemNode := aEnumerationNode.FirstChild;
   while Assigned(xItemNode) do
   begin
-    xValue := CreateNewValue(xItemType, xItemNode.NodeName);//add whatever the result is!
+    xValue := CreateNewValue(xItemType, xItemNode.NodeName, xNewValueAllocatedMemory);//add whatever the result is!
     ReadObjectPropertyValue(xItemType, xItemNode, xValue);//add whatever the result is!
     xAdd.Invoke(aObject, [xValue]);
+    if Assigned(xNewValueAllocatedMemory) then
+      FreeMem(xNewValueAllocatedMemory);
 
     xItemNode := xItemNode.NextSibling;
   end;
@@ -774,7 +800,7 @@ begin
   until Result;
 
   //Result = true here
-  outClassName := fCurrentElementNode.NodeName;
+  outClassName := OXmlXMLToName(fCurrentElementNode.NodeName);
 end;
 
 procedure TXMLRTTIDeserializer.ReadObjectProperties(const aInstance: Pointer;
@@ -789,9 +815,13 @@ begin
     BuildIndex(aElementNode);
 
   for xField in aType.GetFields do
+  if (xField.Visibility in fVisibility) then
     ReadObjectProperty(aInstance, xField, xField.FieldType, xField.GetValue(aInstance), aElementNode);
 
   for xProperty in aType.GetProperties do
+  if (xProperty.Visibility in fVisibility) and
+    (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
+  then
     ReadObjectProperty(aInstance, xProperty, xProperty.PropertyType, xProperty.GetValue(aInstance), aElementNode);
 
   if (aType.TypeKind = tkClass) and aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
@@ -851,8 +881,9 @@ var
   xItemNode: PXMLNode;
   xArrayLength: ONativeInt;
   I: Integer;
+  xNewValueAllocatedMemory: Pointer;
 begin
-  aType := fContext.GetRealObjectType(ioValue, aType);
+  aType := Context.GetRealObjectType(ioValue, aType);
 
   outValueDataChanged := False;
   case aType.TypeKind of
@@ -885,12 +916,16 @@ begin
           Break;
 
         if aType.TypeKind = tkArray then
-          xNewValue := ioValue.GetArrayElement(I)
-        else
-          xNewValue := CreateNewValue(xItemType, xItemNode.NodeName);
+        begin
+          xNewValue := ioValue.GetArrayElement(I);
+          xNewValueAllocatedMemory := nil;
+        end else
+          xNewValue := CreateNewValue(xItemType, xItemNode.NodeName, xNewValueAllocatedMemory);
 
         ReadObjectPropertyValue(xItemType, xItemNode, xNewValue);//add whatever the result is!
         ioValue.SetArrayElement(I, xNewValue);//add whatever the result is!
+        if Assigned(xNewValueAllocatedMemory) then
+          FreeMem(xNewValueAllocatedMemory);
 
         Inc(I);
         xItemNode := xItemNode.NextSibling;
@@ -988,6 +1023,28 @@ begin
     if Assigned(xObject) then
       Result := Self.GetType(xObject.ClassType);
   end;
+end;
+
+{ TCustomXMLRTTISerDes }
+
+constructor TCustomXMLRTTISerDes.Create;
+begin
+  DoCreate;
+
+  inherited Create;
+end;
+
+destructor TCustomXMLRTTISerDes.Destroy;
+begin
+  fContext.Free;
+
+  inherited;
+end;
+
+procedure TCustomXMLRTTISerDes.DoCreate;
+begin
+  fContext := TRttiContext.Create;
+  fVisibility := [mvPublic, mvPublished];
 end;
 
 end.

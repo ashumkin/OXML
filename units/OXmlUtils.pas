@@ -190,11 +190,31 @@ function TryEncodeDateTime(aYear, aMonth, aDay, aHour, aMin, aSec,
 
 function SymbolNameToString(const aShortStringPointer: PByte): string;
 
+//solves problem with generic names TType<A,B> -> TType_-A-B-_
+function OXmlNameToXML(const aName: string): string;
+function OXmlXMLToName(const aXMLName: string): string;
+
 implementation
 
 uses
   OXmlLng
   {$IFDEF O_DELPHI_6_UP}, DateUtils{$ENDIF};
+
+function OXmlNameToXML(const aName: string): string;
+begin
+  Result := aName;
+  Result := StringReplace(Result, '<', '_-', [rfReplaceAll]);
+  Result := StringReplace(Result, '>', '-_', [rfReplaceAll]);
+  Result := StringReplace(Result, ',', '-', [rfReplaceAll]);
+end;
+
+function OXmlXMLToName(const aXMLName: string): string;
+begin
+  Result := aXMLName;
+  Result := StringReplace(Result, '_-', '<', [rfReplaceAll]);
+  Result := StringReplace(Result, '-_', '>', [rfReplaceAll]);
+  Result := StringReplace(Result, '-', ',', [rfReplaceAll]);
+end;
 
 function SymbolNameToString(const aShortStringPointer: PByte): string;
 var

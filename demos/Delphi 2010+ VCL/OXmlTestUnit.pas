@@ -31,6 +31,9 @@ uses
   {$IFDEF FPC}LCLIntf, {$ELSE}Windows, {$ENDIF}
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
   ComCtrls, DateUtils,
+  {$IFDEF USE_RTTI}
+  Generics.Collections,
+  {$ENDIF}
   //BEGIN XML LIBRARIES UNITS
   {$IFDEF USE_DELPHIXML}
   XMLIntf, XMLDoc, xmldom, msxmldom, {$IFDEF USE_ADOM}adomxmldom,{$ENDIF} OXmlDOMVendor,
@@ -1359,6 +1362,28 @@ begin
   end;
 end;
 
+{$IFDEF USE_RTTI}
+type
+  TMyDictionary<TKey,TValue> = class(TDictionary<TKey,TValue>)
+  public
+    procedure Add(const aPair: TPair<TKey,TValue>); reintroduce; overload;
+    procedure Add(const aKey: TKey; aValue: TValue); reintroduce; overload;
+  end;
+
+{ TMyDictionary<TKey, TValue> }
+
+procedure TMyDictionary<TKey, TValue>.Add(const aPair: TPair<TKey, TValue>);
+begin
+  inherited Add(aPair.Key, aPair.Value);
+end;
+
+procedure TMyDictionary<TKey, TValue>.Add(const aKey: TKey; aValue: TValue);
+begin
+  inherited Add(aKey, aValue);
+end;
+
+{$ENDIF}
+
 procedure TForm1.BtnSerializeRTTIClick(Sender: TObject);
 {$IFDEF USE_RTTI}
 var
@@ -1367,12 +1392,14 @@ var
   xReader: TOTextReader;
   xObject: TText_OXmlSerializer_Test1_Class;
   xRecord: TText_OXmlSerializer_Test1_Record;
+  xDictionary: TMyDictionary<Integer,string>;
   xInt: Integer;
   xDouble: Double;
 begin
   xStream := TStringStream.Create('', TEncoding.UTF8);
   xSerializer := TXMLRTTISerializer.Create;
   xObject := TText_OXmlSerializer_Test1_Class.Create;
+  xDictionary := TMyDictionary<Integer,string>.Create;
   try
     xSerializer.WriterSettings.IndentType := itIndent;
     xSerializer.InitStream(xStream);
@@ -1401,6 +1428,12 @@ begin
     xDouble := 3.14;
     xSerializer.WriteObject(xDouble);
 
+    xDictionary.Add(1, 'one');
+    xDictionary.Add(2, 'two');
+    xDictionary.Add(3, 'three');
+
+    xSerializer.WriteObject(xDictionary);
+
     xSerializer.ReleaseDocument;
 
     xStream.Position := 0;
@@ -1412,6 +1445,7 @@ begin
     end;
 
   finally
+    xDictionary.Free;
     xSerializer.Free;
     xStream.Free;
     xObject.Free;
@@ -2257,10 +2291,12 @@ procedure TForm1.BtnDeserializeRTTIClick(Sender: TObject);
 var
   xDeserializer: TXMLRTTIDeserializer;
   xObject: TText_OXmlSerializer_Test1_Class;
+  xDictionary: TMyDictionary<Integer,string>;
   xClassName: String;
 begin
   xDeserializer := TXMLRTTIDeserializer.Create;
   xObject := nil;
+  xDictionary := nil;
   try
     xDeserializer.InitXML(Memo1.Lines.Text);
     xDeserializer.UseIndex := False;
@@ -2272,21 +2308,27 @@ begin
         xObject := TText_OXmlSerializer_Test1_Class.Create;
 
         xDeserializer.ReadObject(xObject);
-
-        Break;//we want only one object
       end else
-        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+      if xClassName = TMyDictionary<Integer,string>.ClassName then
+      begin
+        xDictionary := TMyDictionary<Integer,string>.Create;
+
+        xDeserializer.ReadObject(xDictionary);
+      end{ else
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');}
     end;
 
     if Assigned(xObject) then
-    begin
-      //do something with the object
       ShowMessage('MyClass.MyInt = '+IntToStr(xObject.MyClass.MyInt));
-    end else
+    if Assigned(xDictionary) then
+      ShowMessage('Dictionary.1 = '+xDictionary[1]);
+
+    if not Assigned(xObject) and not Assigned(xDictionary) then
       raise Exception.Create('Nothing to deserialize.');
   finally
     xDeserializer.Free;
     xObject.Free;
+    xDictionary.Free;
   end;
 {$ELSE}
 begin
