@@ -261,6 +261,14 @@ type
     procedure Add(const aKey: TKey; aValue: TValue); reintroduce; overload;
   end;
 
+  //use TSerializableObjectDictionary if you want to serialize an object dictionary
+  // - the delphi own TObjectDictionary can't be serialized because it does not have an Add method with TPair as parameter
+  TSerializableObjectDictionary<TKey,TValue> = class(TObjectDictionary<TKey,TValue>)
+  public
+    procedure Add(const aPair: TPair<TKey,TValue>); reintroduce; overload;
+    procedure Add(const aKey: TKey; aValue: TValue); reintroduce; overload;
+  end;
+
 type
   PObject = ^TObject;
   PInterface = ^IInterface;
@@ -1063,6 +1071,20 @@ begin
 end;
 
 procedure TSerializableDictionary<TKey, TValue>.Add(const aKey: TKey; aValue: TValue);
+begin
+  inherited Add(aKey, aValue);
+end;
+
+{ TSerializableObjectDictionary<TKey, TValue> }
+
+procedure TSerializableObjectDictionary<TKey, TValue>.Add(
+  const aPair: TPair<TKey, TValue>);
+begin
+  inherited Add(aPair.Key, aPair.Value);
+end;
+
+procedure TSerializableObjectDictionary<TKey, TValue>.Add(const aKey: TKey;
+  aValue: TValue);
 begin
   inherited Add(aKey, aValue);
 end;
