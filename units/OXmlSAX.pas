@@ -561,7 +561,7 @@ procedure TSAXAttributes.CreateIndex;
 var
   I: Integer;
 begin
-  fIndexUsed := Count > XMLUseIndexForAttributesLimit;
+  fIndexUsed := Count > XMLUseIndexNodeLimit;
   if not fIndexUsed then
     Exit;
 

@@ -82,7 +82,7 @@ const
   XML_XMLNS: OWideString = 'xmlns';
   XML_XML_SPACE: OWideString = 'xml:space';
 
-  XMLUseIndexForAttributesLimit = 256;
+  XMLUseIndexNodeLimit = 256;
 
   // W3C DOM Level 1 :: http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html
   // index or size is negative, or greater than the allowed value

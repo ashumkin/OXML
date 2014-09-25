@@ -56,17 +56,24 @@ uses
     {$ENDIF}
   {$ENDIF}
 
-  OWideSupp, OTextReadWrite, OXmlReadWrite, OEncoding, OHashedStrings, OXmlUtils, OXmlXPath,
-  ODictionary;
+  OWideSupp, OTextReadWrite, OXmlReadWrite, OEncoding, OHashedStrings,
+  OXmlUtils, OXmlXPath, ODictionary;
 
 type
 
   TXMLDocument = class;
   XMLNodeId = OXmlReadWrite.XMLNodeId;
+  TXMLNode = class;
 
   IXMLNodeList = interface;
   TXMLChildNodeList = class;
   TXMLAttributeIndex = class;
+
+  {$IFDEF O_GENERICS}
+  TXMLNodeIndex = TDictionary<OHashedStringsIndex,TXMLNode>;
+  {$ELSE}
+  TXMLNodeIndex = TODictionary;
+  {$ENDIF}
 
   TXMLNode = class(TObject)
   private
@@ -119,6 +126,8 @@ type
     function GetChildCount: Integer; virtual;
 
     procedure DoDestroy; virtual;//due to NextGen
+
+    function BuildChildrenIndex: TXMLNodeIndex;
   protected
     function GetDoPreserveWhiteSpace: Boolean; virtual;
     function GetIsTextElement: Boolean; virtual;
@@ -133,7 +142,7 @@ type
     procedure WriteChildrenXML(const aWriter: TXMLWriter);
     procedure WriteAttributesXML(const aWriter: TXMLWriter); virtual;
   private
-    procedure Init(const aNodeType: TXmlNodeType;
+    procedure Init(const aNodeType: TXMLNodeType;
       const aNodeNameId, aNodeValueId: OHashedStringsIndex;
       const aOwnerDocument: TXMLDocument);
 
@@ -266,6 +275,14 @@ type
     //find child by name
     function FindChild(const aName: OWideString; var outNode: TXMLNode): Boolean;
     function FindChildById(const aNameId: OHashedStringsIndex; var outNode: TXMLNode): Boolean;
+    //find child by name with index
+    //  !!! important - the children names HAVE to be unique !!!
+    //  the index must be assigned before the function call (to nil if it has to be generated automatically)
+    //  the index is created only when necessary (OXml decides)
+    //  the index must be destroyed manually with .Free when not needed any more!
+    //  the index speeds up multiple search
+    function FindChildWithIndex(const aName: OWideString; var outNode: TXMLNode; var ioIndex: TXMLNodeIndex): Boolean;
+    function FindChildByIdWithIndex(const aNameId: OHashedStringsIndex; var outNode: TXMLNode; var ioIndex: TXMLNodeIndex): Boolean;
     //get attribute node by name
     function GetAttributeNode(const aAttrName: OWideString): TXMLNode;
     //set attribute
@@ -359,7 +376,7 @@ type
     function XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString; overload;
     {$ENDIF}
   public
-    property NodeType: TXmlNodeType read fNodeType;
+    property NodeType: TXMLNodeType read fNodeType;
     property NodeName: OWideString read GetNodeName;
     property NodeValue: OWideString read GetNodeValue write SetNodeValue;
     property LocalName: OWideString read GetLocalName;
@@ -521,9 +538,9 @@ type
   protected
     procedure ClearNodes(const aFullClear: Boolean); virtual;
 
-    function CreateNode(const aNodeType: TXmlNodeType;
+    function CreateNode(const aNodeType: TXMLNodeType;
       const aNodeName, aNodeValue: OWideString): TXMLNode; overload;
-    function CreateNode(const aNodeType: TXmlNodeType;
+    function CreateNode(const aNodeType: TXMLNodeType;
       const aNodeNameId, aNodeValueId: OHashedStringsIndex): TXMLNode; overload;
     function SetString(const aString: OWideString): OHashedStringsIndex;
 
@@ -773,7 +790,7 @@ type
     function GetNodeNameId(const aNode: TXMLXPathNode): OHashedStringsIndex; override;
     function GetNodeValueId(const aNode: TXMLXPathNode): OHashedStringsIndex; override;
     function GetStringId(const aString: OWideString): OHashedStringsIndex; override;
-    function GetNodeType(const aNode: TXMLXPathNode): TXmlNodeType; override;
+    function GetNodeType(const aNode: TXMLXPathNode): TXMLNodeType; override;
     procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); override;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; override;
     function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
@@ -788,11 +805,7 @@ type
   private
     fParentElement: TXMLNodeWithChildren;
 
-    {$IFDEF O_GENERICS}
-    fIndex: TDictionary<OHashedStringsIndex,TXMLNode>;
-    {$ELSE}
-    fIndex: TODictionary;
-    {$ENDIF}
+    fIndex: TXMLNodeIndex;
   public
     constructor Create(const aParentElement: TXMLNodeWithChildren);
     destructor Destroy; override;
@@ -854,7 +867,7 @@ begin
   Result := AddCustomChild(ntElement, aElementName, '');
 end;
 
-function TXMLNode.AddCustomChild(const aType: TXmlNodeType; const aName,
+function TXMLNode.AddCustomChild(const aType: TXMLNodeType; const aName,
   aValue: OWideString): TXMLNode;
 begin
   Result := fOwnerDocument.CreateNode(aType, aName, aValue);
@@ -911,6 +924,17 @@ end;
 procedure TXMLNode.AssignProperties(const aFromNode: TXMLNode);
 begin
   //nothing
+end;
+
+function TXMLNode.BuildChildrenIndex: TXMLNodeIndex;
+var
+  xChildNode: TXMLNode;
+begin
+  Result := TXMLNodeIndex.Create;
+
+  xChildNode := nil;
+  while GetNextChild(xChildNode) do
+    Result.Add(xChildNode.NodeNameId, xChildNode);
 end;
 
 function TXMLNode.CloneNode(const aDeep: Boolean): TXMLNode;
@@ -1150,6 +1174,40 @@ function TXMLNode.FindChildById(const aNameId: OHashedStringsIndex;
   var outNode: TXMLNode): Boolean;
 begin
   Result := FindCChild(aNameId, ctChild, outNode);
+end;
+
+function TXMLNode.FindChildByIdWithIndex(const aNameId: OHashedStringsIndex;
+  var outNode: TXMLNode; var ioIndex: TXMLNodeIndex): Boolean;
+begin
+  if not HasChildNodes or (aNameId < 0) then
+  begin
+    Result := False;
+    outNode := nil;
+    Exit;
+  end;
+
+  if not Assigned(ioIndex) and (ChildCount > XMLUseIndexNodeLimit) then
+    ioIndex := BuildChildrenIndex;
+
+  if Assigned(ioIndex) then
+  begin
+    //node index used!
+    Result := ioIndex.TryGetValue(aNameId, {$IFNDEF O_GENERICS}TObject{$ELSE}TXMLNode{$ENDIF}(outNode));
+  end else
+  begin
+    //node index not used!
+    Result := FindCChild(aNameId, ctChild, outNode);
+  end;
+end;
+
+function TXMLNode.FindChildWithIndex(const aName: OWideString;
+  var outNode: TXMLNode; var ioIndex: TXMLNodeIndex): Boolean;
+var
+  xNameId: Integer;
+begin
+  xNameId := OwnerDocument.IndexOfString(aName);
+
+  Result := FindChildByIdWithIndex(xNameId, outNode, ioIndex);
 end;
 
 function TXMLNode.FindNameSpace(const aNameSpaceURIId: OHashedStringsIndex;
@@ -1658,7 +1716,7 @@ begin
   Result := Assigned(GetFirstCChild(ctChild));
 end;
 
-procedure TXMLNode.Init(const aNodeType: TXmlNodeType;
+procedure TXMLNode.Init(const aNodeType: TXMLNodeType;
   const aNodeNameId, aNodeValueId: OHashedStringsIndex;
   const aOwnerDocument: TXMLDocument);
 begin
@@ -1720,7 +1778,7 @@ begin
   Result := InsertCustomChild(ntCData, '', aText, aBeforeNode);
 end;
 
-function TXMLNode.InsertCustomChild(const aType: TXmlNodeType; const aName,
+function TXMLNode.InsertCustomChild(const aType: TXMLNodeType; const aName,
   aValue: OWideString; const aBeforeNode: TXMLNode): TXMLNode;
 begin
   Result := fOwnerDocument.CreateNode(aType, aName, aValue);
@@ -2502,7 +2560,7 @@ begin
     raise EXmlDOMException.Create(OXmlLng_EntityNameNotFound);
 end;
 
-function TXMLDocument.CreateNode(const aNodeType: TXmlNodeType;
+function TXMLDocument.CreateNode(const aNodeType: TXMLNodeType;
   const aNodeNameId, aNodeValueId: OHashedStringsIndex): TXMLNode;
 begin
   case aNodeType of
@@ -2521,7 +2579,7 @@ begin
   DoCreate;
 end;
 
-function TXMLDocument.CreateNode(const aNodeType: TXmlNodeType;
+function TXMLDocument.CreateNode(const aNodeType: TXMLNodeType;
   const aNodeName, aNodeValue: OWideString): TXMLNode;
 begin
   Result := CreateNode(aNodeType, fDictionary.Add(aNodeName), fDictionary.Add(aNodeValue));
@@ -3263,7 +3321,7 @@ begin
 end;
 
 function TXMLXPathDOMAdapter.GetNodeType(
-  const aNode: TXMLXPathNode): TXmlNodeType;
+  const aNode: TXMLXPathNode): TXMLNodeType;
 begin
   Result := TXMLNode(aNode).NodeType;
 end;
@@ -3567,11 +3625,7 @@ begin
   inherited Create;
 
   fParentElement := aParentElement;
-  {$IFDEF O_GENERICS}
-  fIndex := TDictionary<OHashedStringsIndex,TXMLNode>.Create;
-  {$ELSE}
-  fIndex := TODictionary.Create;
-  {$ENDIF}
+  fIndex := TXMLNodeIndex.Create;
 end;
 
 destructor TXMLAttributeIndex.Destroy;
@@ -3745,7 +3799,7 @@ begin
     Exit;
   end;
 
-  if (fCChildCount[ctAttribute] > XMLUseIndexForAttributesLimit) and
+  if (fCChildCount[ctAttribute] > XMLUseIndexNodeLimit) and
     not Assigned(fTempAttributeIndex)
   then//create index if attribute count is greater than a limit
     fTempAttributeIndex := TXMLAttributeIndex.Create(Self);

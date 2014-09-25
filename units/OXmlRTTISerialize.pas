@@ -68,7 +68,7 @@ type
   
   TMemberVisibilitySet = set of TMemberVisibility;
 
-  TCustomXMLRTTISerDes = class(TObject)
+  TCustomXMLRTTISerDes = class abstract(TObject)
   private
     fVisibility: TMemberVisibilitySet;
 
@@ -147,7 +147,6 @@ type
     fRootNode, fCurrentElementNode: PXMLNode;
 
     fUseIndex: Boolean;
-    fPropNameIndex: TDictionary<OHashedStringsIndex,PXMLNode>;
 
     fCreateClasses: TDictionary<string,TClass>;
 
@@ -159,9 +158,12 @@ type
     procedure DoCreate; override;
     procedure DoInit; virtual;
 
-    procedure BuildIndex(const aElementNode: PXMLNode);
+    function CreateObject(const aClassName: string; const aType: TRttiInstanceType): TValue;
+    procedure CheckRecordForCreateClasses(
+      const aInstance: Pointer; const aType: TRttiType; const aItemNode: PXMLNode);
     function CreateNewValue(const aType: TRttiType;
-      aTypeName: string; var outAllocatedData: Pointer): TValue;
+      aTypeName: string; const aItemNode: PXMLNode;
+      var outAllocatedData: Pointer): TValue;
     procedure ReadObjectEnumeration(const aObject: TObject;
       const aType: TRttiType; const aEnumerationNode: PXMLNode);
     procedure ReadObjectProperties(const aInstance: Pointer;
@@ -170,7 +172,8 @@ type
     procedure ReadObjectProperty(const aInstance: Pointer;
       const aMember: TRttiMember;
       const aType: TRttiType; const aValue: TValue;
-      const aElementNode: PXMLNode);
+      const aElementNode: PXMLNode;
+      var aPropNameIndex: TXMLNodeIndex);
     procedure ReadObjectPropertyValue(
       aType: TRttiType;
       const aElementValueNode: PXMLNode;
@@ -448,6 +451,7 @@ var
   xInstance: Pointer;
   xElementType: TRttiType;
   I: Integer;
+  xClassName: string;
 begin
   aTagName := OXmlNameToXML(aTagName);
   aType := Context.GetRealObjectType(aValue, aType);
@@ -482,7 +486,14 @@ begin
       _WriteObjectProperty(aTagName, IntToStr(aValue.AsInt64));
     tkClass, tkRecord, tkInterface:
     begin
-      fWriter.OpenElement(aTagName, stFinish);
+      fWriter.OpenElement(aTagName, stOpenOnly);
+      if (aType.TypeKind = tkClass) then
+      begin
+        xClassName := OXmlNameToXML(aValue.AsObject.ClassName);
+        if (aTagName <> xClassName) then
+          fWriter.Attribute('type', xClassName);
+      end;
+      fWriter.FinishOpenElement;
 
       case aType.TypeKind of
         tkClass: xInstance := aValue.AsObject;
@@ -549,26 +560,39 @@ end;
 
 { TXMLRTTIDeserializer }
 
-procedure TXMLRTTIDeserializer.BuildIndex(const aElementNode: PXMLNode);
+procedure TXMLRTTIDeserializer.CheckRecordForCreateClasses(
+  const aInstance: Pointer; const aType: TRttiType; const aItemNode: PXMLNode);
 var
-  xPropNode: PXMLNode;
+  xField: TRttiField;
+  xObjectValue: TValue;
+  xPropNameIndex: TXMLNodeIndex;
+  xClassElement: PXMLNode;
+  xRealClassName: string;
 begin
-  fPropNameIndex.Clear;
+  xPropNameIndex := nil;
+  try
+    for xField in aType.GetFields do
+    if xField.FieldType.Handle.Kind = tkClass then
+    begin
+      //find extra class type from "type" tag
+      xClassElement := nil;
+      xRealClassName := '';
+      if aItemNode.FindChildWithIndex(xField.Name, {%H-}xClassElement, xPropNameIndex) then
+        xRealClassName := xClassElement.GetAttribute('type');
+      if xRealClassName = '' then
+        xRealClassName := xField.FieldType.Name;
 
-  xPropNode := nil;
-  while aElementNode.GetNextChild(xPropNode) do
-  begin
-    fPropNameIndex.Add(xPropNode.NodeNameId, xPropNode);
+      xObjectValue := CreateObject(xRealClassName, xField.FieldType as TRttiInstanceType);
+      xField.SetValue(aInstance, xObjectValue);
+    end;
+  finally
+    xPropNameIndex.Free;
   end;
 end;
 
 function TXMLRTTIDeserializer.CreateNewValue(const aType: TRttiType;
-  aTypeName: string; var outAllocatedData: Pointer): TValue;
-var
-  xCreateClass: TClass;
-  xCreateClassType: TRttiType;
-  xConstructorI, xConstructorFound: TRttiMethod;
-  xConstructorParams: TArray<TRttiParameter>;
+  aTypeName: string; const aItemNode: PXMLNode;
+  var outAllocatedData: Pointer): TValue;
 begin
   aTypeName := OXmlXMLToName(aTypeName);
   outAllocatedData := nil;
@@ -595,48 +619,12 @@ begin
     tkLString: Result := TValue.From<AnsiString>('');
     {$ENDIF}
     tkUString: Result := TValue.From<UnicodeString>('');
-    tkClass:
-    begin
-      if aTypeName <> aType.Name then
-      begin
-        if not fCreateClasses.TryGetValue(aTypeName, xCreateClass) then
-          raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_DeserializerRegisterClass, [aTypeName]);
-        xCreateClassType := Context.GetType(xCreateClass);
-      end else
-      begin
-        xCreateClassType := aType;
-        xCreateClass := TClass(TRttiInstanceType(aType).MetaclassType);
-      end;
-
-      xConstructorFound := nil;
-      for xConstructorI in xCreateClassType.GetMethods do
-      if SameText(xConstructorI.Name, 'Create') and
-         xConstructorI.IsConstructor
-      then begin
-        xConstructorParams := xConstructorI.GetParameters;
-        if (
-          (Length(xConstructorParams) = 0)
-           or (
-             (Length(xConstructorParams) = 1) and
-             (xConstructorParams[0].ParamType.TypeKind = tkClass)
-           ))
-        then begin
-          xConstructorFound := xConstructorI;
-          Break;
-        end;
-      end;
-      if not Assigned(xConstructorFound) or not (xCreateClassType is TRttiInstanceType) then
-        raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_DeserializerNotSupportedListItemType, [xCreateClassType.Name]);
-
-      case Length(xConstructorParams) of
-        0: Result := xConstructorFound.Invoke(xCreateClass, []);
-        1: Result := xConstructorFound.Invoke(xCreateClass, [nil]);
-      end;
-    end;
+    tkClass: Result := CreateObject(aTypeName, aType as TRttiInstanceType);
     tkRecord:
     begin
       outAllocatedData := AllocMem(aType.TypeSize);
       TValue.Make(outAllocatedData, aType.Handle, Result);
+      CheckRecordForCreateClasses(Result.GetReferenceToRawData, aType, aItemNode);
     end;
   else
     //error reading
@@ -644,9 +632,52 @@ begin
   end;
 end;
 
+function TXMLRTTIDeserializer.CreateObject(const aClassName: string; const aType: TRttiInstanceType): TValue;
+var
+  xCreateClass: TClass;
+  xCreateClassType: TRttiType;
+  xConstructorI, xConstructorFound: TRttiMethod;
+  xConstructorParams: TArray<TRttiParameter>;
+begin
+  if aClassName <> aType.Name then
+  begin
+    if not fCreateClasses.TryGetValue(aClassName, xCreateClass) then
+      raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_DeserializerRegisterClass, [aClassName]);
+    xCreateClassType := Context.GetType(xCreateClass);
+  end else
+  begin
+    xCreateClassType := aType;
+    xCreateClass := TClass(aType.MetaclassType);
+  end;
+
+  xConstructorFound := nil;
+  for xConstructorI in xCreateClassType.GetMethods do
+  if SameText(xConstructorI.Name, 'Create') and
+     xConstructorI.IsConstructor
+  then begin
+    xConstructorParams := xConstructorI.GetParameters;
+    if (
+      (Length(xConstructorParams) = 0)
+       or (
+         (Length(xConstructorParams) = 1) and
+         (xConstructorParams[0].ParamType.TypeKind = tkClass)
+       ))
+    then begin
+      xConstructorFound := xConstructorI;
+      Break;
+    end;
+  end;
+  if not Assigned(xConstructorFound) then
+    raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_DeserializerNotSupportedListItemType, [xCreateClassType.Name]);
+
+  case Length(xConstructorParams) of
+    0: Result := xConstructorFound.Invoke(xCreateClass, []);
+    1: Result := xConstructorFound.Invoke(xCreateClass, [nil]);
+  end;
+end;
+
 destructor TXMLRTTIDeserializer.Destroy;
 begin
-  fPropNameIndex.Free;
   fXMLParser.Free;
   fCreateClasses.Free;
 
@@ -658,7 +689,6 @@ begin
   inherited;
 
   fXMLParser := TXMLSeqParser.Create;
-  fPropNameIndex := TDictionary<OHashedStringsIndex,PXMLNode>.Create;
   fCreateClasses := TDictionary<string,TClass>.Create;
 end;
 
@@ -777,7 +807,7 @@ begin
   xItemNode := aEnumerationNode.FirstChild;
   while Assigned(xItemNode) do
   begin
-    xValue := CreateNewValue(xItemType, xItemNode.NodeName, xNewValueAllocatedMemory);//add whatever the result is!
+    xValue := CreateNewValue(xItemType, xItemNode.NodeName, xItemNode, xNewValueAllocatedMemory);//add whatever the result is!
     ReadObjectPropertyValue(xItemType, xItemNode, xValue);//add whatever the result is!
     xAdd.Invoke(aObject, [xValue]);
     if Assigned(xNewValueAllocatedMemory) then
@@ -826,46 +856,38 @@ var
   xField: TRttiField;
   xProperty: TRttiProperty;
   xEnumerationNode: PXMLNode;
+  xPropNameIndex: TXMLNodeIndex;
 begin
-  if fUseIndex then
-    BuildIndex(aElementNode);
+  xPropNameIndex := nil;
+  try
+    for xField in aType.GetFields do
+    if (xField.Visibility in fVisibility) then
+      ReadObjectProperty(aInstance, xField, xField.FieldType, xField.GetValue(aInstance), aElementNode, xPropNameIndex);
 
-  for xField in aType.GetFields do
-  if (xField.Visibility in fVisibility) then
-    ReadObjectProperty(aInstance, xField, xField.FieldType, xField.GetValue(aInstance), aElementNode);
+    for xProperty in aType.GetProperties do
+    if (xProperty.Visibility in fVisibility) and
+      (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
+    then
+      ReadObjectProperty(aInstance, xProperty, xProperty.PropertyType, xProperty.GetValue(aInstance), aElementNode, xPropNameIndex);
 
-  for xProperty in aType.GetProperties do
-  if (xProperty.Visibility in fVisibility) and
-    (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
-  then
-    ReadObjectProperty(aInstance, xProperty, xProperty.PropertyType, xProperty.GetValue(aInstance), aElementNode);
+    if (aType.TypeKind = tkClass) and aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
+      ReadObjectEnumeration(TObject(aInstance), aType, xEnumerationNode);
 
-  if (aType.TypeKind = tkClass) and aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
-    ReadObjectEnumeration(TObject(aInstance), aType, xEnumerationNode);
+  finally
+    xPropNameIndex.Free;
+  end;
 end;
 
 procedure TXMLRTTIDeserializer.ReadObjectProperty(const aInstance: Pointer;
   const aMember: TRttiMember;
-  const aType: TRttiType; const aValue: TValue; const aElementNode: PXMLNode);
+  const aType: TRttiType; const aValue: TValue; const aElementNode: PXMLNode;
+  var aPropNameIndex: TXMLNodeIndex);
 var
-  xPropNameIndex: Integer;
   xPropElement: PXMLNode;
   xNewValue: TValue;
 begin
-  xPropNameIndex := aElementNode.OwnerDocument.IndexOfString(aMember.Name);
-  if xPropNameIndex < 0 then
+  if not aElementNode.FindChildWithIndex(aMember.Name, {%H-}xPropElement, aPropNameIndex) then
     Exit;
-
-  if
-    //if index used -> execute fPropNameIndex.TryGetValue (find node from index)
-    not fUseIndex or
-    (fPropNameIndex.Count = 0) or
-    not fPropNameIndex.TryGetValue(xPropNameIndex, {%H-}xPropElement)
-  then begin
-    //otherwise find without index
-    if not aElementNode.FindChildById(xPropNameIndex, {%H-}xPropElement) then
-      Exit;
-  end;
 
   xNewValue := aValue;
   if ReadObjectPropertyValue(aType, xPropElement, xNewValue) then
@@ -936,7 +958,7 @@ begin
           xNewValue := ioValue.GetArrayElement(I);
           xNewValueAllocatedMemory := nil;
         end else
-          xNewValue := CreateNewValue(xItemType, xItemNode.NodeName, xNewValueAllocatedMemory);
+          xNewValue := CreateNewValue(xItemType, xItemNode.NodeName, xItemNode, xNewValueAllocatedMemory);
 
         ReadObjectPropertyValue(xItemType, xItemNode, xNewValue);//add whatever the result is!
         ioValue.SetArrayElement(I, xNewValue);//add whatever the result is!
