@@ -253,6 +253,14 @@ type
   EXMLRTTISerializer = class(Exception);
   EXMLRTTIDeserializer = class(Exception);
 
+  //use TSerializableDictionary if you want to serialize a dictionary
+  // - the delphi own TDictionary can't be serialized because it does not have an Add method with TPair as parameter
+  TSerializableDictionary<TKey,TValue> = class(TDictionary<TKey,TValue>)
+  public
+    procedure Add(const aPair: TPair<TKey,TValue>); reintroduce; overload;
+    procedure Add(const aKey: TKey; aValue: TValue); reintroduce; overload;
+  end;
+
 type
   PObject = ^TObject;
   PInterface = ^IInterface;
@@ -1045,6 +1053,18 @@ procedure TCustomXMLRTTISerDes.DoCreate;
 begin
   fContext := TRttiContext.Create;
   fVisibility := [mvPublic, mvPublished];
+end;
+
+{ TSerializableDictionary<TKey, TValue> }
+
+procedure TSerializableDictionary<TKey, TValue>.Add(const aPair: TPair<TKey, TValue>);
+begin
+  inherited Add(aPair.Key, aPair.Value);
+end;
+
+procedure TSerializableDictionary<TKey, TValue>.Add(const aKey: TKey; aValue: TValue);
+begin
+  inherited Add(aKey, aValue);
 end;
 
 end.

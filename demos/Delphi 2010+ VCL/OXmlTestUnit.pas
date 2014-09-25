@@ -1362,28 +1362,6 @@ begin
   end;
 end;
 
-{$IFDEF USE_RTTI}
-type
-  TMyDictionary<TKey,TValue> = class(TDictionary<TKey,TValue>)
-  public
-    procedure Add(const aPair: TPair<TKey,TValue>); reintroduce; overload;
-    procedure Add(const aKey: TKey; aValue: TValue); reintroduce; overload;
-  end;
-
-{ TMyDictionary<TKey, TValue> }
-
-procedure TMyDictionary<TKey, TValue>.Add(const aPair: TPair<TKey, TValue>);
-begin
-  inherited Add(aPair.Key, aPair.Value);
-end;
-
-procedure TMyDictionary<TKey, TValue>.Add(const aKey: TKey; aValue: TValue);
-begin
-  inherited Add(aKey, aValue);
-end;
-
-{$ENDIF}
-
 procedure TForm1.BtnSerializeRTTIClick(Sender: TObject);
 {$IFDEF USE_RTTI}
 var
@@ -1392,14 +1370,14 @@ var
   xReader: TOTextReader;
   xObject: TText_OXmlSerializer_Test1_Class;
   xRecord: TText_OXmlSerializer_Test1_Record;
-  xDictionary: TMyDictionary<Integer,string>;
+  xDictionary: TSerializableDictionary<Integer,string>;
   xInt: Integer;
   xDouble: Double;
 begin
   xStream := TStringStream.Create('', TEncoding.UTF8);
   xSerializer := TXMLRTTISerializer.Create;
   xObject := TText_OXmlSerializer_Test1_Class.Create;
-  xDictionary := TMyDictionary<Integer,string>.Create;
+  xDictionary := TSerializableDictionary<Integer,string>.Create;
   try
     xSerializer.WriterSettings.IndentType := itIndent;
     xSerializer.InitStream(xStream);
@@ -2291,7 +2269,7 @@ procedure TForm1.BtnDeserializeRTTIClick(Sender: TObject);
 var
   xDeserializer: TXMLRTTIDeserializer;
   xObject: TText_OXmlSerializer_Test1_Class;
-  xDictionary: TMyDictionary<Integer,string>;
+  xDictionary: TSerializableDictionary<Integer,string>;
   xClassName: String;
 begin
   xDeserializer := TXMLRTTIDeserializer.Create;
@@ -2309,9 +2287,9 @@ begin
 
         xDeserializer.ReadObject(xObject);
       end else
-      if xClassName = TMyDictionary<Integer,string>.ClassName then
+      if xClassName = TSerializableDictionary<Integer,string>.ClassName then
       begin
-        xDictionary := TMyDictionary<Integer,string>.Create;
+        xDictionary := TSerializableDictionary<Integer,string>.Create;
 
         xDeserializer.ReadObject(xDictionary);
       end{ else
