@@ -1999,7 +1999,7 @@ begin
 
   Result := fOpenElementTokens.GetToken(0).TokenName;
   for I := 1 to fOpenElementTokens.Count-1 do
-    Result := Result + '/' + fOpenElementTokens.GetToken(0).TokenName;
+    Result := Result + '/' + fOpenElementTokens.GetToken(I).TokenName;
 end;
 
 function TXMLReader.NodePathMatch(
