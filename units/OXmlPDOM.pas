@@ -72,8 +72,16 @@ type
 
   {$IFDEF O_GENERICS}
   TXMLNodeIndex = TDictionary<OHashedStringsIndex,PXMLNode>;
+  TXMLNodeList = TList<PXMLNode>;
   {$ELSE}
   TXMLNodeIndex = TODictionary;
+  TXMLNodeList = TList;
+  {$ENDIF}
+
+  {$IFDEF O_ANONYMOUS_METHODS}
+  TXMLNodeCompare = reference to function(const aNode1, aNode2: PXMLNode): Integer;
+  {$ELSE}
+  TXMLNodeCompare = function(const aNode1, aNode2: PXMLNode): Integer;
   {$ENDIF}
 
   TXMLNode = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
@@ -106,6 +114,7 @@ type
     procedure DeleteCChildren(const aDestroyList: Boolean; const aChildType: TXMLChildType);
     function FindCChild(const aNodeNameId: OHashedStringsIndex; const aChildType: TXMLChildType;
       var outNode: PXMLNode; var outNodeSearchedCount: Integer): Boolean;
+    procedure FillCChildList(const aList: IXMLNodeList; const aChildType: TXMLChildType);
   private
     function GetId: XMLNodeId;
     function GetNodeName: OWideString;
@@ -135,6 +144,9 @@ type
     function GetNextNodeInTree: PXMLNode;
     function GetPreviousNodeInTree: PXMLNode;
     function BuildChildrenIndex: TXMLNodeIndex;
+
+    procedure QuickSort(aLow, aHigh: Integer; const aCompare: TXMLNodeCompare;
+      const aChildNodeList: IXMLNodeList);
   private
     //methods for direct reading/writing
     procedure WriteChildrenXML(const aWriter: TXMLWriter);
@@ -250,6 +262,7 @@ type
     procedure DeleteChildren(const aDestroyList: Boolean = True);
     procedure DeleteSelf;//free current node, both for NextGen and "normal" Pascal
     procedure RemoveSelfFromParent;//remove self from parent node list, the node doesn't get destroyed
+    procedure ExchangeWithNode(const aNode: PXMLNode);//exchange with another node
 
     //insert a node before another
     //  Inserts the node aNewChild before the existing child node aRefChild.
@@ -295,6 +308,14 @@ type
     function CloneNode(const aDeep: Boolean): PXMLNode;
     //consolidate adjacent text nodes and remove any empty text nodes
     procedure Normalize;
+  public
+    //sort child nodes
+    //  aDeep = false: only one level child nodes
+    //  aDeep = true: whole node tree
+    procedure SortChildNodes(const aCompare: TXMLNodeCompare; const aDeep: Boolean = False);
+    procedure SortAttributeNodes(const aCompare: TXMLNodeCompare);
+    procedure SortChildNodesByName(const aDeep: Boolean = False);
+    procedure SortAttributeNodesByName;
   public
     //select the first node by XPath, if not found return false (and outNode=nil)
     function SelectNode(const aXPath: OWideString; var outNode: PXMLNode): Boolean; overload;
@@ -638,6 +659,9 @@ type
     function IndexOf(const aName: OWideString; var outNode: PXMLNode): Integer; overload;
     procedure Insert(const aIndex: Integer; const aNode: PXMLNode);
     function Remove(const aNode: PXMLNode): Integer;
+    procedure Exchange(const aIndex1, aIndex2: Integer); overload;
+    procedure Exchange(const aNode1, aNode2: PXMLNode); overload;
+    procedure Move(const aCurIndex, aNewIndex: Integer);
 
     function GetFirst: PXMLNode;
     function GetLast: PXMLNode;
@@ -699,6 +723,9 @@ type
     function Remove(const aNode: PXMLNode): Integer; overload;//important: node gets automatically destroyed
     function Remove(const aName: OWideString; var outNode: PXMLNode): Boolean; overload;//important: node DOES NOT GET automatically destroyed
 
+    procedure ExchangeNodes(const aIndex1, aIndex2: Integer); overload;
+    procedure ExchangeNodes(const aNode1, aNode2: PXMLNode); overload;
+
     function GetFirst: PXMLNode;
     function GetLast: PXMLNode;
     function GetNext(var ioNode: PXMLNode): Boolean;
@@ -726,11 +753,7 @@ type
 
   TXMLResNodeList = class(TInterfacedObject, IXMLNodeList)
   private
-    {$IFDEF O_GENERICS}
-    fList: TList<PXMLNode>;
-    {$ELSE}
-    fList: TList;
-    {$ENDIF}
+    fList: TXMLNodeList;
     fIteratorCurrent: Integer;//for fast Next & Prev
 
     function GetPrevNext(var ioNodeEnum: PXMLNode; const aInc: Integer): Boolean;
@@ -755,6 +778,9 @@ type
     function IndexOf(const aName: OWideString; var outNode: PXMLNode): Integer; overload;
     procedure Insert(const aIndex: Integer; const aNode: PXMLNode);
     function Remove(const aNode: PXMLNode): Integer;
+    procedure Exchange(const aIndex1, aIndex2: Integer); overload;
+    procedure Exchange(const aNode1, aNode2: PXMLNode); overload;
+    procedure Move(const aCurIndex, aNewIndex: Integer);
 
     function GetFirst: PXMLNode;
     function GetLast: PXMLNode;
@@ -819,9 +845,16 @@ function CreateXMLDoc: IXMLDocument; overload;
 function CreateXMLDoc(const aRootNodeName: OWideString): IXMLDocument; overload;
 function CreateXMLDoc(const aRootNodeName: OWideString; const aAddUTF8Declaration: Boolean): IXMLDocument; overload;
 
+function CompareNodeNames(const aNode1, aNode2: PXMLNode): Integer;
+
 implementation
 
 uses OXmlLng;
+
+function CompareNodeNames(const aNode1, aNode2: PXMLNode): Integer;
+begin
+  Result := OWideCompareStr(aNode1^.NodeName, aNode2^.NodeName);
+end;
 
 function CreateXMLDoc: IXMLDocument;
 begin
@@ -1081,6 +1114,30 @@ begin
   OwnerDocument.FreeNode(@Self);
 end;
 
+procedure TXMLNode.ExchangeWithNode(const aNode: PXMLNode);
+var
+  xSelfNextSibling, xSelfNextSiblingParent: PXMLNode;
+begin
+  if aNode.OwnerDocument <> Self.OwnerDocument then
+    raise EXmlDOMException.Create(OXmlLng_ExchangeFromDifferentDocument);
+
+  xSelfNextSibling := Self.NextSibling;
+  xSelfNextSiblingParent := xSelfNextSibling.ParentNode;
+
+  if xSelfNextSibling <> aNode then
+  begin
+    Self.RemoveSelfFromParent;
+    aNode.ParentNode.InsertBefore(@Self, aNode);
+  end else
+    xSelfNextSibling := @Self;//insert before self if [Self, aNode]
+
+  if aNode.NextSibling <> @Self then
+  begin
+    aNode.RemoveSelfFromParent;
+    xSelfNextSiblingParent.InsertBefore(aNode, xSelfNextSibling);
+  end;
+end;
+
 procedure TXMLNode.DeleteAttribute(const aName: OWideString);
 var
   xAttr: PXMLNode;
@@ -1120,6 +1177,20 @@ function TXMLNode.FindAttribute(const aName: OWideString;
   var outAttr: PXMLNode): Boolean;
 begin
   Result := FindAttributeById(fOwnerDocument.IndexOfString(aName), outAttr);
+end;
+
+procedure TXMLNode.FillCChildList(const aList: IXMLNodeList;
+  const aChildType: TXMLChildType);
+var
+  xChild: PXMLNode;
+begin
+  xChild := fFirstCChild[aChildType];
+  while Assigned(xChild) do
+  begin
+    aList.Add(xChild);
+
+    xChild := xChild.NextSibling;
+  end;
 end;
 
 function TXMLNode.FindAttribute(const aName: OWideString;
@@ -2234,6 +2305,44 @@ begin
   end;
 end;
 
+procedure TXMLNode.QuickSort(aLow, aHigh: Integer;
+  const aCompare: TXMLNodeCompare; const aChildNodeList: IXMLNodeList);
+var
+  xLow, xHigh, xMid: Integer;
+begin
+  repeat
+    xLow := aLow;
+    xHigh := aHigh;
+    xMid := (aLow + aHigh) shr 1;
+    repeat
+      while aCompare(aChildNodeList[xLow], aChildNodeList[xMid]) < 0 do
+        Inc(xLow);
+      while aCompare(aChildNodeList[xHigh], aChildNodeList[xMid]) > 0 do
+        Dec(xHigh);
+
+      if xLow <= xHigh then
+      begin
+        if xLow <> xHigh then
+        begin
+          //exchange nodes in xml document
+          aChildNodeList[xLow].ExchangeWithNode(aChildNodeList[xHigh]);
+          //exchange nodes in temp list
+          aChildNodeList.Exchange(xLow, xHigh);
+        end;
+        if xMid = xLow then
+          xMid := xHigh
+        else if xMid = xHigh then
+          xMid := xLow;
+        Inc(xLow);
+        Dec(xHigh);
+      end;
+    until xLow > xHigh;
+    if aLow < xHigh then
+      QuickSort(aLow, xHigh, aCompare, aChildNodeList);
+    aLow := xLow;
+  until xLow >= aHigh;
+end;
+
 {$IFDEF O_RAWBYTESTRING}
 function TXMLNode.LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
 var
@@ -2648,6 +2757,47 @@ begin
   else
     raise EXmlDOMException.Create(OXmlLng_CannotSetText);
   end;
+end;
+
+procedure TXMLNode.SortAttributeNodes(const aCompare: TXMLNodeCompare);
+var
+  xAttrList: IXMLNodeList;
+begin
+  if not Assigned(FirstAttribute) then
+    Exit;
+
+  fOwnerDocument.fTempAttributeIndex.SetParentElement(nil);//clear attribute index
+
+  xAttrList := TXMLResNodeList.Create;
+  FillCChildList(xAttrList, ctAttribute);
+  QuickSort(0, xAttrList.Count-1, aCompare, xAttrList);
+end;
+
+procedure TXMLNode.SortAttributeNodesByName;
+begin
+  SortAttributeNodes(CompareNodeNames);
+end;
+
+procedure TXMLNode.SortChildNodes(const aCompare: TXMLNodeCompare; const aDeep: Boolean);
+var
+  xChildList: IXMLNodeList;
+  I: Integer;
+begin
+  if not Assigned(FirstChild) then
+    Exit;
+
+  xChildList := TXMLResNodeList.Create;
+  FillCChildList(xChildList, ctChild);
+  QuickSort(0, xChildList.Count-1, aCompare, xChildList);
+
+  if aDeep then
+  for I := 0 to xChildList.Count-1 do
+    xChildList[I].SortChildNodes(aCompare, aDeep);
+end;
+
+procedure TXMLNode.SortChildNodesByName(const aDeep: Boolean);
+begin
+  SortChildNodes(CompareNodeNames, aDeep);
 end;
 
 procedure TXMLNode.WriteChildrenXML(
@@ -3437,11 +3587,7 @@ constructor TXMLResNodeList.Create;
 begin
   inherited Create;
 
-  {$IFDEF O_GENERICS}
-  fList := TList<PXMLNode>.Create;
-  {$ELSE}
-  fList := TList.Create;
-  {$ENDIF}
+  fList := TXMLNodeList.Create;
 end;
 
 procedure TXMLResNodeList.Delete(const aIndex: Integer);
@@ -3465,6 +3611,16 @@ begin
   fList.Free;
 
   inherited;
+end;
+
+procedure TXMLResNodeList.Exchange(const aNode1, aNode2: PXMLNode);
+begin
+  Exchange(IndexOf(aNode1), IndexOf(aNode2));
+end;
+
+procedure TXMLResNodeList.Exchange(const aIndex1, aIndex2: Integer);
+begin
+  fList.Exchange(aIndex1, aIndex2);
 end;
 
 procedure TXMLResNodeList.Delete(const aName: OWideString);
@@ -3614,6 +3770,11 @@ end;
 procedure TXMLResNodeList.Insert(const aIndex: Integer; const aNode: PXMLNode);
 begin
   fList.Insert(aIndex, aNode);
+end;
+
+procedure TXMLResNodeList.Move(const aCurIndex, aNewIndex: Integer);
+begin
+  fList.Move(aCurIndex, aNewIndex);
 end;
 
 function TXMLResNodeList.Remove(const aNode: PXMLNode): Integer;
@@ -3784,6 +3945,22 @@ begin
   xNode := Nodes[aIndex];
   if Assigned(xNode) then
     Delete(xNode);
+end;
+
+procedure TXMLChildNodeList.ExchangeNodes(const aIndex1, aIndex2: Integer);
+begin
+  if (aIndex1 < 0) or (aIndex2 < 0) or
+     (aIndex1 >= Count) or (aIndex2 >= Count) or
+     (aIndex1 = aIndex2)
+  then
+    Exit;
+
+  ExchangeNodes(Nodes[aIndex1], Nodes[aIndex2]);
+end;
+
+procedure TXMLChildNodeList.ExchangeNodes(const aNode1, aNode2: PXMLNode);
+begin
+  aNode1.ExchangeWithNode(aNode2);
 end;
 
 procedure TXMLChildNodeList.ExtNodeAppended;
@@ -4089,12 +4266,14 @@ procedure TXMLAttributeIndex.SetParentElement(const aParentElement: PXMLNode);
 var
   xAttrIter: PXMLNode;
 begin
+  if fParentElement = aParentElement then
+    Exit;
+
   Clear;
+  fParentElement := aParentElement;
 
   if not Assigned(aParentElement) then
     Exit;
-
-  fParentElement := aParentElement;
 
   xAttrIter := aParentElement.FirstAttribute;
   while Assigned(xAttrIter) do

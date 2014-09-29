@@ -515,8 +515,11 @@ type
     //use ReadNextToken for reading next XML token
     function ReadNextToken(var outToken: PXMLReaderToken): Boolean;
 
-    //create
+    //set custom attribute tokens
     procedure SetAttributeTokens(const aAttributeTokens: TXMLReaderTokenList);
+
+    //reset document element -> use if you want to reset the information that the document element has been already read
+    procedure ResetDocumentElement;
   public
     //following are functions to work with the current path in the XML document
     function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
@@ -1964,6 +1967,11 @@ begin
       fOpenElementTokens.DeleteLast;
     end;
   end;
+end;
+
+procedure TXMLReader.ResetDocumentElement;
+begin
+  fDocumentElementFound := False;
 end;
 
 function TXMLReader.GetNodePath(

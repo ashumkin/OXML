@@ -74,6 +74,7 @@ var
 
   OXmlLng_AppendFromDifferentDocument: String = 'You can''t append a node from a different XML document.';
   OXmlLng_InsertFromDifferentDocument: String = 'You can''t insert a node from a different XML document.';
+  OXmlLng_ExchangeFromDifferentDocument: String = 'You can''t exchange nodes from different XML documents.';
   OXmlLng_InsertEqualNodes: String = 'Node to insert and reference node can''t be equal.';
   OXmlLng_ParentNodeCantBeNil: String = 'Parent node can''t be nil.';
   OXmlLng_ParentNodeMustBeNil: String = 'Parent node must be nil.';
@@ -92,6 +93,8 @@ var
   OXmlLng_CannotWriteToVirtualMemoryStream: String = 'You cannot write to a TVirtualMemoryStream.';
 
   OXmlLng_CannotChangeRootNodeName: String = 'Cannot change RootNodeName after data has been written.';
+  OXmlLng_CannotChangeUseRootDataWritten: String = 'Cannot change UseRoot after data has been written.';
+  OXmlLng_CannotChangeUseRootDataRead: String = 'Cannot change UseRoot after data has been read.';
   OXmlLng_WrongDeserializerSequence: String = 'TXMLDeserializer: wrong ReadObjectInfo/ReadObject call sequence.';
   OXmlLng_RTTIInternalError: String = 'RTTI Internal Error';
   OXmlLng_DeserializerNotSupportedListItemType: String = 'TXMLRTTIDeserializer: the type %s is not supported for TList<T> or array enumeration.';

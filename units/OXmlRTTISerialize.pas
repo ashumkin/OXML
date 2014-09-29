@@ -90,12 +90,13 @@ type
     fWriter: TXMLWriter;
     fRootElementWritten: Boolean;
 
+    fUseRoot: Boolean;
     fRootNodeName: OWideString;
     fWriteDefaultValues: Boolean;
   private
     function GetWriterSettings: TXMLWriterSettings;
-    procedure SetRootNodeName(const Value: OWideString);
-
+    procedure SetUseRoot(const aUseRoot: Boolean);
+    procedure SetRootNodeName(const aRootNodeName: OWideString);
   protected
     procedure DoCreate; override;
     procedure DoInit; virtual;
@@ -107,7 +108,7 @@ type
     procedure WriteObjectProperty(
       aTagName: OWideString; aType: TRttiType;
       const aValue: TValue;
-      const aIsDefaultValue: Boolean);
+      const aIsDefaultValue, aWriteObjectType: Boolean);
     procedure _WriteObjectProperty(const aTagName, aValue: OWideString);
   public
     //create
@@ -128,8 +129,18 @@ type
     procedure ReleaseDocument;
   public
     //Write an object to the XML file.
-    procedure WriteObject<T>(const aObject: T);
+    //  aElementName: use custom XML element name
+    //  aWriteObjectType: if true, write the real object type to "type" XML attribute
+    procedure WriteObject<T>(const aObject: T); overload;
+    procedure WriteObject<T>(const aObject: T;
+      aElementName: OWideString; const aWriteObjectType: Boolean = True); overload;
   public
+    //use root
+    //  - true: a document root (RootNodeName) will be written
+    //  please note that if you disable it (UseRoot = false) and
+    //  write more objects to the XML, the XML won't be valid because
+    //  XML documents can have only one root
+    property UseRoot: Boolean read fUseRoot write SetUseRoot;
     //custom root node
     property RootNodeName: OWideString read fRootNodeName write SetRootNodeName;
     //write object properties with default values?
@@ -146,6 +157,7 @@ type
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
 
+    fUseRoot: Boolean;
     fUseIndex: Boolean;
 
     fCreateClasses: TDictionary<string,TClass>;
@@ -154,6 +166,7 @@ type
     function GetStreamSize: OStreamInt;
     function GetReaderSettings: TXMLReaderSettings;
     function GetParseError: IOTextParseError;
+    procedure SetUseRoot(const aUseRoot: Boolean);
   protected
     procedure DoCreate; override;
     procedure DoInit; virtual;
@@ -195,7 +208,7 @@ type
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: String; const aForceEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: string; const aForceEncoding: TEncoding = nil);
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -220,18 +233,27 @@ type
     //XML reader settings
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
 
-    //true: property names will be indexed for faster search (not necessary for most objects
-    //  because the index creation overload is higher than speed gain for objects with little
-    //  properties (typically less than 100).
-    //false: no indexed search (default).
+    //use root - please use the same setting here as in TXMLSerialize
+    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+
+    //use index
+    //  true: property names will be indexed for faster search (not necessary for most objects
+    //    because the index creation overload is higher than speed gain for objects with little
+    //    properties (typically less than 100).
+    //  false: no indexed search (default).
     property UseIndex: Boolean read fUseIndex write fUseIndex;
   public
     //following functions and properties can be called only during parsing (after Init* has been called).
 
     //Find next element
-    function ReadObjectInfo(var outClassName: String): Boolean;
+    //  outElementName -> name of the XML element used (is the same with outType if TXMLSerializer.WriteObject was not executed with custom name)
+    //  outType -> type of the object - differs from outElementName only if TXMLSerializer.WriteObject was executed with custom name
+    function ReadObjectInfo(var outElementName: OWideString): Boolean; overload;
+    function ReadObjectInfo(var outElementName, outType: OWideString): Boolean; overload;
     //If an element was found with ReadElementInfo, read it into an instance
     procedure ReadObject<T>(const aObject: T);
+    //Read object from any other (externally-defined) XML element node
+    procedure ReadObjectFromNode<T>(const aObject: T; const aElementNode: PXMLNode);
 
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
@@ -323,6 +345,7 @@ begin
 
   fWriter := TXMLWriter.Create;
   fRootNodeName := 'oxmlserializer';
+  fUseRoot := True;
 end;
 
 procedure TXMLRTTISerializer.DoInit;
@@ -335,7 +358,7 @@ begin
   Result := fWriter.WriterSettings;
 end;
 
-procedure TXMLRTTISerializer.InitFile(const aFileName: String);
+procedure TXMLRTTISerializer.InitFile(const aFileName: string);
 begin
   fWriter.InitFile(aFileName);
 
@@ -357,25 +380,41 @@ begin
   fWriter.ReleaseDocument;
 end;
 
-procedure TXMLRTTISerializer.SetRootNodeName(const Value: OWideString);
+procedure TXMLRTTISerializer.SetRootNodeName(const aRootNodeName: OWideString);
 begin
   if fRootElementWritten then
     raise EXMLRTTISerializer.Create(OXmlLng_CannotChangeRootNodeName)
   else
-    fRootNodeName := Value;
+    fRootNodeName := aRootNodeName;
+end;
+
+procedure TXMLRTTISerializer.SetUseRoot(const aUseRoot: Boolean);
+begin
+  if fRootElementWritten then
+    raise EXMLRTTISerializer.Create(OXmlLng_CannotChangeUseRootDataWritten)
+  else
+    fUseRoot := aUseRoot;
 end;
 
 procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T);
+begin
+  WriteObject<T>(aObject, '', False);
+end;
+
+procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T;
+  aElementName: OWideString; const aWriteObjectType: Boolean);
 var
   xType: TRttiType;
-  xValue: TValue;
 begin
   if not fRootElementWritten then
     WriteRootStartElement;
 
   xType := Context.GetRealObjectType<T>(aObject);
 
-  WriteObjectProperty(xType.ToString, xType, TValue.From<T>(aObject), False);
+  if aElementName = '' then
+    aElementName := xType.ToString;
+
+  WriteObjectProperty(aElementName, xType, TValue.From<T>(aObject), False, aWriteObjectType);
 end;
 
 procedure TXMLRTTISerializer.WriteObjectEnumeration(const aObject: TObject;
@@ -430,7 +469,7 @@ begin
     begin
       xValue := xCurrent.GetValue(xEnumObject);
       WriteObjectProperty(SymbolNameToString(@xValue.TypeInfo.Name),
-        xItemType, xValue, False);
+        xItemType, xValue, False, True);
     end;
     fWriter.CloseElement('_oxmldefenum', True);
 
@@ -442,7 +481,7 @@ end;
 procedure TXMLRTTISerializer.WriteObjectProperty(
   aTagName: OWideString; aType: TRttiType;
   const aValue: TValue;
-  const aIsDefaultValue: Boolean);
+  const aIsDefaultValue, aWriteObjectType: Boolean);
 var
   xFloatValue: Extended;
   xProperty: TRttiProperty;
@@ -490,7 +529,7 @@ begin
       if (aType.TypeKind = tkClass) then
       begin
         xClassName := OXmlNameToXML(aValue.AsObject.ClassName);
-        if (aTagName <> xClassName) then
+        if aWriteObjectType and (aTagName <> xClassName) then
           fWriter.Attribute('type', xClassName);
       end;
       fWriter.FinishOpenElement;
@@ -505,13 +544,13 @@ begin
 
       for xField in aType.GetFields do
       if (xField.Visibility in fVisibility) then
-        WriteObjectProperty(xField.Name, xField.FieldType, xField.GetValue(xInstance), False);
+        WriteObjectProperty(xField.Name, xField.FieldType, xField.GetValue(xInstance), False, True);
 
       for xProperty in aType.GetProperties do
       if (xProperty.Visibility in fVisibility) and
         (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
       then
-        WriteObjectProperty(xProperty.Name, xProperty.PropertyType, xProperty.GetValue(xInstance), False);
+        WriteObjectProperty(xProperty.Name, xProperty.PropertyType, xProperty.GetValue(xInstance), False, True);
 
       if aType.TypeKind = tkClass then
         WriteObjectEnumeration(TObject(xInstance), aType);
@@ -532,7 +571,7 @@ begin
       for I := 0 to aValue.GetArrayLength-1 do
       begin
         xValue := aValue.GetArrayElement(I);
-        WriteObjectProperty(SymbolNameToString(@xValue.TypeInfo.Name), xElementType, xValue, False);
+        WriteObjectProperty(SymbolNameToString(@xValue.TypeInfo.Name), xElementType, xValue, False, True);
       end;
       fWriter.CloseElement(aTagName, True);
     end;
@@ -541,12 +580,14 @@ end;
 
 procedure TXMLRTTISerializer.WriteRootEndElement;
 begin
-  fWriter.CloseElement(fRootNodeName);
+  if fUseRoot then
+    fWriter.CloseElement(fRootNodeName);
 end;
 
 procedure TXMLRTTISerializer.WriteRootStartElement;
 begin
-  fWriter.OpenElement(fRootNodeName, stFinish);
+  if fUseRoot then
+    fWriter.OpenElement(fRootNodeName, stFinish);
   fRootElementWritten := True;
 end;
 
@@ -690,6 +731,7 @@ begin
 
   fXMLParser := TXMLSeqParser.Create;
   fCreateClasses := TDictionary<string,TClass>.Create;
+  fUseRoot := True;
 end;
 
 procedure TXMLRTTIDeserializer.DoInit;
@@ -732,7 +774,7 @@ begin
   DoInit;
 end;
 
-procedure TXMLRTTIDeserializer.InitFile(const aFileName: String;
+procedure TXMLRTTIDeserializer.InitFile(const aFileName: string;
   const aForceEncoding: TEncoding);
 begin
   fXMLParser.InitFile(aFileName, aForceEncoding);
@@ -761,22 +803,11 @@ end;
 {$ENDIF}
 
 procedure TXMLRTTIDeserializer.ReadObject<T>(const aObject: T);
-var
-  xType: TRttiType;
-  xInstance: Pointer;
 begin
   if not Assigned(fCurrentElementNode) then
     raise EXMLRTTIDeserializer.Create(OXmlLng_WrongDeserializerSequence);
 
-  xType := Context.GetRealObjectType<T>(aObject);
-
-  case xType.TypeKind of
-    tkClass: xInstance := PObject(@aObject)^;
-    tkInterface: xInstance := Pointer(PInterface(@aObject)^);
-  else
-    xInstance := @aObject;
-  end;
-  ReadObjectProperties(xInstance, xType, fCurrentElementNode);
+  ReadObjectFromNode<T>(aObject, fCurrentElementNode);
 
   fCurrentElementNode := nil;
 end;
@@ -817,11 +848,37 @@ begin
   end;
 end;
 
-function TXMLRTTIDeserializer.ReadObjectInfo(var outClassName: String): Boolean;
+procedure TXMLRTTIDeserializer.ReadObjectFromNode<T>(const aObject: T;
+  const aElementNode: PXMLNode);
+var
+  xType: TRttiType;
+  xInstance: Pointer;
+begin
+  xType := Context.GetRealObjectType<T>(aObject);
+
+  case xType.TypeKind of
+    tkClass: xInstance := PObject(@aObject)^;
+    tkInterface: xInstance := Pointer(PInterface(@aObject)^);
+  else
+    xInstance := @aObject;
+  end;
+  ReadObjectProperties(xInstance, xType, aElementNode);
+end;
+
+function TXMLRTTIDeserializer.ReadObjectInfo(
+  var outElementName: OWideString): Boolean;
+var
+  xType: OWideString;
+begin
+  Result := ReadObjectInfo(outElementName, xType);
+end;
+
+function TXMLRTTIDeserializer.ReadObjectInfo(var outElementName,
+  outType: OWideString): Boolean;
 var
   xRootNodeOpen: Boolean;
 begin
-  if not Assigned(fRootNode) then
+  if fUseRoot and not Assigned(fRootNode) then
   begin
     Result :=
       fXMLParser.ReadNextChildElementHeader({%H-}fRootNode, {%H-}xRootNodeOpen) and//no root element
@@ -846,7 +903,10 @@ begin
   until Result;
 
   //Result = true here
-  outClassName := OXmlXMLToName(fCurrentElementNode.NodeName);
+  outElementName := OXmlXMLToName(fCurrentElementNode.NodeName);
+  outType := fCurrentElementNode.GetAttribute('type');
+  if outType = '' then
+    outType := outElementName;
 end;
 
 procedure TXMLRTTIDeserializer.ReadObjectProperties(const aInstance: Pointer;
@@ -1024,6 +1084,14 @@ begin
   else
   if aMember is TRttiProperty then
     TRttiProperty(aMember).SetValue(aInstance, aNewValue)
+end;
+
+procedure TXMLRTTIDeserializer.SetUseRoot(const aUseRoot: Boolean);
+begin
+  if fXMLParser.ApproxStreamPosition > 0 then
+    raise EXMLRTTISerializer.Create(OXmlLng_CannotChangeUseRootDataRead)
+  else
+    fUseRoot := aUseRoot;
 end;
 
 { TValueHelper }

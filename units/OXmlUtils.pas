@@ -77,7 +77,7 @@ const
   {$ELSE}
   XMLDefaultLineBreak = lbLF;
   {$ENDIF}
-  XMLLineBreak: Array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
+  XMLLineBreak: array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
   XML_XML: OWideString = 'xml';
   XML_XMLNS: OWideString = 'xmlns';
   XML_XML_SPACE: OWideString = 'xml:space';

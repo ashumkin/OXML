@@ -42,7 +42,7 @@ uses
   ;
 
 const
-  cTestCount = 50;
+  cTestCount = 54;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -84,6 +84,7 @@ type
     function Test_OXmlPDOM_ChildCount: Boolean;
     function Test_OXmlPDOM_Id: Boolean;
     function Test_OXmlPDOM_NextNodeInTree: Boolean;
+    function Test_OXmlPDOM_Sort: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
@@ -103,6 +104,7 @@ type
     function Test_OXmlCDOM_ExternalDTD: Boolean;
     function Test_OXmlCDOM_ChildCount: Boolean;
     function Test_OXmlCDOM_NextNodeInTree: Boolean;
+    function Test_OXmlCDOM_Sort: Boolean;
     function Test_OXmlCDOM_OASIS: Boolean;
   private
     //OWideSupp.pas
@@ -126,14 +128,16 @@ type
     function Test_OASIS(const aIsPDOM: Boolean): Boolean;
   private
     //OXmlSerialize.pas
-    function Text_OXmlSerializer_Test1(const aUseIndex: Boolean): Boolean;
+    function Text_OXmlSerializer_Test1(const aUseIndex, aUseRoot: Boolean): Boolean;
     function Text_OXmlSerializer_Test1True: Boolean;
     function Text_OXmlSerializer_Test1False: Boolean;
+    function Text_OXmlSerializer_Test2: Boolean;
 
     //OXmlRTTISerialize.pas
-    function Text_OXmlRTTISerializer_Test1(const {%H-}aUseIndex: Boolean): Boolean;
+    function Text_OXmlRTTISerializer_Test1(const {%H-}aUseIndex, {%H-}aUseRoot: Boolean): Boolean;
     function Text_OXmlRTTISerializer_Test1True: Boolean;
     function Text_OXmlRTTISerializer_Test1False: Boolean;
+    function Text_OXmlRTTISerializer_Test2: Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
@@ -318,6 +322,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_ChildCount, 'Test_OXmlPDOM_ChildCount');
   ExecuteFunction(Test_OXmlPDOM_Id, 'Test_OXmlPDOM_Id');
   ExecuteFunction(Test_OXmlPDOM_NextNodeInTree, 'Test_OXmlPDOM_NextNodeInTree');
+  ExecuteFunction(Test_OXmlPDOM_Sort, 'Test_OXmlPDOM_Sort');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -334,6 +339,7 @@ begin
   ExecuteFunction(Test_OXmlCDOM_ExternalDTD, 'Test_OXmlCDOM_ExternalDTD');
   ExecuteFunction(Test_OXmlCDOM_ChildCount, 'Test_OXmlCDOM_ChildCount');
   ExecuteFunction(Test_OXmlCDOM_NextNodeInTree, 'Test_OXmlCDOM_NextNodeInTree');
+  ExecuteFunction(Test_OXmlCDOM_Sort, 'Test_OXmlCDOM_Sort');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
@@ -341,8 +347,10 @@ begin
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
   ExecuteFunction(Text_OXmlSerializer_Test1True, 'Text_OXmlSerializer_Test1True');
   ExecuteFunction(Text_OXmlSerializer_Test1False, 'Text_OXmlSerializer_Test1False');
+  ExecuteFunction(Text_OXmlSerializer_Test2, 'Text_OXmlSerializer_Test2');
   ExecuteFunction(Text_OXmlRTTISerializer_Test1True, 'Text_OXmlRTTISerializer_Test1True');
   ExecuteFunction(Text_OXmlRTTISerializer_Test1False, 'Text_OXmlRTTISerializer_Test1False');
+  ExecuteFunction(Text_OXmlRTTISerializer_Test2, 'Text_OXmlRTTISerializer_Test2');
 
   if fPassNameIfFalse.Count = 0 then
     aStrList.Add(Format('OXml: all tests from %d passed.', [GetAllTestCount]))
@@ -955,6 +963,42 @@ begin
     CompareMem(@xOutBuffer1[0], @xOutBuffer2[0], Length(xOutBuffer1));
 end;
 
+function TOXmlUnitTest.Test_OXmlPDOM_Sort: Boolean;
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xRoot, xNodeA, xCurNode: OXmlPDOM.PXMLNode;
+
+  function _TestNextNode(const bName: OWideString; var bCurNode: OXmlPDOM.PXMLNode): Boolean;
+  begin
+    bCurNode := bCurNode.NextNodeInTree;
+    Result := bCurNode.NodeName = bName;
+  end;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc('root');
+  xRoot := xXML.DocumentElement;
+  xRoot.AddChild('z');
+  xNodeA := xRoot.AddChild('a');
+  xNodeA.AddChild('a5');
+  xNodeA.AddChild('a1');
+  xNodeA.AddChild('a3');
+  xRoot.AddChild('h');
+  xRoot.AddChild('b');
+  xRoot.SortChildNodesByName(True);
+
+  Result := False;
+
+  xCurNode := xRoot;
+  if not _TestNextNode('a', xCurNode) then Exit;
+  if not _TestNextNode('a1', xCurNode) then Exit;
+  if not _TestNextNode('a3', xCurNode) then Exit;
+  if not _TestNextNode('a5', xCurNode) then Exit;
+  if not _TestNextNode('b', xCurNode) then Exit;
+  if not _TestNextNode('h', xCurNode) then Exit;
+  if not _TestNextNode('z', xCurNode) then Exit;
+
+  Result := True;
+end;
+
 function TOXmlUnitTest.Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
 var
   xReader: TXMLReader;
@@ -1084,7 +1128,7 @@ begin
 end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1(
-  const aUseIndex: Boolean): Boolean;
+  const aUseIndex, aUseRoot: Boolean): Boolean;
 {$IFDEF USE_RTTI}
 var
   xStream: TStream;
@@ -1109,6 +1153,7 @@ begin
     xSerializer.WriterSettings.IndentType := itIndent;
     xSerializer.WriterSettings.WriteBOM := False;
     xSerializer.InitStream(xStream);
+    xSerializer.UseRoot := aUseRoot;
 
     for I := Low(xObjectIn) to High(xObjectIn) do
     begin
@@ -1146,8 +1191,9 @@ begin
 
     xStream.Position := 0;
 
-    xDeserializer.InitStream(xStream);
     xDeserializer.UseIndex := aUseIndex;
+    xDeserializer.UseRoot := xSerializer.UseRoot;
+    xDeserializer.InitStream(xStream);
     xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2);
     xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2A);
 
@@ -1193,23 +1239,99 @@ end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1False: Boolean;
 begin
-  Result := Text_OXmlRTTISerializer_Test1(False);
+  Result := Text_OXmlRTTISerializer_Test1(False, False);
 end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1True: Boolean;
 begin
-  Result := Text_OXmlRTTISerializer_Test1(True);
+  Result := Text_OXmlRTTISerializer_Test1(True, True);
+end;
+
+function TOXmlUnitTest.Text_OXmlRTTISerializer_Test2: Boolean;
+{$IFDEF USE_RTTI}
+var
+  xStream: TStream;
+  xSerializer: TXMLRTTISerializer;
+  xDeserializer: TXMLRTTIDeserializer;
+  xObjectIn, xObjectOut: TText_OXmlSerializer_Test1_Class;
+  xElementName, xObjectType: OWideString;
+begin
+  Result := False;
+
+  xStream := TMemoryStream.Create;
+  xSerializer := TXMLRTTISerializer.Create;
+  xDeserializer := TXMLRTTIDeserializer.Create;
+  xObjectIn := TText_OXmlSerializer_Test1_Class.Create;
+  xObjectOut := nil;
+  try
+    xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.InitStream(xStream);
+    xSerializer.UseRoot := False;
+
+    xObjectIn.MyInt := 5;
+    xObjectIn.MyEnum := enTwo;
+    xObjectIn.MySet := [enOne, enThree];
+    xObjectIn.MyDate := Trunc(Now);//get date only
+    {$IFDEF USE_DATEUTILS}
+    xObjectIn.MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+    {$ELSE}
+    xObjectIn.MyDateTime := 0;
+    {$ENDIF}
+    xObjectIn.MyTime := Frac(xObjectIn.MyDateTime);//get time only
+    xObjectIn.MyFloat := 3.14;
+    xObjectIn.MyString := 'Kluug.net';
+    xObjectIn.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+    xObjectIn.MyClass.MyInt := 10;
+
+    xSerializer.WriteObject(xObjectIn, 'customobject', True);
+
+    xSerializer.ReleaseDocument;
+
+    xStream.Position := 0;
+
+    xDeserializer.UseRoot := xSerializer.UseRoot;
+    xDeserializer.InitStream(xStream);
+
+    while xDeserializer.ReadObjectInfo({%H-}xElementName, xObjectType) do
+    begin
+      if (xElementName = 'customobject') and
+        (xObjectType = TText_OXmlSerializer_Test1_Class.ClassName)
+      then begin
+        xObjectOut := TText_OXmlSerializer_Test1_Class.Create;
+
+        xDeserializer.ReadObject(xObjectOut);
+      end else
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: object "'+xElementName+'" is unknown.');
+    end;
+
+    Result :=
+      Assigned(xObjectOut) and
+      xObjectIn.SameAs(xObjectOut);
+
+    if not Result then
+      Exit;
+  finally
+    xSerializer.Free;
+    xDeserializer.Free;
+    xStream.Free;
+    xObjectIn.Free;
+    xObjectOut.Free;
+  end;
+{$ELSE}
+begin
+  Result := True;
+{$ENDIF}
 end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test1(
-  const aUseIndex: Boolean): Boolean;
+  const aUseIndex, aUseRoot: Boolean): Boolean;
 var
   xStream: TStream;
   xSerializer: TXMLSerializer;
   xDeserializer: TXMLDeserializer;
   I: Integer;
   xObjectIn, xObjectOut: array[0..1] of TText_OXmlSerializer_Test1_Class;
-  xClassName: String;
+  xElementName: OWideString;
 begin
   Result := False;
 
@@ -1223,6 +1345,7 @@ begin
   end;
   try
     xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.UseRoot := aUseRoot;
     xSerializer.InitStream(xStream);
 
     for I := Low(xObjectIn) to High(xObjectIn) do
@@ -1234,7 +1357,7 @@ begin
       {$IFDEF USE_DATEUTILS}
       xObjectIn[I].MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
       {$ELSE}
-      xObjectIn[I].MyDateTime := Now;
+      xObjectIn[I].MyDateTime := 0;
       {$ENDIF}
       xObjectIn[I].MyTime := Frac(xObjectIn[I].MyDateTime);//get time only
       xObjectIn[I].MyFloat := 3.14;
@@ -1249,13 +1372,15 @@ begin
 
     xStream.Position := 0;
 
-    xDeserializer.InitStream(xStream);
     xDeserializer.UseIndex := aUseIndex;
+    xDeserializer.UseRoot := xSerializer.UseRoot;
+    xDeserializer.ReaderSettings.BreakReading := brNone;
+    xDeserializer.InitStream(xStream);
 
     I := 0;
-    while xDeserializer.ReadObjectInfo({%H-}xClassName) do
+    while xDeserializer.ReadObjectInfo({%H-}xElementName) do
     begin
-      if xClassName = TText_OXmlSerializer_Test1_Class.ClassName then
+      if xElementName = TText_OXmlSerializer_Test1_Class.ClassName then
       begin
         xObjectOut[I] := TText_OXmlSerializer_Test1_Class.Create;
 
@@ -1263,7 +1388,7 @@ begin
 
         Inc(I);
       end else
-        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xElementName+'" is unknown.');
     end;
 
     for I := Low(xObjectIn) to High(xObjectIn) do
@@ -1289,12 +1414,83 @@ end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test1False: Boolean;
 begin
-  Result := Text_OXmlSerializer_Test1(False);
+  Result := Text_OXmlSerializer_Test1(False, False);
 end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test1True: Boolean;
 begin
-  Result := Text_OXmlSerializer_Test1(True);
+  Result := Text_OXmlSerializer_Test1(True, True);
+end;
+
+function TOXmlUnitTest.Text_OXmlSerializer_Test2: Boolean;
+var
+  xStream: TStream;
+  xSerializer: TXMLSerializer;
+  xDeserializer: TXMLDeserializer;
+  xObjectIn, xObjectOut: TText_OXmlSerializer_Test1_Class;
+  xElementName, xObjectType: OWideString;
+begin
+  Result := False;
+
+  xStream := TMemoryStream.Create;
+  xSerializer := TXMLSerializer.Create;
+  xDeserializer := TXMLDeserializer.Create;
+  xObjectIn := TText_OXmlSerializer_Test1_Class.Create;
+  xObjectOut := nil;
+  try
+    xSerializer.WriterSettings.IndentType := itIndent;
+    xSerializer.InitStream(xStream);
+    xSerializer.UseRoot := False;
+
+    xObjectIn.MyInt := 5;
+    xObjectIn.MyEnum := enTwo;
+    xObjectIn.MySet := [enOne, enThree];
+    xObjectIn.MyDate := Trunc(Now);//get date only
+    {$IFDEF USE_DATEUTILS}
+    xObjectIn.MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+    {$ELSE}
+    xObjectIn.MyDateTime := 0;
+    {$ENDIF}
+    xObjectIn.MyTime := Frac(xObjectIn.MyDateTime);//get time only
+    xObjectIn.MyFloat := 3.14;
+    xObjectIn.MyString := 'Kluug.net';
+    xObjectIn.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+    xObjectIn.MyClass.MyInt := 10;
+
+    xSerializer.WriteObject(xObjectIn, 'customobject', True);
+
+    xSerializer.ReleaseDocument;
+
+    xStream.Position := 0;
+
+    xDeserializer.UseRoot := xSerializer.UseRoot;
+    xDeserializer.InitStream(xStream);
+
+    while xDeserializer.ReadObjectInfo({%H-}xElementName, {%H-}xObjectType) do
+    begin
+      if (xElementName = 'customobject') and
+        (xObjectType = TText_OXmlSerializer_Test1_Class.ClassName)
+      then begin
+        xObjectOut := TText_OXmlSerializer_Test1_Class.Create;
+
+        xDeserializer.ReadObject(xObjectOut);
+      end else
+        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: object "'+xElementName+'" is unknown.');
+    end;
+
+    Result :=
+      Assigned(xObjectOut) and
+      xObjectIn.SameAs(xObjectOut);
+
+    if not Result then
+      Exit;
+  finally
+    xSerializer.Free;
+    xDeserializer.Free;
+    xStream.Free;
+    xObjectIn.Free;
+    xObjectOut.Free;
+  end;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
@@ -2193,6 +2389,42 @@ end;
 function TOXmlUnitTest.Test_OXmlCDOM_OASIS: Boolean;
 begin
   Result := Test_OASIS(False);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_Sort: Boolean;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xRoot, xNodeA, xCurNode: OXmlCDOM.TXMLNode;
+
+  function _TestNextNode(const bName: OWideString; var bCurNode: OXmlCDOM.TXMLNode): Boolean;
+  begin
+    bCurNode := bCurNode.NextNodeInTree;
+    Result := bCurNode.NodeName = bName;
+  end;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc('root');
+  xRoot := xXML.DocumentElement;
+  xRoot.AddChild('z');
+  xNodeA := xRoot.AddChild('a');
+  xNodeA.AddChild('a5');
+  xNodeA.AddChild('a1');
+  xNodeA.AddChild('a3');
+  xRoot.AddChild('h');
+  xRoot.AddChild('b');
+  xRoot.SortChildNodesByName(True);
+
+  Result := False;
+
+  xCurNode := xRoot;
+  if not _TestNextNode('a', xCurNode) then Exit;
+  if not _TestNextNode('a1', xCurNode) then Exit;
+  if not _TestNextNode('a3', xCurNode) then Exit;
+  if not _TestNextNode('a5', xCurNode) then Exit;
+  if not _TestNextNode('b', xCurNode) then Exit;
+  if not _TestNextNode('h', xCurNode) then Exit;
+  if not _TestNextNode('z', xCurNode) then Exit;
+
+  Result := True;
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_AttributeIndex: Boolean;

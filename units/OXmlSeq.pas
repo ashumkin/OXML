@@ -420,6 +420,7 @@ begin
       //read whole element contents
       xBreakReading := fReader.ReaderSettings.BreakReading;
       fReader.ReaderSettings.BreakReading := brAfterDocumentElement;
+      fReader.ResetDocumentElement;
       try
         Result := xLastNode.LoadFromReader(fReader, fReaderToken, fXmlDoc.Node);
       finally
