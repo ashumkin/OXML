@@ -65,6 +65,7 @@ type
     fWriter: TXMLWriter;
     fRootElementWritten: Boolean;
 
+    fXMLDeclaration: TXMLWriterDeclaration;
     fUseRoot: Boolean;
     fRootNodeName: OWideString;
     fWriteDefaultValues: Boolean;
@@ -108,6 +109,9 @@ type
     procedure WriteObject(const aObject: TPersistent;
       const aElementName: OWideString; const aWriteObjectType: Boolean = True); overload;
   public
+    //write XML declaration <?xml ?>
+    property XMLDeclaration: TXMLWriterDeclaration read fXMLDeclaration;
+
     //use root
     //  - true: a document root (RootNodeName) will be written
     //  please note that if you disable it (UseRoot = false) and
@@ -248,6 +252,7 @@ destructor TXMLSerializer.Destroy;
 begin
   ReleaseDocument;
   fWriter.Free;
+  fXMLDeclaration.Free;
 
   inherited;
 end;
@@ -255,6 +260,7 @@ end;
 procedure TXMLSerializer.DoCreate;
 begin
   fWriter := TXMLWriter.Create;
+  fXMLDeclaration := TXMLWriterDeclaration.Create;
 
   fRootNodeName := 'oxmlserializer';
   fUseRoot := True;
@@ -286,8 +292,7 @@ end;
 
 procedure TXMLSerializer.ReleaseDocument;
 begin
-  if fRootElementWritten then
-    WriteRootEndElement;
+  WriteRootEndElement;
 
   fWriter.ReleaseDocument;
 end;
@@ -318,8 +323,7 @@ procedure TXMLSerializer.WriteObject(const aObject: TPersistent;
 var
   xElement: TXMLWriterElement;
 begin
-  if not fRootElementWritten then
-    WriteRootStartElement;
+  WriteRootStartElement;
 
   if GetTypeData(aObject.ClassInfo)^.PropCount = 0 then
     Exit;
@@ -437,15 +441,21 @@ end;
 
 procedure TXMLSerializer.WriteRootEndElement;
 begin
-  if fUseRoot then
+  if fUseRoot and fRootElementWritten then
     fWriter.CloseElement(fRootNodeName);
 end;
 
 procedure TXMLSerializer.WriteRootStartElement;
 begin
-  if fUseRoot then
-    fWriter.OpenElement(fRootNodeName, stFinish);
-  fRootElementWritten := True;
+  if not fRootElementWritten then
+  begin
+    fXMLDeclaration.WriteIfEnabled(fWriter);
+
+    if fUseRoot then
+      fWriter.OpenElement(fRootNodeName, stFinish);
+
+    fRootElementWritten := True;
+  end;
 end;
 
 { TXMLDeserializer }

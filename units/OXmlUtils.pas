@@ -121,6 +121,22 @@ type
     procedure SetBuffer(const aBuffer: TBytes);
   end;
 
+  TXMLDeclaration = class(TObject)
+  private
+    fEncoding: Boolean;
+    fVersion: OWideString;
+    fStandAlone: OWideString;
+  public
+    constructor Create; virtual;
+  public
+    //encoding attribute
+    property Encoding: Boolean read fEncoding write fEncoding;
+    //version attribute (1.0)
+    property Version: OWideString read fVersion write fVersion;
+    //standalone attribute (yes/no/*empty string*)
+    property StandAlone: OWideString read fStandAlone write fStandAlone;
+  end;
+
 function OXmlIsNameStartChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsNameChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsWhiteSpaceChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -943,6 +959,15 @@ end;
 function TVirtualMemoryStream.{%H-}Write(const Buffer; Count: Integer): Longint;
 begin
   raise Exception.Create(OXmlLng_CannotWriteToVirtualMemoryStream);
+end;
+
+{ TXMLDeclaration }
+
+constructor TXMLDeclaration.Create;
+begin
+  fEncoding := True;
+  fVersion := '1.0';
+  fStandAlone := '';
 end;
 
 end.

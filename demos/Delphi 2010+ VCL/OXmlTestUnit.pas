@@ -2231,7 +2231,7 @@ procedure TForm1.BtnDeserializeClick(Sender: TObject);
 var
   xDeserializer: TXMLDeserializer;
   xObject: TText_OXmlSerializer_Test1_Class;
-  xClassName: String;
+  xClassName: OWideString;
 begin
   xDeserializer := TXMLDeserializer.Create;
   xObject := nil;
@@ -2270,7 +2270,7 @@ var
   xDeserializer: TXMLRTTIDeserializer;
   xObject: TText_OXmlSerializer_Test1_Class;
   xDictionary: TSerializableDictionary<Integer,string>;
-  xClassName: String;
+  xClassName: OWideString;
 begin
   xDeserializer := TXMLRTTIDeserializer.Create;
   xObject := nil;
@@ -2360,6 +2360,7 @@ procedure TForm1.BtnEncodingTestClick(Sender: TObject);
     xXML := OXmlPDOM.CreateXMLDoc;
 
     xXML.LoadFromFile(DocDir+'koi8-r.xml');
+    xXML.ReaderSettings.BreakReading := brNone;
     xXML.DocumentElement.SelectNode('load').LoadFromXML('some <i>text</i> with <b>tags</b>');
     xXML.CodePage := CP_WIN_1251;
     xXML.SaveToFile(DocDir+'1251.xml');

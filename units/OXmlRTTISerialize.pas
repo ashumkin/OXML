@@ -90,6 +90,7 @@ type
     fWriter: TXMLWriter;
     fRootElementWritten: Boolean;
 
+    fXMLDeclaration: TXMLWriterDeclaration;
     fUseRoot: Boolean;
     fRootNodeName: OWideString;
     fWriteDefaultValues: Boolean;
@@ -135,6 +136,9 @@ type
     procedure WriteObject<T>(const aObject: T;
       aElementName: OWideString; const aWriteObjectType: Boolean = True); overload;
   public
+    //write XML declaration <?xml ?>
+    property XMLDeclaration: TXMLWriterDeclaration read fXMLDeclaration;
+
     //use root
     //  - true: a document root (RootNodeName) will be written
     //  please note that if you disable it (UseRoot = false) and
@@ -335,6 +339,7 @@ destructor TXMLRTTISerializer.Destroy;
 begin
   ReleaseDocument;
   fWriter.Free;
+  fXMLDeclaration.Free;
 
   inherited;
 end;
@@ -344,6 +349,7 @@ begin
   inherited DoCreate;
 
   fWriter := TXMLWriter.Create;
+  fXMLDeclaration := TXMLWriterDeclaration.Create;
   fRootNodeName := 'oxmlserializer';
   fUseRoot := True;
 end;
@@ -374,8 +380,7 @@ end;
 
 procedure TXMLRTTISerializer.ReleaseDocument;
 begin
-  if fRootElementWritten then
-    WriteRootEndElement;
+  WriteRootEndElement;
 
   fWriter.ReleaseDocument;
 end;
@@ -406,8 +411,7 @@ procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T;
 var
   xType: TRttiType;
 begin
-  if not fRootElementWritten then
-    WriteRootStartElement;
+  WriteRootStartElement;
 
   xType := Context.GetRealObjectType<T>(aObject);
 
@@ -580,15 +584,21 @@ end;
 
 procedure TXMLRTTISerializer.WriteRootEndElement;
 begin
-  if fUseRoot then
+  if fUseRoot and fRootElementWritten then
     fWriter.CloseElement(fRootNodeName);
 end;
 
 procedure TXMLRTTISerializer.WriteRootStartElement;
 begin
-  if fUseRoot then
-    fWriter.OpenElement(fRootNodeName, stFinish);
-  fRootElementWritten := True;
+  if not fRootElementWritten then
+  begin
+    fXMLDeclaration.WriteIfEnabled(fWriter);
+
+    if fUseRoot then
+      fWriter.OpenElement(fRootNodeName, stFinish);
+
+    fRootElementWritten := True;
+  end;
 end;
 
 procedure TXMLRTTISerializer._WriteObjectProperty(const aTagName,

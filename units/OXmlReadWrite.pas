@@ -120,29 +120,28 @@ type
     property ElementName: OWideString read fElementName;
   end;
 
-  TXMLWriterSettings = class(TPersistent)
+  TCustomXMLWriterSettings = class(TPersistent)
   private
     fIndentString: OWideString;
-    fIndentType: TXmlIndentType;
-    fLineBreak: TXmlLineBreak;
+    fIndentType: TXMLIndentType;
+    fLineBreak: TXMLLineBreak;
     fUseGreaterThanEntity: Boolean;
     fStrictXML: Boolean;
-    fWriteBOM: Boolean;
-    fOnSetWriteBOM: TNotifyEvent;
   protected
-    procedure SetWriteBOM(const aWriteBOM: Boolean);
-
     procedure AssignTo(Dest: TPersistent); override;
+  protected
+    function GetWriteBOM: Boolean; virtual; abstract;
+    procedure SetWriteBOM(const aWriteBOM: Boolean); virtual; abstract;
   public
     constructor Create;
   public
     //write BOM (if applicable)
-    property WriteBOM: Boolean read fWriteBOM write SetWriteBOM;
+    property WriteBOM: Boolean read GetWriteBOM write SetWriteBOM;
 
     //process line breaks (#10, #13, #13#10) to the LineBreak character
     //  set to lbDoNotProcess if you don't want any processing
     //  default is your OS line break (XmlDefaultLineBreak)
-    property LineBreak: TXmlLineBreak read fLineBreak write fLineBreak;
+    property LineBreak: TXMLLineBreak read fLineBreak write fLineBreak;
 
     //should the '>' character be saved as an entity? (it's completely fine according to XML spec to use the '>' character in text
     property UseGreaterThanEntity: Boolean read fUseGreaterThanEntity write fUseGreaterThanEntity;
@@ -153,9 +152,38 @@ type
     property StrictXML: Boolean read fStrictXML write fStrictXML;
 
     //indent type - default is none (no indent)
-    property IndentType: TXmlIndentType read fIndentType write fIndentType;
+    property IndentType: TXMLIndentType read fIndentType write fIndentType;
     //indent string - default are two space characters (#32#32)
     property IndentString: OWideString read fIndentString write fIndentString;
+  end;
+
+  TXMLDocumentWriterSettings = class(TCustomXMLWriterSettings)
+  private
+    fWriteBOM: Boolean;
+  protected
+    function GetWriteBOM: Boolean; override;
+    procedure SetWriteBOM(const aWriteBOM: Boolean); override;
+  public
+    constructor Create;
+  end;
+
+  TXMLWriterSettings = class(TCustomXMLWriterSettings)
+  private
+    fOwner: TXMLWriter;
+
+    function GetEncoding: TEncoding;
+    function GetOwnsEncoding: Boolean;
+    procedure SetEncoding(const aEncoding: TEncoding);
+    procedure SetOwnsEncoding(const aOwnsEncoding: Boolean);
+  protected
+    function GetWriteBOM: Boolean; override;
+    procedure SetWriteBOM(const aWriteBOM: Boolean); override;
+  public
+    constructor Create(aOwner: TXMLWriter);
+  public
+    //Output encoding
+    property Encoding: TEncoding read GetEncoding write SetEncoding;
+    property OwnsEncoding: Boolean read GetOwnsEncoding write SetOwnsEncoding;
   end;
 
   TXMLWriter = class(TObject)
@@ -169,10 +197,11 @@ type
 
     function GetEncoding: TEncoding;
     function GetOwnsEncoding: Boolean;
+    function GetWriteBOM: Boolean;
     procedure SetEncoding(const aEncoding: TEncoding);
     procedure SetOwnsEncoding(const aOwnsEncoding: Boolean);
+    procedure SetWriteBOM(const aWriteBOM: Boolean);
     procedure SetDefaultIndentLevel(const aDefaultIndentLevel: Integer);
-    procedure OnSetWriteBOM(Sender: TObject);
   protected
     //manual indentation support - you can use Indent+IncIndentLevel+DecIndentLevel
     //  manually if you want to. Set IndentType to itNone in this case.
@@ -201,7 +230,8 @@ type
     procedure ReleaseDocument;
   public
     // default <?xml ?> declaration
-    procedure XMLDeclaration(const aEncodingAttribute: Boolean = True;
+    procedure XMLDeclaration(
+      const aEncoding: Boolean = True;
       const aVersion: OWideString = '1.0';
       const aStandAlone: OWideString = '');
     // <?xml
@@ -248,12 +278,27 @@ type
     //encoding of the text writer
     property Encoding: TEncoding read GetEncoding write SetEncoding;
     property OwnsEncoding: Boolean read GetOwnsEncoding write SetOwnsEncoding;
+    //should BOM be written
+    property WriteBOM: Boolean read GetWriteBOM write SetWriteBOM;
 
     //indentation level - you can change it only if nothing has been written yet
     //  and after the Init* call
     property DefaultIndentLevel: Integer read fDefaultIndentLevel write SetDefaultIndentLevel;
 
     property WriterSettings: TXMLWriterSettings read fWriterSettings;
+  end;
+
+  TXMLWriterDeclaration = class(TXMLDeclaration)
+  private
+    fEnabled: Boolean;
+  public
+    constructor Create; override;
+  public
+    procedure Write(const aWriter: TXMLWriter);
+    procedure WriteIfEnabled(const aWriter: TXMLWriter);
+  public
+    //Enabled -> set to true if XML declaration should be written
+    property Enabled: Boolean read fEnabled write fEnabled;
   end;
 
   TXMLReaderTokenType = (
@@ -582,7 +627,7 @@ type
     procedure SetStandAlone(const aStandAlone: OWideString);
     function GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
     procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
-    function GetWriterSettings: TXMLWriterSettings;
+    function GetWriterSettings: TXMLDocumentWriterSettings;
     function GetReaderSettings: TXMLReaderSettings;
     function GetAbsoluteNodeCount: XMLNodeId;
 
@@ -658,7 +703,7 @@ type
     property Version: OWideString read GetVersion write SetVersion;
 
     //XML writer settings
-    property WriterSettings: TXMLWriterSettings read GetWriterSettings;
+    property WriterSettings: TXMLDocumentWriterSettings read GetWriterSettings;
     //XML reader settings
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
 
@@ -2221,11 +2266,10 @@ end;
 procedure TXMLWriter.DoCreate;
 begin
   fWriter := TOTextWriter.Create;
+  fWriterSettings := TXMLWriterSettings.Create(Self);
 
   Encoding := TEncoding.UTF8;
-  fWriterSettings := TXMLWriterSettings.Create;
-  fWriterSettings.WriteBOM := True;
-  fWriterSettings.fOnSetWriteBOM := OnSetWriteBOM;
+  WriteBOM := True;
 end;
 
 procedure TXMLWriter.DocType(const aDocTypeRawText: OWideString);
@@ -2256,6 +2300,11 @@ end;
 function TXMLWriter.GetOwnsEncoding: Boolean;
 begin
   Result := fWriter.OwnsEncoding;
+end;
+
+function TXMLWriter.GetWriteBOM: Boolean;
+begin
+  Result := fWriter.WriteBOM;
 end;
 
 procedure TXMLWriter.IncIndentLevel;
@@ -2361,10 +2410,9 @@ begin
   fWriter.OwnsEncoding := aOwnsEncoding;
 end;
 
-procedure TXMLWriter.OnSetWriteBOM(Sender: TObject);
+procedure TXMLWriter.SetWriteBOM(const aWriteBOM: Boolean);
 begin
-  if Assigned(fWriter) then
-    fWriter.WriteBOM := fWriterSettings.fWriteBOM;
+  fWriter.WriteBOM := aWriteBOM;
 end;
 
 procedure TXMLWriter.Text(const aText: OWideString; const aIndent: Boolean);
@@ -2496,14 +2544,14 @@ begin
   end;
 end;
 
-procedure TXMLWriter.XMLDeclaration(const aEncodingAttribute: Boolean;
+procedure TXMLWriter.XMLDeclaration(const aEncoding: Boolean;
   const aVersion, aStandAlone: OWideString);
 begin
   OpenXMLDeclaration;
 
   if aVersion <> '' then
     Attribute('version', aVersion);
-  if aEncodingAttribute then
+  if aEncoding then
     Attribute('encoding', fWriter.Encoding.EncodingAlias);
   if aStandAlone <> '' then
     Attribute('standalone', aStandAlone);
@@ -2585,15 +2633,15 @@ begin
   fOwner.Text(aText, aIndent);
 end;
 
-{ TXMLWriterSettings }
+{ TCustomXMLWriterSettings }
 
-procedure TXMLWriterSettings.AssignTo(Dest: TPersistent);
+procedure TCustomXMLWriterSettings.AssignTo(Dest: TPersistent);
 var
-  xDest: TXMLWriterSettings;
+  xDest: TCustomXMLWriterSettings;
 begin
-  if Dest is TXMLWriterSettings then
+  if Dest is TCustomXMLWriterSettings then
   begin
-    xDest := TXMLWriterSettings(Dest);
+    xDest := TCustomXMLWriterSettings(Dest);
 
     xDest.IndentString := Self.IndentString;
     xDest.IndentType := Self.IndentType;
@@ -2605,23 +2653,15 @@ begin
     inherited;
 end;
 
-constructor TXMLWriterSettings.Create;
+constructor TCustomXMLWriterSettings.Create;
 begin
   inherited Create;
 
   fLineBreak := XmlDefaultLineBreak;
   fStrictXML := True;
-  fWriteBOM := True;
   fUseGreaterThanEntity := True;
   fIndentType := itNone;
   fIndentString := #32#32;
-end;
-
-procedure TXMLWriterSettings.SetWriteBOM(const aWriteBOM: Boolean);
-begin
-  fWriteBOM := aWriteBOM;
-  if Assigned(fOnSetWriteBOM) then
-    fOnSetWriteBOM(Self);
 end;
 
 { TXMLReaderSettings }
@@ -3110,6 +3150,84 @@ end;
 class function EXMLReaderInvalidCharacter.GetErrorCode: Integer;
 begin
   Result := INVALID_CHARACTER_ERR;
+end;
+
+{ TXMLWriterDeclaration }
+
+constructor TXMLWriterDeclaration.Create;
+begin
+  inherited Create;
+
+  Enabled := False;
+end;
+
+procedure TXMLWriterDeclaration.Write(const aWriter: TXMLWriter);
+begin
+  aWriter.XMLDeclaration(Encoding, Version, StandAlone);
+end;
+
+procedure TXMLWriterDeclaration.WriteIfEnabled(const aWriter: TXMLWriter);
+begin
+  if Enabled then
+    Write(aWriter);
+end;
+
+{ TXMLWriterSettings }
+
+constructor TXMLWriterSettings.Create(aOwner: TXMLWriter);
+begin
+  inherited Create;
+
+  fOwner := aOwner;
+end;
+
+function TXMLWriterSettings.GetEncoding: TEncoding;
+begin
+  Result := fOwner.Encoding;
+end;
+
+function TXMLWriterSettings.GetOwnsEncoding: Boolean;
+begin
+  Result := fOwner.OwnsEncoding;
+end;
+
+function TXMLWriterSettings.GetWriteBOM: Boolean;
+begin
+  Result := fOwner.WriteBOM;
+end;
+
+procedure TXMLWriterSettings.SetEncoding(const aEncoding: TEncoding);
+begin
+  fOwner.Encoding := aEncoding;
+end;
+
+procedure TXMLWriterSettings.SetOwnsEncoding(const aOwnsEncoding: Boolean);
+begin
+  fOwner.OwnsEncoding := aOwnsEncoding;
+end;
+
+procedure TXMLWriterSettings.SetWriteBOM(const aWriteBOM: Boolean);
+begin
+  fOwner.WriteBOM := aWriteBOM;
+end;
+
+{ TXMLDocumentWriterSettings }
+
+constructor TXMLDocumentWriterSettings.Create;
+begin
+  inherited Create;
+
+  fWriteBOM := True;
+end;
+
+function TXMLDocumentWriterSettings.GetWriteBOM: Boolean;
+begin
+  Result := fWriteBOM;
+end;
+
+procedure TXMLDocumentWriterSettings.SetWriteBOM(const aWriteBOM: Boolean);
+begin
+  fWriteBOM := aWriteBOM;
 end;
 
 end.

@@ -505,7 +505,7 @@ type
     fDummyNode: PXMLNode;
     fDummyNodeList: IXMLNodeList;
     fWhiteSpaceHandling: TXMLWhiteSpaceHandling;
-    fWriterSettings: TXMLWriterSettings;
+    fWriterSettings: TXMLDocumentWriterSettings;
     fReaderSettings: TXMLReaderSettings;
 
     fParseError: IOTextParseError;
@@ -530,7 +530,7 @@ type
     function GetDocumentNode: PXMLNode;//absolute root element (= empty document)
     function GetDocumentElement: PXMLNode;//first element in document (=root)
     procedure SetDocumentElement(const aDocumentElement: PXMLNode);
-    function GetWriterSettings: TXMLWriterSettings;
+    function GetWriterSettings: TXMLDocumentWriterSettings;
     function GetReaderSettings: TXMLReaderSettings;
     function GetParseError: IOTextParseError;
     function GetAbsoluteNodeCount: XMLNodeId;
@@ -630,7 +630,7 @@ type
     property StandAlone: OWideString read GetStandAlone write SetStandAlone;
     property Version: OWideString read GetVersion write SetVersion;
 
-    property WriterSettings: TXMLWriterSettings read fWriterSettings;
+    property WriterSettings: TXMLDocumentWriterSettings read fWriterSettings;
     property ReaderSettings: TXMLReaderSettings read fReaderSettings;
 
     property ParseError: IOTextParseError read GetParseError;
@@ -3127,7 +3127,7 @@ procedure TXMLDocument.DoCreate;
 var
   C: TXMLChildType;
 begin
-  fWriterSettings := TXMLWriterSettings.Create;
+  fWriterSettings := TXMLDocumentWriterSettings.Create;
   fReaderSettings := TXMLReaderSettings.Create;
 
   fDictionary := TOHashedStrings.Create;
@@ -3218,7 +3218,7 @@ begin
     Result := '';
 end;
 
-function TXMLDocument.GetWriterSettings: TXMLWriterSettings;
+function TXMLDocument.GetWriterSettings: TXMLDocumentWriterSettings;
 begin
   Result := fWriterSettings;
 end;
