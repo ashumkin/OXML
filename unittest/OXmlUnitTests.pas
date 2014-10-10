@@ -128,13 +128,13 @@ type
     function Test_OASIS(const aIsPDOM: Boolean): Boolean;
   private
     //OXmlSerialize.pas
-    function Text_OXmlSerializer_Test1(const aUseIndex, aUseRoot: Boolean): Boolean;
+    function Text_OXmlSerializer_Test1(const aUseRoot: Boolean): Boolean;
     function Text_OXmlSerializer_Test1True: Boolean;
     function Text_OXmlSerializer_Test1False: Boolean;
     function Text_OXmlSerializer_Test2: Boolean;
 
     //OXmlRTTISerialize.pas
-    function Text_OXmlRTTISerializer_Test1(const {%H-}aUseIndex, {%H-}aUseRoot: Boolean): Boolean;
+    function Text_OXmlRTTISerializer_Test1(const {%H-}aUseRoot: Boolean): Boolean;
     function Text_OXmlRTTISerializer_Test1True: Boolean;
     function Text_OXmlRTTISerializer_Test1False: Boolean;
     function Text_OXmlRTTISerializer_Test2: Boolean;
@@ -1128,7 +1128,7 @@ begin
 end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1(
-  const aUseIndex, aUseRoot: Boolean): Boolean;
+  const aUseRoot: Boolean): Boolean;
 {$IFDEF USE_RTTI}
 var
   xStream: TStream;
@@ -1191,7 +1191,6 @@ begin
 
     xStream.Position := 0;
 
-    xDeserializer.UseIndex := aUseIndex;
     xDeserializer.UseRoot := xSerializer.UseRoot;
     xDeserializer.InitStream(xStream);
     xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2);
@@ -1239,12 +1238,12 @@ end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1False: Boolean;
 begin
-  Result := Text_OXmlRTTISerializer_Test1(False, False);
+  Result := Text_OXmlRTTISerializer_Test1(False);
 end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1True: Boolean;
 begin
-  Result := Text_OXmlRTTISerializer_Test1(True, True);
+  Result := Text_OXmlRTTISerializer_Test1(True);
 end;
 
 function TOXmlUnitTest.Text_OXmlRTTISerializer_Test2: Boolean;
@@ -1324,7 +1323,7 @@ begin
 end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test1(
-  const aUseIndex, aUseRoot: Boolean): Boolean;
+  const aUseRoot: Boolean): Boolean;
 var
   xStream: TStream;
   xSerializer: TXMLSerializer;
@@ -1372,7 +1371,6 @@ begin
 
     xStream.Position := 0;
 
-    xDeserializer.UseIndex := aUseIndex;
     xDeserializer.UseRoot := xSerializer.UseRoot;
     xDeserializer.ReaderSettings.BreakReading := brNone;
     xDeserializer.InitStream(xStream);
@@ -1414,12 +1412,12 @@ end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test1False: Boolean;
 begin
-  Result := Text_OXmlSerializer_Test1(False, False);
+  Result := Text_OXmlSerializer_Test1(False);
 end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test1True: Boolean;
 begin
-  Result := Text_OXmlSerializer_Test1(True, True);
+  Result := Text_OXmlSerializer_Test1(True);
 end;
 
 function TOXmlUnitTest.Text_OXmlSerializer_Test2: Boolean;

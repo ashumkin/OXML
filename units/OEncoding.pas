@@ -575,16 +575,16 @@ end;
 
 function TMBCSEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean;
 {$IFDEF MSWINDOWS}
-  procedure _Convert(var aWS: ORealWideString);
+  procedure _Convert(var _ioWS: ORealWideString);
   var
     xLength, xByteCount: Integer;
   begin
     //IMPORTANT: S is WITHOUT a NULL TERMINATOR -> xCharCount is ALSO WITHOUT NULL TERMINATOR!!!
     xByteCount := Length(aBytes);
     xLength := MultiByteToWideChar(fCodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
-    SetLength(aWS, xLength);
+    SetLength(_ioWS, xLength);
     if xLength > 0 then
-      MultiByteToWideChar(CodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(@aWS[1]), xLength);
+      MultiByteToWideChar(CodePage, MB_PRECOMPOSED, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(@_ioWS[1]), xLength);
   end;
 {$IFDEF FPC}
 var

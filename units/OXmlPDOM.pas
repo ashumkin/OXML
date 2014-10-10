@@ -55,10 +55,12 @@ uses
     {$ELSE}
     Generics.Collections,
     {$ENDIF}
+  {$ELSE}
+  ODictionary,
   {$ENDIF}
 
   OWideSupp, OTextReadWrite, OXmlReadWrite, OEncoding, OHashedStrings,
-  OXmlUtils, OXmlXPath, ODictionary;
+  OXmlUtils, OXmlXPath;
 
 type
 

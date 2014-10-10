@@ -56,7 +56,10 @@ uses
     Generics.Collections,
     {$ENDIF}
   {$ENDIF}
-  OWideSupp, OEncoding, {%H-}OHashedStrings, ODictionary, OTextReadWrite,
+  {$IFNDEF O_GENERICS}
+  ODictionary,
+  {$ENDIF}
+  OWideSupp, OEncoding, {%H-}OHashedStrings, OTextReadWrite,
   OXmlReadWrite, OXmlPDOM, OXmlSeq;
 
 type
@@ -81,9 +84,9 @@ type
     procedure WriteRootEndElement;
 
     procedure WriteObjectProperties(const aObject: TPersistent;
-      var aElement: TXMLWriterElement);
+      var ioElement: TXMLWriterElement);
     procedure WriteObjectProperty(const aObject: TPersistent; const aPropInfo: PPropInfo;
-      var aElement: TXMLWriterElement);
+      var ioElement: TXMLWriterElement);
   public
     //create
     constructor Create; overload;
@@ -127,20 +130,12 @@ type
     property WriterSettings: TXMLWriterSettings read GetWriterSettings;
   end;
 
-  {$IFDEF O_GENERICS}
-  TPropNameIndex = TDictionary<OHashedStringsIndex,PXMLNode>;
-  {$ELSE}
-  TPropNameIndex = TODictionary;
-  {$ENDIF}
-
   TXMLDeserializer = class(TObject)
   private
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
 
     fUseRoot: Boolean;
-    fUseIndex: Boolean;
-    fPropNameIndex: TPropNameIndex;
 
     function GetApproxStreamPosition: OStreamInt;
     function GetStreamSize: OStreamInt;
@@ -150,10 +145,9 @@ type
   protected
     procedure DoInit;
 
-    procedure BuildIndex(const aElementNode: PXMLNode);
     procedure ReadObjectProperties(const aObject: TPersistent; const aElementNode: PXMLNode);
     procedure ReadObjectProperty(const aObject: TPersistent; const aPropInfo: PPropInfo;
-      const aElementNode: PXMLNode);
+      const aElementNode: PXMLNode; var ioPropNameIndex: TXMLNodeIndex);
   public
     constructor Create;
     destructor Destroy; override;
@@ -189,13 +183,6 @@ type
 
     //use root - please use the same setting here as in TXMLSerialize
     property UseRoot: Boolean read fUseRoot write SetUseRoot;
-
-    //use index
-    //  true: property names will be indexed for faster search (not necessary for most objects
-    //    because the index creation overload is higher than speed gain for objects with little
-    //    properties (typically less than 100).
-    //  false: no indexed search (default).
-    property UseIndex: Boolean read fUseIndex write fUseIndex;
   public
     //following functions and properties can be called only during parsing (after Init* has been called).
 
@@ -336,7 +323,7 @@ begin
 end;
 
 procedure TXMLSerializer.WriteObjectProperties(const aObject: TPersistent;
-  var aElement: TXMLWriterElement);
+  var ioElement: TXMLWriterElement);
 var
   I: Integer;
   xPropCount: Integer;
@@ -354,7 +341,7 @@ begin
     begin
       xPropInfo := xPropList^[I];
       if Assigned(xPropInfo) and IsStoredProp(aObject, xPropInfo) then
-        WriteObjectProperty(aObject, xPropInfo, aElement);
+        WriteObjectProperty(aObject, xPropInfo, ioElement);
     end;
   finally
     FreeMem(xPropList, xPropCount*SizeOf(Pointer));
@@ -362,13 +349,13 @@ begin
 end;
 
 procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
-  const aPropInfo: PPropInfo; var aElement: TXMLWriterElement);
+  const aPropInfo: PPropInfo; var ioElement: TXMLWriterElement);
 
   procedure _Write(const bValue: OWideString);
   var
     xPropElement: TXMLWriterElement;
   begin
-    aElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
+    ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
     xPropElement.Text(bValue, False);
     xPropElement.CloseElement(False);
   end;
@@ -382,7 +369,7 @@ procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
       if GetTypeData(aObject.ClassInfo)^.PropCount = 0 then
         Exit;
 
-      aElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
+      ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
       WriteObjectProperties(TPersistent(bClass), xPropElement);
       xPropElement.CloseElement;
     end;
@@ -460,31 +447,16 @@ end;
 
 { TXMLDeserializer }
 
-procedure TXMLDeserializer.BuildIndex(const aElementNode: PXMLNode);
-var
-  xPropNode: PXMLNode;
-begin
-  fPropNameIndex.Clear;
-
-  xPropNode := nil;
-  while aElementNode.GetNextChild(xPropNode) do
-  begin
-    fPropNameIndex.Add(xPropNode.NodeNameId, xPropNode);
-  end;
-end;
-
 constructor TXMLDeserializer.Create;
 begin
   inherited Create;
 
   fXMLParser := TXMLSeqParser.Create;
-  fPropNameIndex := TPropNameIndex.Create;
   fUseRoot := True;
 end;
 
 destructor TXMLDeserializer.Destroy;
 begin
-  fPropNameIndex.Free;
   fXMLParser.Free;
 
   inherited;
@@ -624,30 +596,34 @@ var
   xPropCount: Integer;
   xPropList: PPropList;
   xPropInfo: PPropInfo;
+  xPropNameIndex: TXMLNodeIndex;
 begin
-  xPropCount := GetTypeData(aObject.ClassInfo)^.PropCount;
-  if xPropCount > 0 then
-  begin
-    if fUseIndex then
-      BuildIndex(aElementNode);
-
-    GetMem(xPropList, xPropCount*SizeOf(Pointer));
-    try
-      GetPropInfos(aObject.ClassInfo, xPropList);
-      for I := 0 to xPropCount-1 do
-      begin
-        xPropInfo := xPropList^[I];
-        if Assigned(xPropInfo) then
-          ReadObjectProperty(aObject, xPropInfo, aElementNode);
+  xPropNameIndex := nil;
+  try
+    xPropCount := GetTypeData(aObject.ClassInfo)^.PropCount;
+    if xPropCount > 0 then
+    begin
+      GetMem(xPropList, xPropCount*SizeOf(Pointer));
+      try
+        GetPropInfos(aObject.ClassInfo, xPropList);
+        for I := 0 to xPropCount-1 do
+        begin
+          xPropInfo := xPropList^[I];
+          if Assigned(xPropInfo) then
+            ReadObjectProperty(aObject, xPropInfo, aElementNode, xPropNameIndex);
+        end;
+      finally
+        FreeMem(xPropList, xPropCount*SizeOf(Pointer));
       end;
-    finally
-      FreeMem(xPropList, xPropCount*SizeOf(Pointer));
     end;
+  finally
+    xPropNameIndex.Free;
   end;
 end;
 
 procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
-  const aPropInfo: PPropInfo; const aElementNode: PXMLNode);
+  const aPropInfo: PPropInfo; const aElementNode: PXMLNode;
+  var ioPropNameIndex: TXMLNodeIndex);
 
   procedure _ReadClass(const bPropElement: PXMLNode);
   var
@@ -663,26 +639,14 @@ var
   xStrValue: OWideString;
   xOrdValue: Integer;
   xFloatValue: Double;
-  xPropNameIndex: Integer;
 begin
   if not Assigned(aPropInfo^.GetProc) then
     Exit;
 
-  xPropNameIndex := aElementNode.OwnerDocument.IndexOfString(SymbolNameToString(@aPropInfo^.Name));
-  if xPropNameIndex < 0 then
+  if not aElementNode.FindChildWithIndex(SymbolNameToString(@aPropInfo^.Name),
+    {%H-}xPropElement, ioPropNameIndex)
+  then
     Exit;
-
-  if
-    //if index used -> execute fPropNameIndex.TryGetValue (find node from index)
-    not fUseIndex or
-    (fPropNameIndex.Count = 0) or
-    not fPropNameIndex.TryGetValue(xPropNameIndex,
-      {%H-}{$IFDEF O_GENERICS}PXMLNode{$ELSE}Pointer{$ENDIF}(xPropElement))
-  then begin
-    //otherwise find without index
-    if not aElementNode.FindChildById(xPropNameIndex, {%H-}xPropElement) then
-      Exit;
-  end;
 
   xPropType := aPropInfo^.PropType{$IFNDEF FPC}^{$ENDIF};
 

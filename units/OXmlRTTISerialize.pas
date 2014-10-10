@@ -60,7 +60,7 @@ uses
   {$ELSE}
   SysUtils, Classes, TypInfo, RTTI, Generics.Collections,
   {$ENDIF}
-  OWideSupp, OEncoding, OHashedStrings, ODictionary, OTextReadWrite,
+  OWideSupp, OEncoding, OHashedStrings, OTextReadWrite,
   OXmlReadWrite, OXmlPDOM, OXmlSeq;
 
 type
@@ -162,7 +162,6 @@ type
     fRootNode, fCurrentElementNode: PXMLNode;
 
     fUseRoot: Boolean;
-    fUseIndex: Boolean;
 
     fCreateClasses: TDictionary<string,TClass>;
 
@@ -190,7 +189,7 @@ type
       const aMember: TRttiMember;
       const aType: TRttiType; const aValue: TValue;
       const aElementNode: PXMLNode;
-      var aPropNameIndex: TXMLNodeIndex);
+      var ioPropNameIndex: TXMLNodeIndex);
     procedure ReadObjectPropertyValue(
       aType: TRttiType;
       const aElementValueNode: PXMLNode;
@@ -239,13 +238,6 @@ type
 
     //use root - please use the same setting here as in TXMLSerialize
     property UseRoot: Boolean read fUseRoot write SetUseRoot;
-
-    //use index
-    //  true: property names will be indexed for faster search (not necessary for most objects
-    //    because the index creation overload is higher than speed gain for objects with little
-    //    properties (typically less than 100).
-    //  false: no indexed search (default).
-    property UseIndex: Boolean read fUseIndex write fUseIndex;
   public
     //following functions and properties can be called only during parsing (after Init* has been called).
 
@@ -951,12 +943,12 @@ end;
 procedure TXMLRTTIDeserializer.ReadObjectProperty(const aInstance: Pointer;
   const aMember: TRttiMember;
   const aType: TRttiType; const aValue: TValue; const aElementNode: PXMLNode;
-  var aPropNameIndex: TXMLNodeIndex);
+  var ioPropNameIndex: TXMLNodeIndex);
 var
   xPropElement: PXMLNode;
   xNewValue: TValue;
 begin
-  if not aElementNode.FindChildWithIndex(aMember.Name, {%H-}xPropElement, aPropNameIndex) then
+  if not aElementNode.FindChildWithIndex(aMember.Name, {%H-}xPropElement, ioPropNameIndex) then
     Exit;
 
   xNewValue := aValue;

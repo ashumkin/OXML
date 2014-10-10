@@ -9,7 +9,7 @@ interface
 uses
   OBufferedStreams, ODictionary, OEncoding, OHashedStrings, OTextReadWrite, 
   OWideSupp, OXmlCDOM, OXmlLng, OXmlPDOM, OXmlReadWrite, OXmlSAX, OXmlSeq, 
-  OXmlUtils, OXmlXPath;
+  OXmlUtils, OXmlXPath, OXmlSerialize;
 
 implementation
 

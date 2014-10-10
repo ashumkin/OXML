@@ -8,7 +8,7 @@
       <PathDelim Value="\"/>
       <SearchPaths>
         <OtherUnitFiles Value="..\..\units"/>
-        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\"/>
+        <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
       <Other>
         <CompilerMessages>
@@ -17,7 +17,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="14">
+    <Files Count="15">
       <Item1>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
         <UnitName Value="OBufferedStreams"/>
@@ -74,6 +74,10 @@
         <Filename Value="..\..\units\OXmlXPath.pas"/>
         <UnitName Value="OXmlXPath"/>
       </Item14>
+      <Item15>
+        <Filename Value="..\..\units\OXmlSerialize.pas"/>
+        <UnitName Value="OXmlSerialize"/>
+      </Item15>
     </Files>
     <Type Value="RunTimeOnly"/>
     <RequiredPkgs Count="2">
