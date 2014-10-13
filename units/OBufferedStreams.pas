@@ -164,7 +164,8 @@ end;
 
 procedure TOBufferedWriteStream.EnsureTempBufferWritten;
 begin
-  if fTempBufferUsedLength > 0 then begin
+  if fTempBufferUsedLength > 0 then
+  begin
     fStream.WriteBuffer(fTempBuffer[0], fTempBufferUsedLength);
     fStreamSize := fStreamSize + fTempBufferUsedLength;
     fStreamPosition := fStreamPosition + fTempBufferUsedLength;
@@ -225,10 +226,12 @@ begin
   if fTempBufferUsedLength+Result > fBufferSize then
     EnsureTempBufferWritten;//WRITE TEMP BUFFER
 
-  if Result > fBufferSize then begin
+  if Result > fBufferSize then
+  begin
     //count to write bigger then buffer -> write directly
     fStream.WriteBuffer(Buffer, Result);
-  end else if Result > 0 then begin
+  end else if Result > 0 then
+  begin
     //store to temp!
     if Result > fBufferSize-fTempBufferUsedLength then//store only what has space in buffer
       Result := fBufferSize-fTempBufferUsedLength;
@@ -239,7 +242,8 @@ begin
 
   {$IFNDEF O_DELPHI_XE2_UP}
   //older delphi versions need to return Result = Count !!!
-  if (0 < Result) and (Result < Count) then begin
+  if (0 < Result) and (Result < Count) then
+  begin
     Result := Write({%H-}Pointer({%H-}ONativeUInt(@Buffer)+ONativeUInt(Result))^, Count-Result) + Result;
   end;
   {$ENDIF}
@@ -264,9 +268,11 @@ procedure TOBufferedReadStream.CheckTempBuffer;
 var
   xReadBytes, xRemainingTempLength, xNewLength: ONativeInt;
 begin
-  if fTempBufferPosition = fTempBufferUsedLength then begin
+  if fTempBufferPosition = fTempBufferUsedLength then
+  begin
     //we reached end of the tempbuffer, clear or grow and read from stream
-    if fBlockFlushTempBuffer = 0 then begin
+    if fBlockFlushTempBuffer = 0 then
+    begin
       fTempBufferPosition := 0;
       fTempBufferUsedLength := 0;
     end;
@@ -277,7 +283,8 @@ begin
 
     //CHECK THAT WE HAVE ALL NECESSARY BYTES IN TEMP BUFFER
     xRemainingTempLength := Length(fTempBuffer)-fTempBufferPosition;
-    if xRemainingTempLength < xReadBytes then begin
+    if xRemainingTempLength < xReadBytes then
+    begin
       //tempbuffer has to grow
       xNewLength := Length(fTempBuffer) + xReadBytes - xRemainingTempLength;
       SetLength(fTempBuffer, xNewLength);
@@ -321,7 +328,8 @@ end;
 
 function TOBufferedReadStream.Read(var Buffer; Count: LongInt): LongInt;
 begin
-  if Count < 0 then begin
+  if Count < 0 then
+  begin
     Result := 0;
     Exit;
   end;
@@ -332,14 +340,16 @@ begin
   if Result > Count then
     Result := Count;
 
-  if Result > 0 then begin
+  if Result > 0 then
+  begin
     Move(fTempBuffer[fTempBufferPosition], Buffer, Result);
     fTempBufferPosition := fTempBufferPosition + Result;
   end;
 
   {$IFNDEF O_DELPHI_XE2_UP}
   //older delphi versions need to return Result = Count !!!
-  if (0 < Result) and (Result < Count) then begin
+  if (0 < Result) and (Result < Count) then
+  begin
     Result := Read({%H-}Pointer({%H-}ONativeUInt(@Buffer)+ONativeUInt(Result))^, Count-Result) + Result;
   end;
   {$ENDIF}
@@ -353,10 +363,12 @@ function TOBufferedReadStream.Seek(Offset: Integer; Origin: Word): LongInt;
 var
   xAbsolutePosition: OStreamInt;
 begin
-  if (Origin = soCurrent) and (Offset = 0) then begin
+  if (Origin = soCurrent) and (Offset = 0) then
+  begin
     //CURRENT POSITION
     Result := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition;
-  end else begin
+  end else
+  begin
     //SEEK TO POSITION AND CLEAR TEMP STREAM
 
     case Origin of
@@ -372,7 +384,8 @@ begin
       //WITHIN TEMP RANGE
       fTempBufferPosition := xAbsolutePosition - (fStreamPosition - fTempBufferUsedLength);
       Result := fStreamPosition - fTempBufferUsedLength + fTempBufferPosition;
-    end else begin
+    end else
+    begin
       //OUTSIDE TEMP RANGE, CLEAR TEMP STREAM
       Result := fStream.Seek(soFromBeginning, xAbsolutePosition);
       fStreamPosition := Result;

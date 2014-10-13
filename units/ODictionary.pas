@@ -284,7 +284,8 @@ begin
   fDuplicates := Source.fDuplicates;
   fSorted := Source.fSorted;
 
-  for I := 0 to Source.Count - 1 do begin
+  for I := 0 to Source.Count - 1 do
+  begin
     InternalInsert(I, Source[I]);
   end;
 end;
@@ -493,7 +494,8 @@ end;
 
 function TODictionary.IndexOf(aKey: ONativeInt): Integer;
 begin
-  if (Sorted = soNone) then begin
+  if (Sorted = soNone) then
+  begin
     Result := 0;
     while (Result < Count) and (Keys[Result] <> aKey) do
       Inc(Result);
@@ -544,7 +546,8 @@ end;
 procedure TODictionary.Notify(const aItem: PODictionaryItem; aAction: TCollectionNotification);
 begin
   DoChange(TODictionaryItem(aItem^).Key, aAction);
-  if aAction = cnRemoved then begin
+  if aAction = cnRemoved then
+  begin
     if fOwnsObjects then
       aItem.Value.Free;
     Dispose(aItem);
@@ -554,7 +557,8 @@ end;
 procedure TODictionary.Notify(aPtr: Pointer; aAction: TListNotification);
 begin
   DoChange(TODictionaryItem(aPtr^).Key, aAction);
-  if aAction = lnDeleted then begin
+  if aAction = lnDeleted then
+  begin
     if fOwnsObjects then
       TODictionaryItem(aPtr^).Value.Free;
     Dispose(PODictionaryItem(aPtr));

@@ -258,7 +258,8 @@ begin
   if xLen > 0 then
   begin
     xK := @aKey[1];
-    for I := 1 to xLen*2 do begin
+    for I := 1 to xLen*2 do
+    begin
       Result := ((Result shl 2) or (Result shr (SizeOf(Result)*8 - 2))) xor
         Ord(xK^);
       Inc(xK);
@@ -383,7 +384,8 @@ procedure TOHashedStringDictionary.AssignTo(Dest: TPersistent);
 var
   xDest: TOHashedStringDictionary;
 begin
-  if Dest is TOHashedStringDictionary then begin
+  if Dest is TOHashedStringDictionary then
+  begin
     xDest := TOHashedStringDictionary(Dest);
 
     xDest.fKeys.Assign(Self.fKeys);
@@ -394,7 +396,8 @@ end;
 
 procedure TOHashedStringDictionary.Clear;
 begin
-  if fKeys.Count > 0 then begin
+  if fKeys.Count > 0 then
+  begin
     fValues.Clear;
     fKeys.Clear(True);
   end;
@@ -439,7 +442,8 @@ var
   xHash: OHashedStringsIndex;
 begin
   xBucket := Find(aText, {%H-}xHash);
-  if Assigned(xBucket) then begin
+  if Assigned(xBucket) then
+  begin
     Result := xBucket.fIndex;
     outNewEntry := False;
     Exit;
@@ -451,7 +455,8 @@ begin
     xHash := HashOf(aText) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
   end;
 
-  if fNextItemId = fItemLength then begin
+  if fNextItemId = fItemLength then
+  begin
     New(fItems[fNextItemId]);
     Inc(fItemLength);
   end;
@@ -486,7 +491,8 @@ var
   I: Integer;
   x: Boolean;
 begin
-  if Dest is TOHashedStrings then begin
+  if Dest is TOHashedStrings then
+  begin
     xDest := TOHashedStrings(Dest);
 
     xDest.Clear(False);
@@ -513,7 +519,8 @@ begin
 
     fLastHashI := 0;
     GrowBuckets;
-  end else begin
+  end else
+  begin
     ClearBuckets;
   end;
 end;
@@ -730,7 +737,8 @@ var
   xHash: OHashedStringsIndex;
 begin
   xBucket := Find(aText, {%H-}xHash);
-  if Assigned(xBucket) then begin
+  if Assigned(xBucket) then
+  begin
     Result := xBucket.Index;
     outNewEntry := False;
     Exit;

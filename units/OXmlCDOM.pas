@@ -592,7 +592,7 @@ type
     function AddChild(const aElementName: OWideString): TXMLNode;
   public
     constructor Create({%H-}aDummy: TObject); overload;//aDummy to ge ignored - Delphi XML compatibility
-    constructor Create(const aRootNodeName: OWideString = ''; const aAddUTF8Declaration: Boolean = False); overload;
+    constructor Create(const aRootNodeName: OWideString = ''; const aAddXMLDeclaration: Boolean = False); overload;
     destructor Destroy; override;
   public
     procedure Clear(const aFullClear: Boolean = True);
@@ -853,7 +853,7 @@ type
 
 function CreateXMLDoc: IXMLDocument; overload;
 function CreateXMLDoc(const aRootNodeName: OWideString): IXMLDocument; overload;
-function CreateXMLDoc(const aRootNodeName: OWideString; const aAddUTF8Declaration: Boolean): IXMLDocument; overload;
+function CreateXMLDoc(const aRootNodeName: OWideString; const aAddXMLDeclaration: Boolean): IXMLDocument; overload;
 
 function CompareNodeNames(const aNode1, aNode2: TXMLNode): Integer;
 
@@ -876,9 +876,9 @@ begin
   Result := TXMLDocument.Create(aRootNodeName);
 end;
 
-function CreateXMLDoc(const aRootNodeName: OWideString; const aAddUTF8Declaration: Boolean): IXMLDocument;
+function CreateXMLDoc(const aRootNodeName: OWideString; const aAddXMLDeclaration: Boolean): IXMLDocument;
 begin
-  Result := TXMLDocument.Create(aRootNodeName, aAddUTF8Declaration);
+  Result := TXMLDocument.Create(aRootNodeName, aAddXMLDeclaration);
 end;
 
 { TXMLNode }
@@ -1227,7 +1227,8 @@ begin
     outNode := GetFirstCChild(aChildType);
     while Assigned(outNode) do
     begin
-      if outNode.NodeNameId = aNodeNameId then begin
+      if outNode.NodeNameId = aNodeNameId then
+      begin
         Result := True;
         Exit;
       end;
@@ -1936,7 +1937,8 @@ begin
   fOwnerDocument.Loading := True;
   try
     xLastNode := Self;
-    while aReader.ReadNextToken({%H-}outReaderToken) do begin
+    while aReader.ReadNextToken({%H-}outReaderToken) do
+    begin
       case outReaderToken.TokenType of
         rtText:
           if not Assigned(xLastNode.AddText(outReaderToken.TokenValue)) then
@@ -1967,7 +1969,8 @@ begin
           begin
             Break;
           end;
-        end else begin
+        end else
+        begin
           Break;//This is not an error -> it may happen in the sequential reader (error would be raised already in TXMLReader!)
         end;
       end;
@@ -2209,7 +2212,8 @@ begin
   if aXPath = '' then
     raise EXmlDOMException.Create(OXmlLng_XPathCannotBeEmpty);
 
-  if XPathIsSimpleNode(aXPath, {%H-}xNodeName, {%H-}xChildType) then begin
+  if XPathIsSimpleNode(aXPath, {%H-}xNodeName, {%H-}xChildType) then
+  begin
     //speed optimization without true XPath support
     case xChildType of
       ctChild: Result := FindChild(xNodeName, outNode);
@@ -2217,7 +2221,8 @@ begin
     else
       Result := False;//delphi DCC warning
     end;
-  end else begin
+  end else
+  begin
     xNodeList := nil;
 
     Result := SelectNodes(aXPath, xNodeList, 1);
@@ -2238,7 +2243,8 @@ begin
     SaveToStream(xStream);
 
     SetLength(outBuffer, xStream.Size);
-    if xStream.Size > 0 then begin
+    if xStream.Size > 0 then
+    begin
       xStream.Seek(0, soFromBeginning);
       xStream.ReadBuffer(outBuffer[1], xStream.Size);
     end;
@@ -2296,7 +2302,8 @@ begin
     end;
 
     SetLength(outXML, xStream.Size div SizeOf(OWideChar));
-    if xStream.Size > 0 then begin
+    if xStream.Size > 0 then
+    begin
       xStream.Seek(0, soFromBeginning);
       xStream.ReadBuffer(outXML[1], xStream.Size);
     end;
@@ -2339,7 +2346,8 @@ begin
     end;
 
     SetLength(outXML, xStream.Size);
-    if xStream.Size > 0 then begin
+    if xStream.Size > 0 then
+    begin
       xStream.Seek(0, soFromBeginning);
       xStream.ReadBuffer(outXML[1], xStream.Size);
     end;
@@ -2553,7 +2561,8 @@ begin
     ntElement: begin
       aWriter.OpenElement(xDict.GetItem(NodeNameId).Text);
       WriteAttributesXML(aWriter);
-      if HasChildNodes then begin
+      if HasChildNodes then
+      begin
         aWriter.FinishOpenElement;
         WriteChildrenXML(aWriter);
         aWriter.CloseElement(xDict.GetItem(NodeNameId).Text,
@@ -2561,7 +2570,8 @@ begin
           not (//IsTextElement
             (GetFirstCChild(ctChild) = GetLastCChild(ctChild)) and
             (GetFirstCChild(ctChild).NodeType in [ntText, ntCData])));
-      end else begin
+      end else
+      begin
         aWriter.FinishOpenElementClose;
       end;
     end;
@@ -2609,7 +2619,8 @@ begin
     SaveToStream(xStream);
 
     SetLength(outBuffer, xStream.Size);
-    if xStream.Size > 0 then begin
+    if xStream.Size > 0 then
+    begin
       xStream.Seek(0, soFromBeginning);
       xStream.ReadBuffer(outBuffer[0], xStream.Size);
     end;
@@ -2621,7 +2632,7 @@ end;
 { TXMLDocument }
 
 constructor TXMLDocument.Create(const aRootNodeName: OWideString;
-  const aAddUTF8Declaration: Boolean);
+  const aAddXMLDeclaration: Boolean);
 var
   xDec: TXMLNode;
 begin
@@ -2629,7 +2640,8 @@ begin
 
   DoCreate;
 
-  if aAddUTF8Declaration then begin
+  if aAddXMLDeclaration then
+  begin
     xDec := fBlankDocumentNode.AddXMLDeclaration;
     xDec.AddAttribute('version', '1.0');
     xDec.AddAttribute('encoding', 'utf-8');
@@ -2784,7 +2796,8 @@ function TXMLDocument.FindXMLDeclarationNode(
 var
   xChild: TXMLNode;
 begin
-  if fBlankDocumentNode.HasChildNodes then begin
+  if fBlankDocumentNode.HasChildNodes then
+  begin
     xChild := nil;
     while fBlankDocumentNode.GetNextChild(xChild) do
     if (xChild.NodeType = ntXMLDeclaration)
@@ -2845,7 +2858,8 @@ var
 begin
   xChild := nil;
   while fBlankDocumentNode.GetNextChild(xChild) do
-  if xChild.NodeType = ntElement then begin
+  if xChild.NodeType = ntElement then
+  begin
     Result := xChild;
     Exit;
   end;
@@ -2874,7 +2888,8 @@ end;
 
 function TXMLDocument.GetDummyNode: TXMLNode;
 begin
-  if not Assigned(fDummyNode) then begin
+  if not Assigned(fDummyNode) then
+  begin
     fDummyNode := CreateNode(ntElement, '', '');
     fDummyNode.fParentNode := fBlankDocumentNode;
   end;
@@ -3071,7 +3086,8 @@ procedure TXMLDocument.SetXMLDeclarationAttribute(const aAttributeName,
 var
   xDecNode: TXMLNode;
 begin
-  if not FindXMLDeclarationNode({%H-}xDecNode) then begin
+  if not FindXMLDeclarationNode({%H-}xDecNode) then
+  begin
     if fBlankDocumentNode.HasChildNodes then
       xDecNode := fBlankDocumentNode.InsertXMLDeclaration(fBlankDocumentNode.FirstChild)
     else
@@ -3161,7 +3177,8 @@ end;
 
 procedure TXMLResNodeList.Delete(const aIndex: Integer);
 begin
-  if (aIndex >= 0) and  (aIndex < fList.Count) then begin
+  if (aIndex >= 0) and  (aIndex < fList.Count) then
+  begin
     fList.Delete(aIndex);
   end;
 end;
@@ -3269,7 +3286,8 @@ begin
     Exit;
   end;
 
-  if Assigned(ioNodeEnum) then begin
+  if Assigned(ioNodeEnum) then
+  begin
     //get prev/next
     if not(
        (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount) and
@@ -3277,8 +3295,8 @@ begin
     then//ioNodeEnum is NOT the last iterator -> we have to find it
       fIteratorCurrent := IndexOf(ioNodeEnum);
 
-    if (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount)
-    then begin
+    if (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount) then
+    begin
       fIteratorCurrent := fIteratorCurrent + aInc;
       Result := (0 <= fIteratorCurrent) and (fIteratorCurrent < xCount);
       if Result then
@@ -3286,7 +3304,8 @@ begin
       else
         ioNodeEnum := nil;
     end;
-  end else begin
+  end else
+  begin
     //return first or last element
     if aInc > 0 then
       fIteratorCurrent := 0
@@ -3308,21 +3327,24 @@ function TXMLResNodeList.IndexOf(const aName: OWideString;
 var
   xNameId: OHashedStringsIndex;
 begin
-  if Count = 0 then begin
+  if Count = 0 then
+  begin
     Result := -1;
     outNode := nil;
     Exit;
   end;
 
   xNameId := Nodes[0].fOwnerDocument.IndexOfString(aName);
-  if xNameId < 0 then begin
+  if xNameId < 0 then
+  begin
     Result := -1;
     outNode := nil;
     Exit;
   end;
 
   for Result := 0 to Count-1 do
-  if (Nodes[Result].NodeNameId = xNameId) then begin
+  if (Nodes[Result].NodeNameId = xNameId) then
+  begin
     outNode := Nodes[Result];
     Exit;
   end;
@@ -3645,20 +3667,25 @@ begin
      not ((aIndex < (fLastGetNodeIndex-aIndex)) or (aIndex < (aIndex-fLastGetNodeIndex))) and //performance -> search from the start if it needs less cycles
      not (((Count-aIndex) < (fLastGetNodeIndex-aIndex)) or ((Count-aIndex) < (aIndex-fLastGetNodeIndex)))//performance -> search from the end if it needs less cycles
   then begin
-    if (aIndex = fLastGetNodeIndex) then begin
+    if (aIndex = fLastGetNodeIndex) then
+    begin
       //The same node
       Result := fLastGetNode;
-    end else begin
+    end else
+    begin
       //you cannot run this code for (aIndex = fLastGetNodeIndex)!!!
       //find node as a relative sibling from fLastGetNode
       I := fLastGetNodeIndex;
       Result := fLastGetNode;
-      while (I <> aIndex) and Assigned(Result) do begin
-        if aIndex > fLastGetNodeIndex then begin
+      while (I <> aIndex) and Assigned(Result) do
+      begin
+        if aIndex > fLastGetNodeIndex then
+        begin
           //Next in list
           Result := Result.NextSibling;
           Inc(I);
-        end else begin
+        end else
+        begin
           //Previous in list
           Result := Result.PreviousSibling;
           Dec(I);
@@ -3667,13 +3694,16 @@ begin
     end;
   end;
 
-  if not Assigned(Result) then begin
-    if aIndex < Count div 2 then begin
+  if not Assigned(Result) then
+  begin
+    if aIndex < Count div 2 then
+    begin
       //search forwards through all nodes
       I := -1;
       while (I < aIndex) and GetNext(Result) do
         Inc(I);
-    end else begin
+    end else
+    begin
       //search backwards through all nodes
       I := Count;
       while (I > aIndex) and GetPrevious(Result) do
@@ -3846,25 +3876,32 @@ function TXMLNodeWithChildren.AddText(const aText: OWideString): TXMLNode;
 var
   xText: OWideString;
 begin
-  if OwnerDocument.Loading then begin
+  if OwnerDocument.Loading then
+  begin
     //document is reading XML
-    if (OwnerDocument.WhiteSpaceHandling = wsPreserveInTextOnly) and OXmlIsWhiteSpace(aText) then begin
+    if (OwnerDocument.WhiteSpaceHandling = wsPreserveInTextOnly) and OXmlIsWhiteSpace(aText) then
+    begin
       xText := '';
     end else if
       (OwnerDocument.WhiteSpaceHandling = wsTrim) or
       ((OwnerDocument.WhiteSpaceHandling = wsAutoTag) and not GetDoPreserveWhiteSpace)
     then begin
       xText := Trim(aText);
-    end else begin
+    end else
+    begin
       xText := aText;
     end;
-  end else begin
+  end else
+  begin
     //programatically creating document
-    if (OwnerDocument.WhiteSpaceHandling = wsPreserveInTextOnly) and OXmlIsWhiteSpace(aText) then begin
+    if (OwnerDocument.WhiteSpaceHandling = wsPreserveInTextOnly) and OXmlIsWhiteSpace(aText) then
+    begin
       xText := '';
-    end else if (OwnerDocument.WhiteSpaceHandling = wsTrim) then begin
+    end else if (OwnerDocument.WhiteSpaceHandling = wsTrim) then
+    begin
       xText := Trim(aText);
-    end else begin
+    end else
+    begin
       xText := aText;
 
       if
@@ -4121,9 +4158,11 @@ function TXMLNodeWithChildren.InsertAttribute(const aAttrName, aAttrValue: OWide
   const aBeforeAttribute: TXMLNode): TXMLNode;
 begin
   Result := nil;
-  if (OwnerDocument.WhiteSpaceHandling = wsAutoTag) and OSameText(aAttrName, XML_XML_SPACE) then begin
+  if (OwnerDocument.WhiteSpaceHandling = wsAutoTag) and OSameText(aAttrName, XML_XML_SPACE) then
+  begin
     Self.fPreserveWhiteSpace := OXmlStrToPreserve(aAttrValue);
-  end else begin
+  end else
+  begin
     DeleteAttribute(aAttrName);
 
     Result := fOwnerDocument.CreateNode(ntAttribute, aAttrName, aAttrValue);
@@ -4226,12 +4265,16 @@ function TXMLNodeWithChildren._AddAttribute(const aAttrName,
   aAttrValue: OWideString): TXMLNode;
 begin
   Result := nil;
-  if (OwnerDocument.WhiteSpaceHandling = wsAutoTag) and OSameText(aAttrName, XML_XML_SPACE) then begin
+  if (OwnerDocument.WhiteSpaceHandling = wsAutoTag) and OSameText(aAttrName, XML_XML_SPACE) then
+  begin
     Self.fPreserveWhiteSpace := OXmlStrToPreserve(aAttrValue);
-  end else begin
-    if FindAttribute(aAttrName, Result) then begin
+  end else
+  begin
+    if FindAttribute(aAttrName, Result) then
+    begin
       Result.SetNodeValue(aAttrValue);
-    end else begin
+    end else
+    begin
       Result := fOwnerDocument.CreateNode(ntAttribute, aAttrName, aAttrValue);
       Append(Result, ctAttribute);
     end;

@@ -352,7 +352,8 @@ end;
 
 class function TEncoding.ANSI: TEncoding;
 begin
-  if not Assigned(fxANSIEncoding) then begin
+  if not Assigned(fxANSIEncoding) then
+  begin
     {$IFDEF MSWINDOWS}
     fxANSIEncoding := TMBCSEncoding.Create(GetACP);
     {$ELSE}
@@ -368,7 +369,8 @@ var
   xCPInfo: TCPInfo;
 {$ENDIF}
 begin
-  if not Assigned(fxASCIIEncoding) then begin
+  if not Assigned(fxASCIIEncoding) then
+  begin
     {$IFDEF MSWINDOWS}
     if GetCPInfo(CP_US_ASCII, {%H-}xCPInfo) then
       fxASCIIEncoding := TMBCSEncoding.Create(CP_US_ASCII)
@@ -413,7 +415,8 @@ begin
   then begin
     outEncoding := Unicode;
     Result := 2;
-  end else begin
+  end else
+  begin
     outEncoding := aDefaultEncoding;
     Result := 0;
   end;
@@ -469,7 +472,8 @@ begin
   xCodePage := EncodingCodePage;
 
   for I := Low(CodePages) to High(CodePages) do
-  if CodePages[I].CodePage = xCodePage then begin
+  if CodePages[I].CodePage = xCodePage then
+  begin
     Result := CodePages[I].CPAlias;
     Exit;
   end;
@@ -551,7 +555,8 @@ var
 {$ENDIF}
 {$ENDIF}
 begin
-  if S = '' then begin
+  if S = '' then
+  begin
     SetLength(outBuffer, 0);
     Exit;
   end;
@@ -575,7 +580,7 @@ end;
 
 function TMBCSEncoding.BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean;
 {$IFDEF MSWINDOWS}
-  procedure _Convert(var _ioWS: ORealWideString);
+  procedure _Convert(var _ioWS: OUnicodeString);
   var
     xLength, xByteCount: Integer;
   begin
@@ -592,7 +597,8 @@ var
 {$ENDIF}
 {$ENDIF}
 begin
-  if Length(aBytes) = 0 then begin
+  if Length(aBytes) = 0 then
+  begin
     outString := '';
     Result := True;
     Exit;
@@ -639,7 +645,8 @@ begin
   xUS := UTF8Decode(S);
   xCharCount := Length(xUS);
   SetLength(outBuffer, xCharCount*2);
-  if xCharCount > 0 then begin
+  if xCharCount > 0 then
+  begin
     Move(xUS[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
   end;
   {$ELSE}
@@ -666,7 +673,8 @@ var
   {$ENDIF}
 begin
   xByteCount := Length(aBytes);
-  if xByteCount = 0 then begin
+  if xByteCount = 0 then
+  begin
     outString := '';
     Result := True;
     Exit;
@@ -840,7 +848,8 @@ var
   I: Integer;
 begin
   for I := Low(CodePages) to High(CodePages) do
-  if OSameText(aAlias, CodePages[I].CPAlias) then begin
+  if OSameText(aAlias, CodePages[I].CPAlias) then
+  begin
     Result := CodePages[I].CodePage;
     Exit;
   end;
@@ -856,7 +865,8 @@ var
   I: Integer;
 begin
   for I := Low(CodePages) to High(CodePages) do
-  if aCodePage = CodePages[I].CodePage then begin
+  if aCodePage = CodePages[I].CodePage then
+  begin
     Result := CodePages[I].CPAlias;
     Exit;
   end;
@@ -907,7 +917,8 @@ begin
   xCodePage := EncodingCodePage;
 
   for I := Low(CodePages) to High(CodePages) do
-  if CodePages[I].CodePage = xCodePage then begin
+  if CodePages[I].CodePage = xCodePage then
+  begin
     Result := CodePages[I].CPAlias;
     Exit;
   end;

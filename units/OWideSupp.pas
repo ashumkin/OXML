@@ -24,7 +24,7 @@ unit OWideSupp;
     - Delphi 2007-   WideString     (UTF-16)
     - FPC            String         (UTF-8)
 
-  ORealWideString type:
+  OUnicodeString type:
     Always a UTF-16 string type
     - Delphi 2009+   String         (UTF-16)
     - Delphi 2007-   WideString     (UTF-16)
@@ -88,20 +88,22 @@ uses
 type
   {$IFDEF FPC}
     OWideString = String;//UTF-8
-    ORealWideString = UnicodeString;//UTF-16
+    OUnicodeString = UnicodeString;//UTF-16
     OWideChar = Char;
     POWideChar = PChar;
-    PORealWideChar = PWideChar;
+    OUnicodeChar = WideChar;
+    POUnicodeChar = PWideChar;
     ORawByteString = AnsiString;
     ONativeInt = NativeInt;
     ONativeUInt = NativeUInt;
   {$ELSE}
     {$IFDEF O_UNICODE}
       OWideString = String;//UTF-16
-      ORealWideString = String;//UTF-16
+      OUnicodeString = String;//UTF-16
       OWideChar = Char;
       POWideChar = PChar;
-      PORealWideChar = PChar;
+      OUnicodeChar = Char;
+      POUnicodeChar = PChar;
       {$IFDEF O_RAWBYTESTRING}
       ORawByteString = RawByteString;
       {$ENDIF}
@@ -115,10 +117,11 @@ type
       {$ENDIF}
     {$ELSE}
       OWideString = WideString;//UTF-16
-      ORealWideString = WideString;//UTF-16
+      OUnicodeString = WideString;//UTF-16
       OWideChar = WideChar;
       POWideChar = PWideChar;
-      PORealWideChar = PWideChar;
+      OUnicodeChar = WideChar;
+      POUnicodeChar = PWideChar;
       ORawByteString = AnsiString;
       ONativeInt = Integer;
       ONativeUInt = Cardinal;
@@ -272,9 +275,9 @@ type
   TOWideStringList = TStringList;
   {$ENDIF}
 
-  TOTextBuffer = class(TPersistent)
+  TOTextBuffer = class(TPersistent)//Text buffer, UTF-16 in Delphi, UTF-8 in FPC
   private
-    fBuffer: Array of OWideChar;//Faster in D7 than OWideString
+    fBuffer: array of OWideChar;//Faster in D7 than OWideString
     fAllocLength: Integer;//allocated length
     fUsedLength: Integer;//used length
     fRemaining: Integer;//fAllocLength-fUsedLength
@@ -299,6 +302,7 @@ type
   public
     property UsedLength: Integer read fUsedLength;
     property AllocLength: Integer read fAllocLength;
+    property Remaining: Integer read fRemaining;
   end;
 
   TOWideStringStackItem = packed record
@@ -412,6 +416,9 @@ function OWideToFast(const aSourceWide: OWideString): OFastString; overload; {$I
 procedure OWideToFast(const aSourceWide: OWideString; var outDestFast: OFastString); overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 {$ENDIF}
 
+function OUnicodeToWide(const aSourceUnicode: OUnicodeString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OWideToUnicode(const aSourceWide: OWideString): OUnicodeString; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+
 //split a text to pieces with a delimiter
 //if aConsiderQuotes=True, delimiters in quotes are ignored
 //quotes must be escaped in XML-style, i.e. escaping with backslash is not considered as escaped: \" will not work
@@ -458,7 +465,8 @@ begin
   SetLength(Result, xStrLen*2);//worst case #10 -> #13#10
   IRes := 1;
   IStr := 1;
-  while IStr <= xStrLen do begin
+  while IStr <= xStrLen do
+  begin
     case aString[IStr] of
       #13: begin
         _CopyLineBreak;
@@ -484,7 +492,8 @@ begin
   if (aVarPath.Count > 0) and (aVarPath[aVarPath.Count-1] = '') then//delete last empty element ("root/name/")
     aVarPath.Delete(aVarPath.Count-1);
 
-  if (aVarPath.Count = 0) then begin//current directory
+  if (aVarPath.Count = 0) then//current directory
+  begin
     aVarPath.Assign(aReferencePath);
     Exit;
   end;
@@ -494,7 +503,8 @@ begin
     if (aVarPath[0] <> '') then//is relative path
       xNewPath.Assign(aReferencePath);
 
-    for I := 0 to aVarPath.Count-1 do begin
+    for I := 0 to aVarPath.Count-1 do
+    begin
       if aVarPath[I] = '..' then
       begin
         //go up
@@ -658,6 +668,24 @@ begin
 end;
 {$ENDIF}
 
+function OUnicodeToWide(const aSourceUnicode: OUnicodeString): OWideString;
+begin
+  {$IFDEF FPC}
+  Result := UTF8Encode(aSourceUnicode);
+  {$ELSE}
+  Result := aSourceUnicode;
+  {$ENDIF}
+end;
+
+function OWideToUnicode(const aSourceWide: OWideString): OUnicodeString; overload;
+begin
+  {$IFDEF FPC}
+  Result := UTF8Decode(aSourceWide);
+  {$ELSE}
+  Result := aSourceWide;
+  {$ENDIF}
+end;
+
 {$IFNDEF NEXTGEN}
 function OCharInSet(const aChar: OWideChar; const aSet: TSysCharSet): Boolean;
 begin
@@ -669,7 +697,8 @@ function OCharInSetW(const aChar: OWideChar; const aCharArray: Array of OWideCha
 var I: Integer;
 begin
   for I := Low(aCharArray) to High(aCharArray) do
-  if aChar = aCharArray[I] then begin
+  if aChar = aCharArray[I] then
+  begin
     Result := True;
     Exit;
   end;
@@ -746,7 +775,7 @@ var
 begin
   if (OldPattern = '') or (S = '') then
     Exit;
-    
+
   if rfIgnoreCase in Flags then
   begin
     SearchStr := WideUpperCase(S);
@@ -760,7 +789,7 @@ begin
   OldPattLength := Length(OldPatt);
   NewPattLength := Length(NewPattern);
   SLength := Length(S);
-  
+
   if NewPattLength <= OldPattLength then
     SetLength(Result, SLength)
   else
@@ -1325,19 +1354,22 @@ var
   xDestBWS: TOBufferWideStrings;
   I: Integer;
 begin
-  if Dest is TOWideStringList then begin
+  if Dest is TOWideStringList then
+  begin
     xDestWStrL := TOWideStringList(Dest);
     xDestWStrL.Clear;
     for I := 0 to Count-1 do
       xDestWStrL.Add(Get(I));
   end else
-  if Dest is TStrings then begin
+  if Dest is TStrings then
+  begin
     xDestStrL := TStrings(Dest);
     xDestStrL.Clear;
     for I := 0 to Count-1 do
       xDestStrL.Add(Get(I));
   end else
-  if Dest is TOBufferWideStrings then begin
+  if Dest is TOBufferWideStrings then
+  begin
     xDestBWS := TOBufferWideStrings(Dest);
     xDestBWS.Clear;
     for I := 0 to Count-1 do
@@ -1438,10 +1470,12 @@ procedure TOTextBuffer.AssignTo(Dest: TPersistent);
 var
   xDest: TOTextBuffer;
 begin
-  if Dest is TOTextBuffer then begin
+  if Dest is TOTextBuffer then
+  begin
     xDest := TOTextBuffer(Dest);
 
-    if xDest.fAllocLength < Self.fAllocLength then begin
+    if xDest.fAllocLength < Self.fAllocLength then
+    begin
       xDest.fAllocLength := Self.fAllocLength;
       SetLength(xDest.fBuffer, xDest.fAllocLength);
     end;
@@ -1456,7 +1490,8 @@ end;
 
 procedure TOTextBuffer.Clear(const aFullClear: Boolean);
 begin
-  if aFullClear and (fAllocLength > fDefBufferLength) then begin
+  if aFullClear and (fAllocLength > fDefBufferLength) then
+  begin
     fAllocLength := fDefBufferLength;
     SetLength(fBuffer, fAllocLength);
   end;
@@ -1493,10 +1528,12 @@ begin
   begin
     {$IFDEF O_DELPHI_2007_DOWN}
     //Move() is extremly slow here in Delphi 7, copy char-by-char is faster for short strings
-    if aLength < 5 then begin
+    if aLength < 5 then
+    begin
       for I := 0 to aLength-1 do
         outString[I+1] := fBuffer[aPosition+I-1];
-    end else begin
+    end else
+    begin
       Move(fBuffer[aPosition-1], outString[1], aLength*SizeOf(OWideChar));
     end;
     {$ELSE}
@@ -1527,7 +1564,8 @@ procedure TOTextBuffer.RemoveLastChar;
 begin
   Dec(fUsedLength);
   Inc(fRemaining);
-  if fUsedLength < 0 then begin
+  if fUsedLength < 0 then
+  begin
     fUsedLength := 0;
     fRemaining := fAllocLength;
   end;
@@ -1537,7 +1575,8 @@ procedure TOTextBuffer.RemoveLastString(const aLength: Integer);
 begin
   Dec(fUsedLength, aLength);
   Inc(fRemaining, aLength);
-  if fUsedLength < 0 then begin
+  if fUsedLength < 0 then
+  begin
     fUsedLength := 0;
     fRemaining := fAllocLength;
   end;
@@ -1562,19 +1601,30 @@ end;
 
 procedure TOTextBuffer.WriteString(const aString: OWideString; var outPosition,
   outLength: Integer);
+{$IFDEF O_DELPHI_2007_DOWN}
+var
+  I: Integer;
+{$ENDIF}
 begin
   outLength := Length(aString);
   outPosition := fUsedLength+1;
 
-  if outLength > 0 then begin
+  if outLength > 0 then
+  begin
     if fRemaining < outLength then
       Grow(outLength);
 
     Inc(fUsedLength, outLength);
     Dec(fRemaining, outLength);
 
+    {$IFDEF O_DELPHI_2007_DOWN}
+    //Move() is extremly slow here in Delphi 7, copy char-by-char is faster also for long strings!!! (this may be a delphi bug)
+    for I := 0 to outLength-1 do
+      fBuffer[outPosition-1+I] := aString[I+1];
+    {$ELSE}
     Move(aString[1], fBuffer[outPosition-1], outLength*SizeOf(OWideChar));
+    {$ENDIF}
   end;
 end;
 
-end.
+end.

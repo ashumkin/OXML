@@ -2023,6 +2023,8 @@ var
           ((bDirID = 0) and (xSearchRes.Name = 'p04pass1.xml')) or
           ((bDirID = 1) and (xSearchRes.Name = '051.xml')) or
           ((bDirID = 1) and (xSearchRes.Name = '063.xml')) or
+          //Lazarus does not support very special unicode characters
+          ((bDirID = 1) and (xSearchRes.Name = '052.xml')) or
           {$ENDIF}
           False
 

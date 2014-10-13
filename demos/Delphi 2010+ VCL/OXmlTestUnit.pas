@@ -975,7 +975,8 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
     xXmlReader := TXMLReader.Create;
     try
       xXmlReader.InitFile(DocDir+'sheet1.xml');
-      while xXmlReader.ReadNextToken({%H-}xReaderToken) do begin
+      while xXmlReader.ReadNextToken({%H-}xReaderToken) do
+      begin
       end;
     finally
       xXmlReader.Free;
@@ -1096,7 +1097,8 @@ procedure TForm1.BtnResaveTestClick(Sender: TObject);
       xXmlWriter.WriterSettings.WriteBOM := False;
 
       //simulate reading
-      while xXmlReader.ReadNextToken({%H-}xE) do begin
+      while xXmlReader.ReadNextToken({%H-}xE) do
+      begin
         DoNothing(xE.TokenName, xE.TokenValue);
       end;
       xT2 := GetTickCount;
@@ -1104,7 +1106,8 @@ procedure TForm1.BtnResaveTestClick(Sender: TObject);
       //read+write
       xXmlReader.InitFile(DocDir+'sheet1.xml');
       xXmlWriter.XmlDeclaration(True);
-      while xXmlReader.ReadNextToken(xE) do begin
+      while xXmlReader.ReadNextToken(xE) do
+      begin
         case xE.TokenType of
           rtAttribute: xXmlWriter.Attribute(xE.TokenName, xE.TokenValue);
           rtOpenElement: xXmlWriter.OpenElement(xE.TokenName);
@@ -1726,7 +1729,8 @@ begin
         xAttr: PSAXAttribute;
       begin
         xAttrStr := '';
-        for xAttr in aAttributes do begin
+        for xAttr in aAttributes do
+        begin
           if xAttrStr <> '' then
             xAttrStr := xAttrStr + ', ';
           xAttrStr := xAttrStr + SAXEscapeString(xAttr.NodeName)+'="'+SAXEscapeString(xAttr.NodeValue)+'"';
@@ -2237,7 +2241,6 @@ begin
   xObject := nil;
   try
     xDeserializer.InitXML(Memo1.Lines.Text);
-    xDeserializer.UseIndex := False;
 
     while xDeserializer.ReadObjectInfo({%H-}xClassName) do
     begin
@@ -2277,7 +2280,6 @@ begin
   xDictionary := nil;
   try
     xDeserializer.InitXML(Memo1.Lines.Text);
-    xDeserializer.UseIndex := False;
 
     while xDeserializer.ReadObjectInfo({%H-}xClassName) do
     begin

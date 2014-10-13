@@ -17,6 +17,7 @@
   {$IFDEF FPC_HAS_TYPE_EXTENDED}
     {$DEFINE O_EXTENDEDTYPE}//e.g. Windows CE doesn't have Extended type (Extended = Double)
   {$ENDIF}
+  {$DEFINE O_UTF8}
 {$ELSE}
   //DELPHI
   {$DEFINE O_EXTENDEDTYPE}

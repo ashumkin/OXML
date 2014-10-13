@@ -147,6 +147,9 @@ function OXmlIsBreakChar(const aChar: OWideChar): Boolean; {$IFDEF O_INLINE}inli
 function OXmlIsChar(const aChar: OWideChar): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsChar(const aChar: Integer): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlCharKind(const aChar: OWideChar): TXMLCharKind; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+{$IFDEF O_UTF8}
+function OXmlCharKind(const aChar: OUnicodeChar): TXMLCharKind; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+{$ENDIF}
 
 function OXmlNeedsPreserveAttribute(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OXmlIsWhiteSpace(const aText: OWideString): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -534,7 +537,8 @@ end;
 function OXmlValidName(const aText: OWideString): Boolean;
 var I: Integer;
 begin
-  if aText = '' then begin
+  if aText = '' then
+  begin
     Result := False;
     Exit;
   end;
@@ -543,7 +547,8 @@ begin
   if not Result then
     Exit;
 
-  for I := 2 to Length(aText) do begin
+  for I := 2 to Length(aText) do
+  begin
     Result := OXmlIsNameChar(aText[I]);
     if not Result then
       Exit;
@@ -554,7 +559,8 @@ function OXmlValidChars(const aText: OWideString): Boolean;
 var I: Integer;
 begin
   Result := True;
-  for I := 1 to Length(aText) do begin
+  for I := 1 to Length(aText) do
+  begin
     Result := OXmlIsChar(aText[I]);
     if not Result then
       Exit;
@@ -566,7 +572,8 @@ var
   I, xLength: Integer;
   xThisCharWhiteSpace, xLastCharWhiteSpace: Boolean;
 begin
-  if aText = '' then begin
+  if aText = '' then
+  begin
     Result := False;
     Exit;
   end;
@@ -579,11 +586,13 @@ begin
 
   xLastCharWhiteSpace := False;
   I := 2;//we can omit first and last characters (already checked)!
-  while I < xLength do begin//we can omit first and last characters (already checked)!
+  while I < xLength do//we can omit first and last characters (already checked)!
+  begin
     if (aText[I] = #13) and (aText[I+1] = #10) then
       Inc(I);//step over #13#10
     xThisCharWhiteSpace := OXmlIsWhiteSpaceChar(aText[I]);
-    if xThisCharWhiteSpace and xLastCharWhiteSpace then begin
+    if xThisCharWhiteSpace and xLastCharWhiteSpace then
+    begin
       Result := True;
       Exit;
     end;
@@ -597,7 +606,8 @@ var
   I: Integer;
 begin
   for I := 1 to Length(aText) do
-  if not OXmlIsWhiteSpaceChar(aText[I]) then begin
+  if not OXmlIsWhiteSpaceChar(aText[I]) then
+  begin
     Result := False;
     Exit;
   end;
@@ -613,7 +623,8 @@ begin
   if not (
     OXmlIsDecimalChar(aText[I]) or//'0'..'1'
     ((I = 1) and OXmlIsSignChar(aText[I])))//sign
-  then begin
+  then
+  begin
     Result := False;
     Exit;
   end;
@@ -778,6 +789,30 @@ begin
     Result := ckInvalid;
   end;
 end;
+
+{$IFDEF FPC}
+function OXmlCharKind(const aChar: OUnicodeChar): TXMLCharKind;
+begin
+  case Ord(aChar) of
+    Ord('"'): Result := ckDoubleQuote;//#$22
+    Ord('&'): Result := ckAmpersand;//#$26
+    Ord(''''): Result := ckSingleQuote;//#$27
+    Ord('<'): Result := ckLowerThan;//#$3C
+    Ord('>'): Result := ckGreaterThan;//#$3E
+    Ord('['): Result := ckSquareBracketOpen;
+    Ord(']'): Result := ckSquareBracketClose;
+    10: Result := ckNewLine10;
+    13: Result := ckNewLine13;
+    09,
+    $20, $21, $23..$25, $28..$3B, $3D, $3F..$5A, $5C, $5E..$FF//except '"&<>[]
+    ,
+    $0100..$FFFD
+    : Result := ckCharacter;
+  else
+    Result := ckInvalid;
+  end;
+end;
+{$ENDIF}
 
 function OXmlIsNameStartChar(const aChar: OWideChar): Boolean;
 begin

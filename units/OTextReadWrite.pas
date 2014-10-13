@@ -241,6 +241,7 @@ type
     //been written with WriteString()) is written with last used encoding
     property Encoding: TEncoding read fEncoding write SetEncoding;
     property OwnsEncoding: Boolean read fOwnsEncoding write fOwnsEncoding;
+
     //should BOM be written
     property WriteBOM: Boolean read fWriteBOM write fWriteBOM;
   end;
@@ -569,7 +570,8 @@ begin
     //  buffering is here just because some (custom) streams may not support seeking
     //  which is needed when reading encoding from xml header
     DoInit(aStream, False, aDefaultEncoding);
-  end else begin
+  end else
+  begin
     //we need to buffer streams that do not support seeking (zip etc.)
     DoInit(
       TOBufferedReadStream.Create(aStream, fBufferSize),
@@ -610,7 +612,8 @@ begin
 
   SetLength(xBuffer, xReadBytes+5);//5 is maximum UTF-8 increment
   fStream.ReadBuffer(xBuffer[BS], xReadBytes);
-  if fEncoding is TUTF8Encoding then begin
+  if fEncoding is TUTF8Encoding then
+  begin
     //check if we did not reach an utf-8 character in the middle
     if
      ((Ord(xBuffer[BS+xReadBytes-1]) and $80) = $00)
@@ -719,7 +722,8 @@ end;
 
 function TOTextReader.ReadNextChar(var outChar: OWideChar): Boolean;
 begin
-  if fReadFromUndo then begin
+  if fReadFromUndo then
+  begin
     outChar := fPreviousChar;
     fReadFromUndo := False;
     Result := True;
@@ -731,7 +735,8 @@ begin
   if fTempStringRemain = 0 then
     LoadStringFromStream;
 
-  if fTempStringRemain > 0 then begin
+  if fTempStringRemain > 0 then
+  begin
     outChar := fTempString[fTempStringPosition];
     case Ord(outChar) of
       10: begin
@@ -752,7 +757,8 @@ begin
     Dec(fTempStringRemain);
     Inc(fFilePosition);
     Result := True;
-  end else begin
+  end else
+  begin
     fEOF := True;
     outChar := #0;
     ReleaseDocument;
@@ -802,7 +808,8 @@ var
 const
   cMaxStartBuffer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE;
 begin
-  if aMaxChars <= 0 then begin
+  if aMaxChars <= 0 then
+  begin
     Result := '';
     Exit;
   end;
@@ -812,7 +819,8 @@ begin
     R := cMaxStartBuffer;
   SetLength(Result, R);
   I := 0;
-  while (I < aMaxChars) and ReadNextChar({%H-}xC) do begin
+  while (I < aMaxChars) and ReadNextChar({%H-}xC) do
+  begin
     if aBreakAtNewLine then
     case xC of
       #10, #13: begin
@@ -822,7 +830,8 @@ begin
     end;
 
     Inc(I);
-    if R = 0 then begin
+    if R = 0 then
+    begin
       R := Length(Result);
       SetLength(Result, Length(Result) + R);
     end;
@@ -844,7 +853,8 @@ end;
 
 procedure TOTextReader.SetEncoding(const Value: TEncoding);
 begin
-  if fEncoding <> Value then begin//the condition fEncoding <> Value must be here!!!
+  if fEncoding <> Value then//the condition fEncoding <> Value must be here!!!
+  begin
     if fOwnsEncoding then
       fEncoding.Free;
     fEncoding := Value;
@@ -938,10 +948,13 @@ end;
 
 procedure TOTextWriter.EnsureTempStringWritten;
 begin
-  if fTempStringPosition > 1 then begin
-    if fTempStringLength = fTempStringPosition-1 then begin
+  if fTempStringPosition > 1 then
+  begin
+    if fTempStringLength = fTempStringPosition-1 then
+    begin
       WriteStringToStream(fTempString, -1);
-    end else begin
+    end else
+    begin
       WriteStringToStream(fTempString, fTempStringPosition-1);
     end;
     fTempStringPosition := 1;
@@ -972,7 +985,8 @@ end;
 
 procedure TOTextWriter.SetEncoding(const Value: TEncoding);
 begin
-  if fEncoding <> Value then begin
+  if fEncoding <> Value then
+  begin
     EnsureTempStringWritten;
     if fOwnsEncoding then
       fEncoding.Free;
@@ -983,7 +997,8 @@ end;
 
 procedure TOTextWriter.WriteChar(const aChar: OWideChar);
 begin
-  if fTempStringPosition > fTempStringLength then begin
+  if fTempStringPosition > fTempStringLength then
+  begin
     EnsureTempStringWritten;//WRITE TEMP BUFFER
   end;
 
@@ -1002,13 +1017,16 @@ begin
   if xStringLength = 0 then
     Exit;
 
-  if fTempStringPosition-1 + xStringLength > fTempStringLength then begin
+  if fTempStringPosition-1 + xStringLength > fTempStringLength then
+  begin
     EnsureTempStringWritten;//WRITE TEMP BUFFER
   end;
 
-  if xStringLength > fTempStringLength then begin
+  if xStringLength > fTempStringLength then
+  begin
     WriteStringToStream(aString, -1);
-  end else begin
+  end else
+  begin
     {$IFDEF O_DELPHI_2007_DOWN}
     //Move() is extremly slow here in Delphi 7, copy char-by-char is faster also for long strings!!! (this may be a delphi bug)
     for I := 0 to xStringLength-1 do
@@ -1026,7 +1044,8 @@ var
   xBytesLength: Integer;
   xBOM: TEncodingBuffer;
 begin
-  if fWriteBOM and not fBOMWritten then begin
+  if fWriteBOM and not fBOMWritten then
+  begin
     //WRITE BOM
     {$IFDEF O_DELPHI_2007_DOWN}
     SetLength(xBOM, 0);//suppress Delphi warnings
@@ -1037,11 +1056,13 @@ begin
   end;
   fBOMWritten := True;
 
-  if aMaxLength < 0 then begin
+  if aMaxLength < 0 then
+  begin
     //write complete string
     fEncoding.StringToBuffer(aString, {%H-}xBytes);
     xBytesLength := Length(xBytes);
-  end else begin
+  end else
+  begin
     //write part of string
     fEncoding.StringToBuffer(Copy(aString, 1, aMaxLength), {%H-}xBytes);
     xBytesLength := Length(xBytes);
