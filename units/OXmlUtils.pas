@@ -82,6 +82,12 @@ const
   XML_XMLNS: OWideString = 'xmlns';
   XML_XML_SPACE: OWideString = 'xml:space';
 
+  XML_ENTITY_AMP: OWideString = '&amp;';
+  XML_ENTITY_LT: OWideString = '&lt;';
+  XML_ENTITY_GT: OWideString = '&gt;';
+  XML_ENTITY_QUOT: OWideString = '&quot;';
+  XML_ENTITY_APOS: OWideString = '&apos;';
+
   XMLUseIndexNodeLimit = 256;
 
   // W3C DOM Level 1 :: http://www.w3.org/TR/REC-DOM-Level-1/level-one-core.html
@@ -172,6 +178,7 @@ function OXmlApplyNameSpace(const aNameSpacePrefix, aLocalName: OWideString): OW
 function OXmlIsLocalName(const aNodeName, aLocalName: OWideString): Boolean;
 function OXmlIsLocalNameNS(const aNodeName, aNameSpace, aLocalName: OWideString): Boolean;
 
+//all ISO formatting functions are thread-safe
 function ISOFloatToStr(const aValue: Extended): String;
 function ISODateToStr(const aDate: TDateTime): String;
 function ISODateTimeToStr(const aDateTime: TDateTime): String;
@@ -219,6 +226,11 @@ uses
   OXmlLng
   {$IFDEF O_DELPHI_6_UP}, DateUtils{$ENDIF};
 
+{$IFNDEF O_DELPHI_6_DOWN}
+var
+  gxISOFormatSettings: TFormatSettings;//write only once in initialization section, then read-only => thread-safe!
+{$ENDIF}
+
 function OXmlNameToXML(const aName: string): string;
 begin
   Result := aName;
@@ -262,12 +274,10 @@ begin
 end;
 
 function ISOFloatToStr(const aValue: Extended): String;
-var
 {$IFDEF O_DELPHI_6_DOWN}
+var
   I: Integer;
   PResult: PChar;
-{$ELSE}
-  xFS: TFormatSettings;
 {$ENDIF}
 begin
   {$IFDEF O_DELPHI_6_DOWN}
@@ -282,9 +292,7 @@ begin
     end;
   end;
   {$ELSE}
-  xFS := OGetLocaleFormatSettings;
-  xFS.DecimalSeparator := '.';
-  Result := FloatToStr(aValue, xFS);
+  Result := FloatToStr(aValue, gxISOFormatSettings);
   {$ENDIF}
 end;
 
@@ -348,11 +356,9 @@ begin
 end;
 
 function ISOTryStrToFloat(const aString: String; var outValue: Extended): Boolean;
-var
 {$IFDEF O_DELPHI_6_DOWN}
+var
   xString: String;
-{$ELSE}
-  xFS: TFormatSettings;
 {$ENDIF}
 begin
   {$IFDEF O_DELPHI_6_DOWN}
@@ -363,9 +369,7 @@ begin
   end else
     Result := TryStrToFloat(aString, outValue);
   {$ELSE}
-  xFS := OGetLocaleFormatSettings;
-  xFS.DecimalSeparator := '.';
-  Result := TryStrToFloat(aString, outValue, xFS);
+  Result := TryStrToFloat(aString, outValue, gxISOFormatSettings);
   {$ENDIF}
 end;
 
@@ -1004,5 +1008,11 @@ begin
   fVersion := '1.0';
   fStandAlone := '';
 end;
+
+{$IFNDEF O_DELPHI_6_DOWN}
+initialization
+  FillChar({%H-}gxISOFormatSettings, SizeOf(gxISOFormatSettings), 0);
+  gxISOFormatSettings.DecimalSeparator := '.';
+{$ENDIF}
 
 end.

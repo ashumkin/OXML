@@ -2225,7 +2225,6 @@ begin
   xObject := nil;
   try
     xDeserializer.InitXML(Memo1.Lines.Text);
-    xDeserializer.UseIndex := False;
 
     while xDeserializer.ReadObjectInfo({%H-}xClassName) do
     begin

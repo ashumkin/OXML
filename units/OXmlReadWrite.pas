@@ -213,9 +213,16 @@ type
     procedure SetWriteBOM(const aWriteBOM: Boolean);
     procedure SetDefaultIndentLevel(const aDefaultIndentLevel: Integer);
   private
+    //encoding entities support
     fUseSafeEntities: Boolean;
     fCharTable: TOCharTable;
     function GetCharTable: TOCharTable;
+    // safe write raw text: if char not present in target encoding, write its entity
+    procedure DoTextSafeEntity(const aText: OUnicodeString; const aQuoteChar: OWideChar);
+    procedure RawUnicodeChar(const aChar: OUnicodeChar);
+    procedure RawUnicodeCharSafeEntity(const aChar: OUnicodeChar);
+    //no safe entity
+    procedure DoText(const aText: OWideString; const aQuoteChar: OWideChar);
   protected
     //manual indentation support - you can use Indent+IncIndentLevel+DecIndentLevel
     //  manually if you want to. Set IndentType to itNone in this case.
@@ -281,18 +288,13 @@ type
     // <!DOCTYPE aDocTypeRawText> - aDocTypeRawText must be escaped, it won't be processed
     procedure DocType(const aDocTypeRawText: OWideString);
 
-    // write escaped text, escape also a quote if aQuoteChar specified; (SafeEntity is used)
+    // write escaped text, escape also a quote if aQuoteChar specified;
     procedure Text(const aText: OWideString; const aQuoteChar: OWideChar); overload;
-    procedure UnicodeText(const aText: OUnicodeString; const aQuoteChar: OWideChar);
-    // write escaped text, decide if you want to indent; (SafeEntity is used)
+    // write escaped text, decide if you want to indent;
     procedure Text(const aText: OWideString; const aIndent: Boolean = True); overload;
     // write raw text, do not process it
     procedure RawText(const aText: OWideString);
     procedure RawChar(const aChar: OWideChar);
-    procedure RawUnicodeChar(const aChar: OUnicodeChar);
-
-    // safe write raw text: if char not present in target encoding, write its entity
-    procedure RawUnicodeCharSafeEntity(const aChar: OUnicodeChar); overload;
   public
     //encoding of the text writer
     property Encoding: TEncoding read GetEncoding write SetEncoding;
@@ -2308,6 +2310,112 @@ begin
   fIndentLevel := fDefaultIndentLevel;
 end;
 
+procedure TXMLWriter.DoText(const aText: OWideString;
+  const aQuoteChar: OWideChar);
+var
+  xC: OWideChar;
+  I, xLength: Integer;
+begin
+  //"almost" same code as DoTextSafeEntity
+  xLength := Length(aText);
+  if xLength = 0 then
+    Exit;
+
+  for I := 1 to xLength do
+  begin
+    xC := aText[I];
+    case OXmlCharKind(xC) of
+      ckAmpersand: RawText(XML_ENTITY_AMP);
+      ckLowerThan: RawText(XML_ENTITY_LT);
+      ckGreaterThan:
+        if fWriterSettings.UseGreaterThanEntity then
+          RawText(XML_ENTITY_GT)
+        else
+          RawChar(xC);
+      ckDoubleQuote:
+        if aQuoteChar = '"' then
+          RawText(XML_ENTITY_QUOT)
+        else
+          RawChar(xC);
+      ckSingleQuote:
+        if aQuoteChar = '''' then
+          RawText(XML_ENTITY_APOS)
+        else
+          RawChar(xC);
+      ckNewLine10:
+        if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
+          RawChar(xC)
+        else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
+          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+      ckNewLine13:
+        if fWriterSettings.fLineBreak = lbDoNotProcess then
+          RawChar(xC)
+        else
+          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+      ckCharacter, ckSquareBracketOpen, ckSquareBracketClose: RawChar(xC);
+    else
+      //invalid
+      if not fWriterSettings.fStrictXML then
+        RawChar(xC)
+      else
+        raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidText, [aText]);
+    end;
+  end;
+end;
+
+procedure TXMLWriter.DoTextSafeEntity(const aText: OUnicodeString;
+  const aQuoteChar: OWideChar);
+var
+  xC: OUnicodeChar;
+  I, xLength: Integer;
+begin
+  //"almost" same code as DoText
+  xLength := Length(aText);
+  if xLength = 0 then
+    Exit;
+
+  for I := 1 to xLength do
+  begin
+    xC := aText[I];
+    case OXmlCharKind(xC) of
+      ckAmpersand: RawText(XML_ENTITY_AMP);
+      ckLowerThan: RawText(XML_ENTITY_LT);
+      ckGreaterThan:
+        if fWriterSettings.UseGreaterThanEntity then
+          RawText(XML_ENTITY_GT)
+        else
+          RawChar(OWideChar(Ord(xC) and $FF));
+      ckDoubleQuote:
+        if aQuoteChar = '"' then
+          RawText(XML_ENTITY_QUOT)
+        else
+          RawChar(OWideChar(Ord(xC) and $FF));
+      ckSingleQuote:
+        if aQuoteChar = '''' then
+          RawText(XML_ENTITY_APOS)
+        else
+          RawChar(OWideChar(Ord(xC) and $FF));
+      ckNewLine10:
+        if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
+          RawChar(OWideChar(Ord(xC) and $FF))
+        else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
+          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+      ckNewLine13:
+        if fWriterSettings.fLineBreak = lbDoNotProcess then
+          RawChar(OWideChar(Ord(xC) and $FF))
+        else
+          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+      ckCharacter, ckSquareBracketOpen, ckSquareBracketClose: RawUnicodeCharSafeEntity(xC);
+    else
+      //invalid
+      if not fWriterSettings.fStrictXML then
+        RawChar(xC)
+      else
+        raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidText, [aText]);
+    end;
+  end;
+end;
+
 procedure TXMLWriter.EntityReference(const aEntityName: OWideString);
 begin
   if fWriterSettings.fStrictXML and not OXmlValidEntityReference(aEntityName) then
@@ -2433,7 +2541,7 @@ procedure TXMLWriter.RawUnicodeCharSafeEntity(const aChar: OUnicodeChar);
 begin
   fWritten := True;
 
-  if not Encoding.IsSingleByte or GetCharTable.IsSupported(aChar) then
+  if GetCharTable.IsSupported(aChar) then
     RawUnicodeChar(aChar)
   else
     RawText(GetCharTable.Entity(aChar));
@@ -2509,58 +2617,6 @@ begin
   Text(aText, OWideChar(#0));
 end;
 
-procedure TXMLWriter.UnicodeText(const aText: OUnicodeString;
-  const aQuoteChar: OWideChar);
-var
-  xC: OUnicodeChar;
-  I, xLength: Integer;
-begin
-  xLength := Length(aText);
-  if xLength = 0 then
-    Exit;
-
-  for I := 1 to xLength do
-  begin
-    xC := aText[I];
-    case OXmlCharKind(xC) of
-      ckAmpersand: RawText('&amp;');
-      ckLowerThan: RawText('&lt;');
-      ckGreaterThan:
-        if fWriterSettings.UseGreaterThanEntity then
-          RawText('&gt;')
-        else
-          RawText(xC);
-      ckDoubleQuote:
-        if aQuoteChar = '"' then
-          RawText('&quot;')
-        else
-          RawChar(xC);
-      ckSingleQuote:
-        if aQuoteChar = '''' then
-          RawText('&apos;')
-        else
-          RawChar(xC);
-      ckNewLine10:
-        if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
-          RawChar(xC)
-        else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
-          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
-      ckNewLine13:
-        if fWriterSettings.fLineBreak = lbDoNotProcess then
-          RawChar(xC)
-        else
-          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
-      ckCharacter, ckSquareBracketOpen, ckSquareBracketClose: RawUnicodeCharSafeEntity(xC);
-    else
-      //invalid
-      if not fWriterSettings.fStrictXML then
-        RawChar(xC)
-      else
-        raise EXmlWriterInvalidString.CreateFmt(OXmlLng_InvalidText, [aText]);
-    end;
-  end;
-end;
-
 procedure TXMLWriter.OpenXMLDeclaration;
 begin
   Indent;
@@ -2633,7 +2689,10 @@ end;
 
 procedure TXMLWriter.Text(const aText: OWideString; const aQuoteChar: OWideChar);
 begin
-  UnicodeText({$IFDEF O_UTF8}OWideToUnicode{$ENDIF}(aText), aQuoteChar);
+  if fUseSafeEntities then
+    DoTextSafeEntity({$IFDEF O_UTF8}OWideToUnicode{$ENDIF}(aText), aQuoteChar)
+  else
+    DoText(aText, aQuoteChar);
 end;
 
 procedure TXMLWriter.XMLDeclaration(const aEncoding: Boolean;
