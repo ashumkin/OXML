@@ -37,6 +37,8 @@ unit OXmlRTTISerialize;
   ! Properties in interfaces are not supported due to a Delphi bug:
   ! http://qc.embarcadero.com/wc/qcmain.aspx?d=90285
 
+  ! WideString ist not supported in Delphi XE -> Delphi BUG !
+
 }
 
 {$I OXml.inc}

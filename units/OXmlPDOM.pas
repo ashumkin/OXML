@@ -661,6 +661,7 @@ type
     function IndexOf(const aName: OWideString; var outNode: PXMLNode): Integer; overload;
     procedure Insert(const aIndex: Integer; const aNode: PXMLNode);
     function Remove(const aNode: PXMLNode): Integer;
+
     procedure Exchange(const aIndex1, aIndex2: Integer); overload;
     procedure Exchange(const aNode1, aNode2: PXMLNode); overload;
     procedure Move(const aCurIndex, aNewIndex: Integer);
@@ -780,6 +781,7 @@ type
     function IndexOf(const aName: OWideString; var outNode: PXMLNode): Integer; overload;
     procedure Insert(const aIndex: Integer; const aNode: PXMLNode);
     function Remove(const aNode: PXMLNode): Integer;
+
     procedure Exchange(const aIndex1, aIndex2: Integer); overload;
     procedure Exchange(const aNode1, aNode2: PXMLNode); overload;
     procedure Move(const aCurIndex, aNewIndex: Integer);

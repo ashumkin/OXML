@@ -29,7 +29,8 @@ package OXml_R7;
 requires
   rtl,
   xmlrtl,
-  inet;
+  inet,
+  vcl;
 
 contains
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',

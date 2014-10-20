@@ -84,7 +84,7 @@ type
     function GetAttributeItem(const aIndex: Integer): PSAXAttribute;
     function GetCount: Integer;
 
-    procedure GetKeyByIndex(const aIndex: OHashedStringsIndex; var outString: OWideString);
+    function GetKeyByIndex(const aIndex: OStringIndex): OWideString;
   public
     constructor Create;
     destructor Destroy; override;
@@ -562,12 +562,12 @@ var
   I: Integer;
 begin
   fIndexUsed := Count > XMLUseIndexNodeLimit;
-  if not fIndexUsed then
-    Exit;
-
-  fIndex.Clear(Count);
-  for I := 0 to fAttributeTokens.Count-1 do
-    fIndex.Add(fAttributeTokens[I].TokenName);
+  if fIndexUsed then
+  begin
+    fIndex.Clear(Count);
+    for I := 0 to fAttributeTokens.Count-1 do
+      fIndex.Add(I);
+  end;
 end;
 
 destructor TSAXAttributes.Destroy;
@@ -601,7 +601,7 @@ var
   I: Integer;
 begin
   if fIndexUsed then//hash index used
-    Result := fIndex.IndexOf(aAttrName)
+    Result := fIndex.StringIndexOf(aAttrName)
   else
   begin//hash index not used
     for I := 0 to Count-1 do
@@ -704,10 +704,9 @@ begin
   end;
 end;
 
-procedure TSAXAttributes.GetKeyByIndex(const aIndex: OHashedStringsIndex;
-  var outString: OWideString);
+function TSAXAttributes.GetKeyByIndex(const aIndex: OStringIndex): OWideString;
 begin
-  outString := fAttributeTokens[aIndex].TokenName;
+  Result := fAttributeTokens[aIndex].TokenName;
 end;
 
 function TSAXAttributes.Last: PSAXAttribute;

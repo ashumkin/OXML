@@ -191,6 +191,7 @@ type
     function EncodingCodePage: Cardinal;
     {$IFNDEF O_DELPHI_XE_UP}
     function EncodingName: String;
+    function Clone: TEncoding;
     {$ENDIF}
     {$IFNDEF O_DELPHI_XE2_UP}
     class function ANSI: TEncoding;
@@ -922,6 +923,20 @@ begin
     Result := IntToStr(CP_UNICODE_BE)
   else
     Result := '';
+end;
+
+type
+  TMyMBCSEncoding = class(TEncoding)
+  private
+    FCodePage: Cardinal;
+  end;
+
+function TEncodingHelper.Clone: TEncoding;
+begin
+  if Self is TMBCSEncoding then
+    Result := TMBCSEncoding(Self).Create(TMyMBCSEncoding(Self).FCodePage)
+  else
+    Result := TEncoding(Self.ClassType.Create);
 end;
 {$ENDIF}
 

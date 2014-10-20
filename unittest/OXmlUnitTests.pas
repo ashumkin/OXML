@@ -42,7 +42,7 @@ uses
   ;
 
 const
-  cTestCount = 54;
+  cTestCount = 55;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -54,7 +54,7 @@ type
     fPassedCount: Integer;
 
     function GetAllTestCount: Integer;
-    procedure ExecuteFunction(const aFunction: TObjFunc; const aFunctionName: String);
+    procedure ExecuteFunction(const aFunction: TObjFunc; const aFunctionName: string);
   private
     //OTextReadWrite.pas
     function Test_TOTextReader_InitBuffer: Boolean;
@@ -111,7 +111,10 @@ type
     function Test_TOTextBuffer: Boolean;
   private
     //OHashedStrings.pas
+    fTest_TOVirtualHashIndex_StrL: TStringList;
     function Test_TOHashedStrings_Grow: Boolean;
+    function Test_TOVirtualHashIndex: Boolean;
+    function Test_TOVirtualHashIndex_GetString(const aIndex: OHashedStringsIndex): OWideString;
   private
     //OXmlSAX.pas
     procedure Test_TSAXParser_HashIndex_SAXStartElement({%H-}aSaxParser: TSAXParser;
@@ -181,7 +184,9 @@ type
     fMyTime: TTime;
     fMyFloat: Double;
     fMyString: String;
-    fMyWideString: MyWideString;
+    {$IFDEF O_DELPHI_XE2_UP}
+    fMyWideString: MyWideString;//WideString ist not supported in Delphi XE -> Delphi BUG
+    {$ENDIF}
     fMyClass: TText_OXmlSerializer_Test1_Class2;
   public
     constructor Create;
@@ -197,7 +202,9 @@ type
     property MyTime: TTime read fMyTime write fMyTime;
     property MyFloat: Double read fMyFloat write fMyFloat;
     property MyString: String read fMyString write fMyString;
+    {$IFDEF O_DELPHI_XE2_UP}
     property MyWideString: MyWideString read fMyWideString write fMyWideString;
+    {$ENDIF}
     property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
   end;
 
@@ -221,7 +228,9 @@ type
     fMyTime: TTime;
     fMyFloat: Double;
     fMyString: string;
+    {$IFDEF O_DELPHI_XE2_UP}
     fMyWideString: MyWideString;
+    {$ENDIF}
     fMyClass: TText_OXmlSerializer_Test1_Class2;
     fMyRecord: TText_OXmlRTTISerializer_Test1_Record;
     fMyStrList: TList<string>;
@@ -240,7 +249,9 @@ type
     property MyTime: TTime read fMyTime write fMyTime;
     property MyFloat: Double read fMyFloat write fMyFloat;
     property MyString: string read fMyString write fMyString;
+    {$IFDEF O_DELPHI_XE2_UP}
     property MyWideString: MyWideString read fMyWideString write fMyWideString;
+    {$ENDIF}
     property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
     property MyRecord: TText_OXmlRTTISerializer_Test1_Record read fMyRecord write fMyRecord;
     property MyStrList: TList<string> read fMyStrList;
@@ -273,7 +284,7 @@ begin
 end;
 
 procedure TOXmlUnitTest.ExecuteFunction(const aFunction: TObjFunc;
-  const aFunctionName: String);
+  const aFunctionName: string);
 begin
   if not aFunction() then
     fPassNameIfFalse.Add(aFunctionName)
@@ -342,6 +353,7 @@ begin
   ExecuteFunction(Test_OXmlCDOM_Sort, 'Test_OXmlCDOM_Sort');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
+  ExecuteFunction(Test_TOVirtualHashIndex, 'Test_TOVirtualHashIndex');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
   ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
@@ -468,7 +480,7 @@ begin
   xHS := TOHashedStrings.Create;
   try
     for I := 1 to 35 do
-      xHS.Add(IntToStr(I));
+      xHS.Add('a'+IntToStr(I));
 
     //36 is the limit when GrowBuckets is called and new hashes are generated
     xHS.Add('x');
@@ -1165,7 +1177,9 @@ begin
       xObjectIn[I].MyTime := Frac(xObjectIn[I].MyDateTime);//get time only
       xObjectIn[I].MyFloat := 3.14;
       xObjectIn[I].MyString := 'Kluug.net';
+      {$IFDEF O_DELPHI_XE2_UP}
       xObjectIn[I].MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+      {$ENDIF}
       xObjectIn[I].MyClass.MyInt := I + 10;
       xRec.MyInt := I + 11;
       xRec.MyString := 'hello';
@@ -1279,7 +1293,9 @@ begin
     xObjectIn.MyTime := Frac(xObjectIn.MyDateTime);//get time only
     xObjectIn.MyFloat := 3.14;
     xObjectIn.MyString := 'Kluug.net';
+    {$IFDEF O_DELPHI_XE2_UP}
     xObjectIn.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+    {$ENDIF}
     xObjectIn.MyClass.MyInt := 10;
 
     xSerializer.WriteObject(xObjectIn, 'customobject', True);
@@ -1361,7 +1377,9 @@ begin
       xObjectIn[I].MyTime := Frac(xObjectIn[I].MyDateTime);//get time only
       xObjectIn[I].MyFloat := 3.14;
       xObjectIn[I].MyString := 'Kluug.net';
+      {$IFDEF O_DELPHI_XE2_UP}
       xObjectIn[I].MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+      {$ENDIF}
       xObjectIn[I].MyClass.MyInt := I + 10;
 
       xSerializer.WriteObject(xObjectIn[I]);
@@ -1452,7 +1470,9 @@ begin
     xObjectIn.MyTime := Frac(xObjectIn.MyDateTime);//get time only
     xObjectIn.MyFloat := 3.14;
     xObjectIn.MyString := 'Kluug.net';
+    {$IFDEF O_DELPHI_XE2_UP}
     xObjectIn.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
+    {$ENDIF}
     xObjectIn.MyClass.MyInt := 10;
 
     xSerializer.WriteObject(xObjectIn, 'customobject', True);
@@ -1489,6 +1509,57 @@ begin
     xObjectIn.Free;
     xObjectOut.Free;
   end;
+end;
+
+function TOXmlUnitTest.Test_TOVirtualHashIndex: Boolean;
+var
+  xHS: TOVirtualHashIndex;
+  I: Integer;
+  xStrL: TStringList;
+  xString: OWideString;
+begin
+  fTest_TOVirtualHashIndex_StrL := TStringList.Create;
+  xStrL := fTest_TOVirtualHashIndex_StrL;
+  xHS := TOVirtualHashIndex.Create(Test_TOVirtualHashIndex_GetString);
+  try
+    //multiple add of same value
+    for I := 0 to 2 do
+    begin
+      xStrL.Add('0');
+      xHS.Add(I);
+    end;
+    Result := (xHS.NextItemId = 1);
+    if not Result then
+      Exit;
+
+    for I := 100 downto 0 do
+      xStrL.Add('a'+IntToStr(I));
+
+    xHS.Add(1);
+    xHS.Add(2);
+
+    for I := 0 to xStrL.Count-1 do
+    begin
+      xHS.Add(I);
+    end;
+
+    for I := 0 to xStrL.Count-1 do
+    begin
+      xString := xStrL[I];
+      Result := (xStrL[xHS.StringIndexOf(xString)] = xString);
+      if not Result then
+        Exit;
+    end;
+  finally
+    xHS.Free;
+    xStrL.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_TOVirtualHashIndex_GetString(
+  const aIndex: OHashedStringsIndex): OWideString;
+begin
+  Result := fTest_TOVirtualHashIndex_StrL[aIndex];
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
@@ -2783,7 +2854,9 @@ begin
     SameTime(MyTime, aCompare.MyTime) and
     (MyFloat = aCompare.MyFloat) and
     (MyString = aCompare.MyString) and
+    {$IFDEF O_DELPHI_XE2_UP}
     (MyWideString = aCompare.MyWideString) and
+    {$ENDIF}
     (MyClass.MyInt = aCompare.MyClass.MyInt) and
     (MyRecord.MyInt = aCompare.MyRecord.MyInt) and
     (MyRecord.MyString = aCompare.MyRecord.MyString) and
@@ -2879,7 +2952,9 @@ begin
     {$ENDIF}
     (MyFloat = aCompare.MyFloat) and
     (MyString = aCompare.MyString) and
+    {$IFDEF O_DELPHI_XE2_UP}
     (MyWideString = aCompare.MyWideString) and
+    {$ENDIF}
     (MyClass.MyInt = aCompare.MyClass.MyInt);
 end;
 

@@ -670,6 +670,7 @@ type
     function IndexOf(const aName: OWideString; var outNode: TXMLNode): Integer; overload;
     procedure Insert(const aIndex: Integer; const aNode: TXMLNode);
     function Remove(const aNode: TXMLNode): Integer;
+
     procedure Exchange(const aIndex1, aIndex2: Integer); overload;
     procedure Exchange(const aNode1, aNode2: TXMLNode); overload;
     procedure Move(const aCurIndex, aNewIndex: Integer);
@@ -788,6 +789,7 @@ type
     function IndexOf(const aName: OWideString; var outNode: TXMLNode): Integer; overload;
     procedure Insert(const aIndex: Integer; const aNode: TXMLNode);
     function Remove(const aNode: TXMLNode): Integer;
+
     procedure Exchange(const aIndex1, aIndex2: Integer); overload;
     procedure Exchange(const aNode1, aNode2: TXMLNode); overload;
     procedure Move(const aCurIndex, aNewIndex: Integer);

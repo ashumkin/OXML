@@ -154,6 +154,14 @@ type
   TBytes = array of Byte;
   {$ENDIF}
 
+  {$IFDEF O_DELPHI_2009}
+  TList<T> = class(Generics.Collections.TList<T>)
+  public
+    procedure Exchange(Index1, Index2: Integer);
+    procedure Move(CurIndex, NewIndex: Integer);
+  end;
+  {$ENDIF}
+
   {$IFNDEF O_UNICODE}
   TOWideStringList = class;
   TOWideStringListSortCompare = function(List: TOWideStringList; Index1, Index2: Integer): Integer;
@@ -1626,5 +1634,36 @@ begin
     {$ENDIF}
   end;
 end;
+
+{$IFDEF O_DELPHI_2009}
+procedure TList<T>.Exchange(Index1, Index2: Integer);
+var
+  xTemp: T;
+begin
+  xTemp := FItems[Index1];
+  FItems[Index1] := FItems[Index2];
+  FItems[Index2] := xTemp;
+end;
+
+procedure TList<T>.Move(CurIndex, NewIndex: Integer);
+var
+  xTemp: T;
+begin
+  if CurIndex = NewIndex then
+    Exit;
+  if (NewIndex < 0) or (NewIndex >= FCount) then
+    raise EArgumentOutOfRangeException.CreateRes(@SArgumentOutOfRange);
+
+  xTemp := FItems[CurIndex];
+  FItems[CurIndex] := Default(T);
+  if CurIndex < NewIndex then
+    System.Move(FItems[CurIndex + 1], FItems[CurIndex], (NewIndex - CurIndex) * SizeOf(T))
+  else
+    System.Move(FItems[NewIndex], FItems[NewIndex + 1], (CurIndex - NewIndex) * SizeOf(T));
+
+  FillChar(FItems[NewIndex], SizeOf(T), 0);
+  FItems[NewIndex] := xTemp;
+end;
+{$ENDIF}
 
 end.
