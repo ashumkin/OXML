@@ -61,7 +61,7 @@ uses
   SysUtils, Classes, Variants, xmldom,
   {$ENDIF}
 
-  OWideSupp, OXmlUtils, OTextReadWrite, OXmlPDOM;
+  OTypes, OXmlUtils, OTextReadWrite, OXmlPDOM;
 
 const
   sOXmlDOMVendor = 'OXml';

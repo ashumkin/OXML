@@ -27,7 +27,7 @@ package OXml_RXE7;
 {$ENDIF IMPLICITBUILDING}
 {$DESCRIPTION 'OXml - XML library by Kluug.net'}
 {$RUNONLY}
-{$IMPLICITBUILD ON}
+{$IMPLICITBUILD OFF}
 
 requires
   rtl;
@@ -47,7 +47,7 @@ contains
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
-  OBufferedStreams in '..\..\units\OBufferedStreams.pas',
-  OTextReadWrite in '..\..\units\OTextReadWrite.pas';
+  OTextReadWrite in '..\..\units\OTextReadWrite.pas',
+  OBufferedStreams in '..\..\units\OBufferedStreams.pas';
 
 end.

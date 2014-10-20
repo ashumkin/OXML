@@ -795,7 +795,7 @@ function ProcessEntity(
   const aCustomBuffer: TOTextBuffer;
   var outReadString, outEntityName, outEntityValue: OWideString): Boolean;
 const
-  cEntityPrefix: Array[0..2] of OWideString = ('', '#', '#x');
+  cEntityPrefix: array[0..2] of OWideString = ('', '#', '#x');
   cEntityText = 0;
   cEntityDec = 1;
   cEntityHex = 2;

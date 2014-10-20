@@ -13,7 +13,6 @@ uses
   OEncoding in '..\..\units\OEncoding.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
-  OWideSupp in '..\..\units\OWideSupp.pas',
   OXmlLng in '..\..\units\OXmlLng.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
@@ -23,7 +22,8 @@ uses
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
-  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas',
+  OWideSupp in '..\..\units\OWideSupp.pas';
 
 var
   xTest: TOXmlUnitTest;

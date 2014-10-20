@@ -35,7 +35,6 @@ requires
 contains
   OXmlSeq in '..\..\units\OXmlSeq.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
-  OWideSupp in '..\..\units\OWideSupp.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
@@ -48,6 +47,7 @@ contains
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
-  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas',
+  OWideSupp in '..\..\units\OWideSupp.pas';
 
 end.

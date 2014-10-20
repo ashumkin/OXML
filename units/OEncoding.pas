@@ -120,6 +120,8 @@ type
     function EncodingAlias: OWideString;
     function EncodingCodePage: Cardinal;
 
+    function Clone: TEncoding; virtual;
+    function CloneIfNotStandard: TEncoding;
   public
     //class functions for finding correct encoding from BOM, code page, alias etc.
     class function GetEncodingFromBOM(const aBuffer: TEncodingBuffer; var outEncoding: TEncoding): Integer; overload;
@@ -150,6 +152,7 @@ type
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); override;
     class function IsSingleByte: Boolean; override;
     function EncodingName: OWideString; override;
+    function Clone: TEncoding; override;
   end;
 
   TUTF8Encoding = class(TEncoding)
@@ -159,6 +162,7 @@ type
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); override;
     class function IsSingleByte: Boolean; override;
     function EncodingName: OWideString; override;
+    function Clone: TEncoding; override;
   end;
 
   TMBCSEncoding = class(TEncoding)
@@ -172,6 +176,7 @@ type
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); override;
     class function IsSingleByte: Boolean; override;
     function EncodingName: OWideString; override;
+    function Clone: TEncoding; override;
   public
     property CodePage: Cardinal read fCodePage;
   end;
@@ -205,6 +210,8 @@ type
     function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
     function StringToBuffer(const S: OWideString): TEncodingBuffer; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
     procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+
+    function CloneIfNotStandard: TEncoding;
   end;
   TMBCSEncodingHelper = class helper for TMBCSEncoding
   public
@@ -493,6 +500,19 @@ begin
     Result := 0;
 end;
 
+function TEncoding.Clone: TEncoding;
+begin
+  Result := nil;
+end;
+
+function TEncoding.CloneIfNotStandard: TEncoding;
+begin
+  if IsStandardEncoding(Self) then
+    Result := Self
+  else
+    Result := Clone;
+end;
+
 destructor TEncoding.Destroy;
 begin
   if (Self = fxANSIEncoding) then
@@ -531,6 +551,11 @@ begin
   Result := IntToStr(fCodePage);
 end;
 {$ENDIF}
+
+function TMBCSEncoding.Clone: TEncoding;
+begin
+  Result := TMBCSEncoding.Create(fCodePage);
+end;
 
 procedure TMBCSEncoding.StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer);
 {$IFDEF MSWINDOWS}
@@ -633,6 +658,11 @@ begin
 {$ENDIF}
 end;
 
+function TUnicodeEncoding.Clone: TEncoding;
+begin
+  Result := TUnicodeEncoding.Create;
+end;
+
 procedure TUnicodeEncoding.StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer);
 var
   xCharCount: Integer;
@@ -714,6 +744,11 @@ begin
   Result := 'UTF-8';
 end;
 {$ENDIF}
+
+function TUTF8Encoding.Clone: TEncoding;
+begin
+  Result := TUTF8Encoding.Create;
+end;
 
 procedure TUTF8Encoding.StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer);
 var
@@ -948,6 +983,14 @@ end;
 function TEncodingHelper.GetBOM: TEncodingBuffer;
 begin
   Result := GetPreamble;
+end;
+
+function TEncodingHelper.CloneIfNotStandard: TEncoding;
+begin
+  if IsStandardEncoding(Self) then
+    Result := Self
+  else
+    Result := Clone;
 end;
 
 function TEncodingHelper.EncodingCodePage: Cardinal;

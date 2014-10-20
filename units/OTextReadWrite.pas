@@ -943,6 +943,14 @@ begin
   begin
     Encoding := aEncoding;
     WriteBOM := aWriteBOM;
+  end else
+  if aNewStream is TStringStream then
+  begin
+    {$IFDEF O_DELPHI_2009_UP}
+    Encoding := TStringStream(aNewStream).Encoding.CloneIfNotStandard;
+    {$ELSE}
+    Encoding := TEncoding.OWideStringEncoding;
+    {$ENDIF}
   end;
 end;
 

@@ -59,7 +59,7 @@ uses
   {$IFNDEF O_GENERICS}
   ODictionary,
   {$ENDIF}
-  OWideSupp, OEncoding, {%H-}OHashedStrings, OTextReadWrite,
+  OWideSupp, OEncoding, OHashedStrings, OTextReadWrite,
   OXmlReadWrite, OXmlPDOM, OXmlSeq;
 
 type
