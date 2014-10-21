@@ -59,8 +59,7 @@ uses
   {$IFNDEF O_GENERICS}
   ODictionary,
   {$ENDIF}
-  OWideSupp, OEncoding, OHashedStrings, OTextReadWrite,
-  OXmlReadWrite, OXmlPDOM, OXmlSeq;
+  OWideSupp, OEncoding, OTextReadWrite, OXmlReadWrite, OXmlPDOM, OXmlSeq;
 
 type
   TXMLSerializer = class(TObject)

@@ -143,9 +143,10 @@ type
 
     //assign only basic properties: PreserveWhiteSpace
     procedure AssignProperties(const {%H-}aFromNode: TXMLNode); virtual;
-
     function GetNextNodeInTree: TXMLNode; virtual;
     function GetPreviousNodeInTree: TXMLNode; virtual;
+    function GetAbsolutePath: OWideString;
+    function GetNodeLevel: Integer;
 
     procedure QuickSort(aLow, aHigh: Integer; const aCompare: TXMLNodeCompare;
       const aChildNodeList: IXMLNodeList);
@@ -428,6 +429,11 @@ type
 
     //Although you may use the Attributes[] list, it's faster when you use GetAttribute and SetAttribute directly!
     property Attributes[const aName: OWideString]: OWideString read GetAttribute write _SetAttribute;
+
+    //absolute path of the node
+    property AbsolutePath: OWideString read GetAbsolutePath;
+    //node level in the tree, root element = 1
+    property NodeLevel: Integer read GetNodeLevel;
   end;
 
   TXMLNodeWithChildren = class(TXMLNode)
@@ -1443,6 +1449,21 @@ begin
     ParentNode.FindQualifiedNames(aNameSpaceURIId, aLocalName, aQualifiedNameIds);
 end;
 
+function TXMLNode.GetAbsolutePath: OWideString;
+var
+  xNode, xDocumentNode: TXMLNode;
+begin
+  xNode := Self;
+  xDocumentNode := OwnerDocument.Node;
+
+  Result := '';
+  while Assigned(xNode) and (xNode <> xDocumentNode) do
+  begin
+    Result := '/' + xNode.NodeName + Result;
+    xNode := xNode.ParentNode;
+  end;
+end;
+
 function TXMLNode.GetAttribute(const aName: OWideString): OWideString;
 begin
   Result := GetAttributeDef(aName, '');
@@ -1622,6 +1643,19 @@ var
   xPrefix: OWideString;
 begin
   OXmlResolveNameSpace(NodeName, {%H-}xPrefix, {%H-}Result);
+end;
+
+function TXMLNode.GetNodeLevel: Integer;
+var
+  xNode: TXMLNode;
+begin
+  Result := 0;
+  xNode := Self.ParentNode;
+  while Assigned(xNode) do
+  begin
+    Inc(Result);
+    xNode := xNode.ParentNode;
+  end;
 end;
 
 function TXMLNode.GetNodeName: OWideString;
