@@ -146,8 +146,9 @@ type
   public
     //read char-by-char, returns false if EOF is reached
     function ReadNextChar(var outChar: OWideChar): Boolean;
-    //read text
-    function ReadString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): OWideString;
+    //read text, if aMaxChars not defined, read until end
+    function ReadString(const aBreakAtNewLine: Boolean = False): OWideString; overload;
+    function ReadString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): OWideString; overload;
     //get text from temp buffer that has been already read
     //  -> it's not assured that some text can be read, use only as extra information
     //     e.g. for errors etc.
@@ -764,6 +765,11 @@ begin
     ReleaseDocument;
     Result := False;
   end;
+end;
+
+function TOTextReader.ReadString(const aBreakAtNewLine: Boolean): OWideString;
+begin
+  Result := ReadString(High(Integer), aBreakAtNewLine);
 end;
 
 function TOTextReader.ReadPreviousString(const aMaxChars: Integer;

@@ -87,6 +87,8 @@ const
   XML_ENTITY_GT: OWideString = '&gt;';
   XML_ENTITY_QUOT: OWideString = '&quot;';
   XML_ENTITY_APOS: OWideString = '&apos;';
+  XML_BOOLEAN_TRUE: string = 'true';
+  XML_BOOLEAN_FALSE: string = 'false';
 
   XMLUseIndexNodeLimit = 256;
 
@@ -179,28 +181,32 @@ function OXmlIsLocalName(const aNodeName, aLocalName: OWideString): Boolean;
 function OXmlIsLocalNameNS(const aNodeName, aNameSpace, aLocalName: OWideString): Boolean;
 
 //all ISO formatting functions are thread-safe
-function ISOFloatToStr(const aValue: Extended): String;
-function ISODateToStr(const aDate: TDateTime): String;
-function ISODateTimeToStr(const aDateTime: TDateTime): String;
-function ISOTimeToStr(const aTime: TDateTime): String;
+function ISOBoolToStr(const aValue: Boolean; const aWritten: Boolean = False): string;
+function ISOFloatToStr(const aValue: Extended): string;
+function ISODateToStr(const aDate: TDateTime): string;
+function ISODateTimeToStr(const aDateTime: TDateTime): string;
+function ISOTimeToStr(const aTime: TDateTime): string;
 
-function ISOStrToFloat(const aString: String): Extended;
-function ISOStrToDate(const aString: String): TDateTime;
-function ISOStrToDateTime(const aString: String): TDateTime;
-function ISOStrToTime(const aString: String): TDateTime;
+function ISOStrToBool(const aString: string): Boolean;
+function ISOStrToFloat(const aString: string): Extended;
+function ISOStrToDate(const aString: string): TDateTime;
+function ISOStrToDateTime(const aString: string): TDateTime;
+function ISOStrToTime(const aString: string): TDateTime;
 
-function ISOStrToFloatDef(const aString: String; const aDefValue: Extended): Extended;
-function ISOStrToDateDef(const aString: String; const aDefDate: TDateTime): TDateTime;
-function ISOStrToDateTimeDef(const aString: String; const aDefDateTime: TDateTime): TDateTime;
-function ISOStrToTimeDef(const aString: String; const aDefTime: TDateTime): TDateTime;
+function ISOStrToBoolDef(const aString: string; const aDefValue: Boolean): Boolean;
+function ISOStrToFloatDef(const aString: string; const aDefValue: Extended): Extended;
+function ISOStrToDateDef(const aString: string; const aDefDate: TDateTime): TDateTime;
+function ISOStrToDateTimeDef(const aString: string; const aDefDateTime: TDateTime): TDateTime;
+function ISOStrToTimeDef(const aString: string; const aDefTime: TDateTime): TDateTime;
 
-function ISOTryStrToFloat(const aString: String; var outValue: Extended): Boolean; overload;
+function ISOTryStrToBool(const aString: string; var outValue: Boolean): Boolean;
+function ISOTryStrToFloat(const aString: string; var outValue: Extended): Boolean; overload;
 {$IFDEF O_EXTENDEDTYPE}
-function ISOTryStrToFloat(const aString: String; var outValue: Double): Boolean; overload;
+function ISOTryStrToFloat(const aString: string; var outValue: Double): Boolean; overload;
 {$ENDIF}
-function ISOTryStrToDate(const aString: String; var outDate: TDateTime): Boolean;
-function ISOTryStrToDateTime(const aString: String; var outDateTime: TDateTime): Boolean;
-function ISOTryStrToTime(const aString: String; var outTime: TDateTime): Boolean;
+function ISOTryStrToDate(const aString: string; var outDate: TDateTime): Boolean;
+function ISOTryStrToDateTime(const aString: string; var outDateTime: TDateTime): Boolean;
+function ISOTryStrToTime(const aString: string; var outTime: TDateTime): Boolean;
 
 {$IFDEF O_DELPHI_5_DOWN}
 //Delphi 5 compatibility functions
@@ -273,7 +279,24 @@ begin
   end;
 end;
 
-function ISOFloatToStr(const aValue: Extended): String;
+function ISOBoolToStr(const aValue: Boolean; const aWritten: Boolean = False): string;
+begin
+  if aWritten then
+  begin
+    if aValue then
+      Result := XML_BOOLEAN_TRUE
+    else
+      Result := XML_BOOLEAN_FALSE;
+  end else
+  begin
+    if aValue then
+      Result := '1'
+    else
+      Result := '0';
+  end;
+end;
+
+function ISOFloatToStr(const aValue: Extended): string;
 {$IFDEF O_DELPHI_6_DOWN}
 var
   I: Integer;
@@ -296,69 +319,107 @@ begin
   {$ENDIF}
 end;
 
-function ISODateToStr(const aDate: TDateTime): String;
+function ISODateToStr(const aDate: TDateTime): string;
 begin
   Result := FormatDateTime('yyyy-mm-dd', aDate);
 end;
 
-function ISODateTimeToStr(const aDateTime: TDateTime): String;
+function ISODateTimeToStr(const aDateTime: TDateTime): string;
 begin
   Result := FormatDateTime('yyyy-mm-dd"T"hh:nn:ss', aDateTime)
 end;
 
-function ISOTimeToStr(const aTime: TDateTime): String;
+function ISOTimeToStr(const aTime: TDateTime): string;
 begin
   Result := FormatDateTime('hh:nn:ss', aTime);
 end;
 
-function ISOStrToFloat(const aString: String): Extended;
+function ISOStrToBool(const aString: string): Boolean;
+begin
+  Result := ISOStrToBoolDef(aString, False);
+end;
+
+function ISOStrToFloat(const aString: string): Extended;
 begin
   Result := ISOStrToFloatDef(aString, 0);
 end;
 
-function ISOStrToDate(const aString: String): TDateTime;
+function ISOStrToDate(const aString: string): TDateTime;
 begin
   Result := ISOStrToDateDef(aString, 0);
 end;
 
-function ISOStrToDateTime(const aString: String): TDateTime;
+function ISOStrToDateTime(const aString: string): TDateTime;
 begin
   Result := ISOStrToDateTimeDef(aString, 0);
 end;
 
-function ISOStrToTime(const aString: String): TDateTime;
+function ISOStrToTime(const aString: string): TDateTime;
 begin
   Result := ISOStrToTimeDef(aString, 0);
 end;
 
-function ISOStrToFloatDef(const aString: String; const aDefValue: Extended): Extended;
+function ISOStrToBoolDef(const aString: string; const aDefValue: Boolean): Boolean;
+begin
+  if not ISOStrToBoolDef(aString, {%H-}Result) then
+    Result := aDefValue;
+end;
+
+function ISOStrToFloatDef(const aString: string; const aDefValue: Extended): Extended;
 begin
   if not ISOTryStrToFloat(aString, {%H-}Result) then
     Result := aDefValue;
 end;
 
-function ISOStrToDateDef(const aString: String; const aDefDate: TDateTime): TDateTime;
+function ISOStrToDateDef(const aString: string; const aDefDate: TDateTime): TDateTime;
 begin
   if not ISOTryStrToDate(aString, {%H-}Result) then
     Result := aDefDate;
 end;
 
-function ISOStrToDateTimeDef(const aString: String; const aDefDateTime: TDateTime): TDateTime;
+function ISOStrToDateTimeDef(const aString: string; const aDefDateTime: TDateTime): TDateTime;
 begin
   if not ISOTryStrToDateTime(aString, {%H-}Result) then
     Result := aDefDateTime;
 end;
 
-function ISOStrToTimeDef(const aString: String; const aDefTime: TDateTime): TDateTime;
+function ISOStrToTimeDef(const aString: string; const aDefTime: TDateTime): TDateTime;
 begin
   if not ISOTryStrToTime(aString, {%H-}Result) then
     Result := aDefTime;
 end;
 
-function ISOTryStrToFloat(const aString: String; var outValue: Extended): Boolean;
+function ISOTryStrToBool(const aString: string; var outValue: Boolean): Boolean;
+begin
+  case Length(aString) of
+    1: begin
+      Result := True;
+      case aString[1] of
+        '1': outValue := True;
+        '0': outValue := False;
+      else
+        Result := False;
+      end;
+    end;
+    4: begin//true
+      Result := CompareText(aString, XML_BOOLEAN_TRUE) = 0;
+      if Result then
+        outValue := True;
+    end;
+    5: begin//false
+      Result := CompareText(aString, XML_BOOLEAN_FALSE) = 0;
+      if Result then
+        outValue := False;
+    end;
+  else
+    Result := False;
+  end;
+end;
+
+function ISOTryStrToFloat(const aString: string; var outValue: Extended): Boolean;
 {$IFDEF O_DELPHI_6_DOWN}
 var
-  xString: String;
+  xString: string;
 {$ENDIF}
 begin
   {$IFDEF O_DELPHI_6_DOWN}
@@ -374,7 +435,7 @@ begin
 end;
 
 {$IFDEF O_EXTENDEDTYPE}
-function ISOTryStrToFloat(const aString: String; var outValue: Double): Boolean;
+function ISOTryStrToFloat(const aString: string; var outValue: Double): Boolean;
 var
   xValue: Extended;
 begin
@@ -384,7 +445,7 @@ begin
 end;
 {$ENDIF}
 
-function ISOTryStrToDate(const aString: String; var outDate: TDateTime): Boolean;
+function ISOTryStrToDate(const aString: string; var outDate: TDateTime): Boolean;
 var
   xYear, xMonth, xDay: Integer;
 begin
@@ -397,7 +458,7 @@ begin
     outDate := 0;
 end;
 
-function ISOTryStrToDateTime(const aString: String; var outDateTime: TDateTime): Boolean;
+function ISOTryStrToDateTime(const aString: string; var outDateTime: TDateTime): Boolean;
 var
   xYear, xMonth, xDay, xHour, xMinute, xSecond: Integer;
 begin
@@ -414,7 +475,7 @@ begin
     outDateTime := 0;
 end;
 
-function ISOTryStrToTime(const aString: String; var outTime: TDateTime): Boolean;
+function ISOTryStrToTime(const aString: string; var outTime: TDateTime): Boolean;
 var
   xHour, xMinute, xSecond: Integer;
 begin

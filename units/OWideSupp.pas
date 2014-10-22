@@ -1535,15 +1535,9 @@ begin
   if aLength > 0 then
   begin
     {$IFDEF O_DELPHI_2007_DOWN}
-    //Move() is extremly slow here in Delphi 7, copy char-by-char is faster for short strings
-    if aLength < 5 then
-    begin
-      for I := 0 to aLength-1 do
-        outString[I+1] := fBuffer[aPosition+I-1];
-    end else
-    begin
-      Move(fBuffer[aPosition-1], outString[1], aLength*SizeOf(OWideChar));
-    end;
+    //Move() is extremly slow in Delphi 7, copy char-by-char is faster
+    for I := 0 to aLength-1 do
+      outString[I+1] := fBuffer[aPosition+I-1];
     {$ELSE}
     Move(fBuffer[aPosition-1], outString[1], aLength*SizeOf(OWideChar));
     {$ENDIF}
