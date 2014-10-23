@@ -361,7 +361,7 @@ end;
 
 function ISOStrToBoolDef(const aString: string; const aDefValue: Boolean): Boolean;
 begin
-  if not ISOStrToBoolDef(aString, {%H-}Result) then
+  if not ISOTryStrToBool(aString, {%H-}Result) then
     Result := aDefValue;
 end;
 
