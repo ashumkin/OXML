@@ -125,6 +125,7 @@ type
     fIndentString: OWideString;
     fIndentType: TXMLIndentType;
     fLineBreak: TXMLLineBreak;
+    fUseTabCRLFEntitiesInAttributes: Boolean;
     fUseGreaterThanEntity: Boolean;
     fStrictXML: Boolean;
   protected
@@ -143,7 +144,9 @@ type
     //  default is your OS line break (XmlDefaultLineBreak)
     property LineBreak: TXMLLineBreak read fLineBreak write fLineBreak;
 
-    //should the '>' character be saved as an entity? (it's completely fine according to XML spec to use the '>' character in text
+    //should be #9, #10 and #13 in attributes saved as entities? Default = True
+    property UseTabCRLFEntitiesInAttributes: Boolean read fUseTabCRLFEntitiesInAttributes write fUseTabCRLFEntitiesInAttributes;
+    //should the '>' character be saved as an entity? (it's completely fine according to XML spec to use the '>' character in text; Default = True
     property UseGreaterThanEntity: Boolean read fUseGreaterThanEntity write fUseGreaterThanEntity;
 
     //StrictXML: document must be valid XML
@@ -218,11 +221,12 @@ type
     fCharTable: TOCharTable;
     function GetCharTable: TOCharTable;
     // safe write raw text: if char not present in target encoding, write its entity
-    procedure DoTextSafeEntity(const aText: OUnicodeString; const aQuoteChar: OWideChar);
+    procedure _DoTextSafeEntity(const aText: OUnicodeString; const aInAttributeValue: Boolean);
     procedure RawUnicodeChar(const aChar: OUnicodeChar);
     procedure RawUnicodeCharSafeEntity(const aChar: OUnicodeChar);
     //no safe entity
-    procedure DoText(const aText: OWideString; const aQuoteChar: OWideChar);
+    procedure _DoText(const aText: OWideString; const aInAttributeValue: Boolean);
+    procedure DoText(const aText: OWideString; const aInAttributeValue: Boolean);
   protected
     //manual indentation support - you can use Indent+IncIndentLevel+DecIndentLevel
     //  manually if you want to. Set IndentType to itNone in this case.
@@ -288,8 +292,6 @@ type
     // <!DOCTYPE aDocTypeRawText> - aDocTypeRawText must be escaped, it won't be processed
     procedure DocType(const aDocTypeRawText: OWideString);
 
-    // write escaped text, escape also a quote if aQuoteChar specified;
-    procedure Text(const aText: OWideString; const aQuoteChar: OWideChar); overload;
     // write escaped text, decide if you want to indent;
     procedure Text(const aText: OWideString; const aIndent: Boolean = True); overload;
     // write raw text, do not process it
@@ -686,7 +688,7 @@ type
     procedure SaveToFile(const aFileName: String);
     //save document to stream in encoding specified by the document
     procedure SaveToStream(const aStream: TStream);
-    //returns XML as string
+    //returns XML as string (always in the system OWideString encoding and with system line breaks)
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
     {$IFDEF O_RAWBYTESTRING}
@@ -1005,7 +1007,7 @@ begin
           Break;
       end;
       ckLowerThan: Break;
-      ckCharacter, ckSingleQuote, ckDoubleQuote,
+      ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote,
         ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteChar(xC);
       ckGreaterThan:
       begin
@@ -1116,7 +1118,7 @@ begin
         case OXmlCharKind(xC) of
           ckNewLine10, ckNewLine13: ProcessNewLineChar(xC, fReaderSettings, fReader, fMainBuffer);
           ckAmpersand: EntityReferenceInText;
-          ckCharacter, ckSingleQuote, ckDoubleQuote, ckGreaterThan,
+          ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote, ckGreaterThan,
             ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteChar(xC);
         else
           if not fReaderSettings.fStrictXML then
@@ -1143,7 +1145,7 @@ begin
           case OXmlCharKind(xC) of
             ckNewLine10, ckNewLine13: ProcessNewLineChar(xC, fReaderSettings, fReader, fMainBuffer);
             ckAmpersand: EntityReferenceInText;
-            ckCharacter, ckSingleQuote, ckDoubleQuote,
+            ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote,
               ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteChar(xC);
           else
             if not fReaderSettings.fStrictXML then
@@ -2311,7 +2313,16 @@ begin
 end;
 
 procedure TXMLWriter.DoText(const aText: OWideString;
-  const aQuoteChar: OWideChar);
+  const aInAttributeValue: Boolean);
+begin
+  if fUseSafeEntities then
+    _DoTextSafeEntity({$IFDEF O_UTF8}OWideToUnicode{$ENDIF}(aText), aInAttributeValue)
+  else
+    _DoText(aText, aInAttributeValue);
+end;
+
+procedure TXMLWriter._DoText(const aText: OWideString;
+  const aInAttributeValue: Boolean);
 var
   xC: OWideChar;
   I, xLength: Integer;
@@ -2325,6 +2336,11 @@ begin
   begin
     xC := aText[I];
     case OXmlCharKind(xC) of
+      ckTab:
+        if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+          RawText(XML_ENTITY_TAB)
+        else
+          RawChar(xC);
       ckAmpersand: RawText(XML_ENTITY_AMP);
       ckLowerThan: RawText(XML_ENTITY_LT);
       ckGreaterThan:
@@ -2333,25 +2349,36 @@ begin
         else
           RawChar(xC);
       ckDoubleQuote:
-        if aQuoteChar = '"' then
+        if aInAttributeValue then
           RawText(XML_ENTITY_QUOT)
         else
           RawChar(xC);
       ckSingleQuote:
-        if aQuoteChar = '''' then
-          RawText(XML_ENTITY_APOS)
-        else
-          RawChar(xC);
+        RawChar(xC);
       ckNewLine10:
         if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
-          RawChar(xC)
-        else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
-          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+        begin
+          if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+            RawText(XML_ENTITY_LF)
+          else
+            RawChar(xC);
+        end else
+        if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
+        begin
+          if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+            RawText(XMLLineBreakEntity(fWriterSettings.fLineBreak))
+          else
+            RawText(XMLLineBreak[fWriterSettings.fLineBreak]);
+        end;
       ckNewLine13:
         if fWriterSettings.fLineBreak = lbDoNotProcess then
-          RawChar(xC)
-        else
-          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+          RawText(XML_ENTITY_CR)
+        else begin
+          if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+            RawText(XMLLineBreakEntity(fWriterSettings.fLineBreak))
+          else
+            RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+        end;
       ckCharacter, ckSquareBracketOpen, ckSquareBracketClose: RawChar(xC);
     else
       //invalid
@@ -2363,8 +2390,8 @@ begin
   end;
 end;
 
-procedure TXMLWriter.DoTextSafeEntity(const aText: OUnicodeString;
-  const aQuoteChar: OWideChar);
+procedure TXMLWriter._DoTextSafeEntity(const aText: OUnicodeString;
+  const aInAttributeValue: Boolean);
 var
   xC: OUnicodeChar;
   I, xLength: Integer;
@@ -2378,6 +2405,11 @@ begin
   begin
     xC := aText[I];
     case OXmlCharKind(xC) of
+      ckTab:
+        if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+          RawText(XML_ENTITY_TAB)
+        else
+          RawChar(OWideChar(Ord(xC) and $FF));
       ckAmpersand: RawText(XML_ENTITY_AMP);
       ckLowerThan: RawText(XML_ENTITY_LT);
       ckGreaterThan:
@@ -2386,25 +2418,36 @@ begin
         else
           RawChar(OWideChar(Ord(xC) and $FF));
       ckDoubleQuote:
-        if aQuoteChar = '"' then
+        if aInAttributeValue then
           RawText(XML_ENTITY_QUOT)
         else
           RawChar(OWideChar(Ord(xC) and $FF));
       ckSingleQuote:
-        if aQuoteChar = '''' then
-          RawText(XML_ENTITY_APOS)
-        else
-          RawChar(OWideChar(Ord(xC) and $FF));
+        RawChar(OWideChar(Ord(xC) and $FF));
       ckNewLine10:
         if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
-          RawChar(OWideChar(Ord(xC) and $FF))
-        else if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
-          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+        begin
+          if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+            RawText(XML_ENTITY_LF)
+          else
+            RawChar(OWideChar(Ord(xC) and $FF));
+        end else
+        if ((I = 1) or (aText[I-1] <> #13)) then//previous character is not #13 (i.e. this is a simple #10 not #13#10) -> write fLineBreak
+        begin
+          if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+            RawText(XMLLineBreakEntity(fWriterSettings.fLineBreak))
+          else
+            RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+        end;
       ckNewLine13:
         if fWriterSettings.fLineBreak = lbDoNotProcess then
-          RawChar(OWideChar(Ord(xC) and $FF))
-        else
-          RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+          RawText(XML_ENTITY_CR)
+        else begin
+          if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
+            RawText(XMLLineBreakEntity(fWriterSettings.fLineBreak))
+          else
+            RawText(XmlLineBreak[fWriterSettings.fLineBreak]);
+        end;
       ckCharacter, ckSquareBracketOpen, ckSquareBracketClose: RawUnicodeCharSafeEntity(xC);
     else
       //invalid
@@ -2579,7 +2622,7 @@ begin
   RawText(aAttrName);//can be rawtext, because validated!
   RawChar('=');
   RawChar('"');
-  Text(aAttrValue, OWideChar('"'));
+  DoText(aAttrValue, True);
   RawChar('"');
 end;
 
@@ -2614,7 +2657,7 @@ begin
   if aIndent then
     Indent;
 
-  Text(aText, OWideChar(#0));
+  DoText(aText, False);
 end;
 
 procedure TXMLWriter.OpenXMLDeclaration;
@@ -2685,14 +2728,6 @@ function TXMLWriter.OpenElementR(const aElementName: OWideString;
   const aMode: TXMLWriterElementMode): TXMLWriterElement;
 begin
   OpenElementR(aElementName, {%H-}Result, aMode);
-end;
-
-procedure TXMLWriter.Text(const aText: OWideString; const aQuoteChar: OWideChar);
-begin
-  if fUseSafeEntities then
-    DoTextSafeEntity({$IFDEF O_UTF8}OWideToUnicode{$ENDIF}(aText), aQuoteChar)
-  else
-    DoText(aText, aQuoteChar);
 end;
 
 procedure TXMLWriter.XMLDeclaration(const aEncoding: Boolean;
@@ -2797,6 +2832,7 @@ begin
     xDest.IndentString := Self.IndentString;
     xDest.IndentType := Self.IndentType;
     xDest.LineBreak := Self.LineBreak;
+    xDest.UseTabCRLFEntitiesInAttributes := Self.UseTabCRLFEntitiesInAttributes;
     xDest.UseGreaterThanEntity := Self.UseGreaterThanEntity;
     xDest.StrictXML := Self.StrictXML;
     xDest.WriteBOM := Self.WriteBOM;
@@ -2808,9 +2844,10 @@ constructor TCustomXMLWriterSettings.Create;
 begin
   inherited Create;
 
-  fLineBreak := XmlDefaultLineBreak;
+  fLineBreak := lbLF;
   fStrictXML := True;
   fUseGreaterThanEntity := True;
+  fUseTabCRLFEntitiesInAttributes := True;
   fIndentType := itNone;
   fIndentString := #32#32;
 end;
@@ -2843,7 +2880,7 @@ begin
   fEntityList := TXMLReaderEntityList.Create;
 
   fBreakReading := brAfterDocumentElement;
-  fLineBreak := XmlDefaultLineBreak;
+  fLineBreak := XMLDefaultLineBreak;
   fStrictXML := True;
   fRecognizeXMLDeclaration := True;
   fExpandEntities := True;
@@ -2982,7 +3019,7 @@ begin
     case OXmlCharKind(xC) of
       ckNewLine10, ckNewLine13: ProcessNewLineChar(xC, Self, aDTDReader, aBuffer1);
       ckAmpersand: LoadDTDEntityReference(aDTDReader, aBuffer1, aBuffer2);
-      ckCharacter, ckSingleQuote, ckDoubleQuote, ckGreaterThan, ckLowerThan,
+      ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote, ckGreaterThan, ckLowerThan,
         ckSquareBracketOpen, ckSquareBracketClose:
           aBuffer1.WriteChar(xC);
     else

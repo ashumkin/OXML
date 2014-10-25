@@ -61,7 +61,7 @@ type
   //wsDefault: default handlign (do not preserve)
   TXMLPreserveWhiteSpace = (pwInherit, pwPreserve, pwDefault);
   TXMLCharKind =
-    (ckNewLine10, ckNewLine13, ckSingleQuote, ckDoubleQuote, ckAmpersand,
+    (ckTab, ckNewLine10, ckNewLine13, ckSingleQuote, ckDoubleQuote, ckAmpersand,
      ckLowerThan, ckGreaterThan, ckSquareBracketOpen, ckSquareBracketClose,
      ckCharacter, ckInvalid);
 
@@ -77,7 +77,6 @@ const
   {$ELSE}
   XMLDefaultLineBreak = lbLF;
   {$ENDIF}
-  XMLLineBreak: array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
   XML_XML: OWideString = 'xml';
   XML_XMLNS: OWideString = 'xmlns';
   XML_XML_SPACE: OWideString = 'xml:space';
@@ -87,8 +86,13 @@ const
   XML_ENTITY_GT: OWideString = '&gt;';
   XML_ENTITY_QUOT: OWideString = '&quot;';
   XML_ENTITY_APOS: OWideString = '&apos;';
+  XML_ENTITY_TAB: OWideString = '&#9;';
+  XML_ENTITY_LF: OWideString = '&#xA;';
+  XML_ENTITY_CR: OWideString = '&#xD;';
   XML_BOOLEAN_TRUE: string = 'true';
   XML_BOOLEAN_FALSE: string = 'false';
+
+  XMLLineBreak: array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
 
   XMLUseIndexNodeLimit = 256;
 
@@ -226,6 +230,8 @@ function SymbolNameToString(const aShortStringPointer: PByte): string;
 function OXmlNameToXML(const aName: string): string;
 function OXmlXMLToName(const aXMLName: string): string;
 
+function XMLLineBreakEntity(const aLineBreak: TXMLLineBreak): OWideString;
+
 implementation
 
 uses
@@ -236,6 +242,22 @@ uses
 var
   gxISOFormatSettings: TFormatSettings;//write only once in initialization section, then read-only => thread-safe!
 {$ENDIF}
+
+function XMLLineBreakEntity(const aLineBreak: TXMLLineBreak): OWideString;
+begin
+  case aLineBreak of
+    lbLF: Result := XML_ENTITY_LF;
+    lbCR: Result := XML_ENTITY_CR;
+    lbCRLF: Result := XML_ENTITY_CR + XML_ENTITY_LF;
+  else
+    //lbDoNotProcess
+    {$IFDEF MSWINDOWS}
+    Result := XML_ENTITY_CR + XML_ENTITY_LF
+    {$ELSE}
+    Result := XML_ENTITY_LF
+    {$ENDIF}
+  end;
+end;
 
 function OXmlNameToXML(const aName: string): string;
 begin
@@ -841,9 +863,9 @@ begin
     Ord('>'): Result := ckGreaterThan;//#$3E
     Ord('['): Result := ckSquareBracketOpen;
     Ord(']'): Result := ckSquareBracketClose;
+    09: Result := ckTab;
     10: Result := ckNewLine10;
     13: Result := ckNewLine13;
-    09,
     $20, $21, $23..$25, $28..$3B, $3D, $3F..$5A, $5C, $5E..$FF//except '"&<>[]
     {$IFNDEF FPC}
     ,
@@ -866,9 +888,9 @@ begin
     Ord('>'): Result := ckGreaterThan;//#$3E
     Ord('['): Result := ckSquareBracketOpen;
     Ord(']'): Result := ckSquareBracketClose;
+    09: Result := ckTab;
     10: Result := ckNewLine10;
     13: Result := ckNewLine13;
-    09,
     $20, $21, $23..$25, $28..$3B, $3D, $3F..$5A, $5C, $5E..$FF//except '"&<>[]
     ,
     $0100..$FFFD

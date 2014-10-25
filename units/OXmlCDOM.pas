@@ -376,7 +376,7 @@ type
     procedure SaveToFile(const aFileName: String);
     //save document to stream in encoding specified by the document
     procedure SaveToStream(const aStream: TStream);
-    //returns XML as string
+    //returns XML as string (always in the system OWideString encoding and with system line breaks)
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
     {$IFDEF O_RAWBYTESTRING}
@@ -2331,6 +2331,7 @@ begin
       xWriter.WriterSettings.Assign(OwnerDocument.fWriterSettings);
       xWriter.Encoding := TEncoding.OWideStringEncoding;
       xWriter.WriterSettings.WriteBOM := False;
+      xWriter.WriterSettings.LineBreak := XMLDefaultLineBreak;
 
       SaveToWriter(xWriter);
     finally
@@ -2375,6 +2376,7 @@ begin
       xWriter.WriterSettings.Assign(OwnerDocument.fWriterSettings);
       xWriter.Encoding := TEncoding.UTF8;
       xWriter.WriterSettings.WriteBOM := False;
+      xWriter.WriterSettings.LineBreak := XMLDefaultLineBreak;
 
       SaveToWriter(xWriter);
     finally

@@ -42,7 +42,7 @@ uses
   ;
 
 const
-  cTestCount = 55;
+  cTestCount = 56;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -70,6 +70,7 @@ type
     function Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS: Boolean;
     function Test_OXmlPDOM_TXMLDocument_InvalidDocument1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_TabCRLF: Boolean;
     function Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WrongDocument1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WrongDocument2: Boolean;
@@ -319,6 +320,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS, 'Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_InvalidDocument1, 'Test_OXmlPDOM_TXMLDocument_InvalidDocument1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling, 'Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_TabCRLF, 'Test_OXmlPDOM_TXMLDocument_TabCRLF');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_AttributeIndex, 'Test_OXmlPDOM_TXMLDocument_AttributeIndex');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument1, 'Test_OXmlPDOM_TXMLDocument_WrongDocument1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument2, 'Test_OXmlPDOM_TXMLDocument_WrongDocument2');
@@ -1733,6 +1735,30 @@ begin
   Result := xXML.XML = outXML;
 end;
 
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_TabCRLF: Boolean;
+const
+  inXML: OWideString =  '<root attr="'#10#9'">'#10#13#9#32#13#10'</root>';//see the wrong sentence #10#13
+  outXML1: OWideString =  '<root attr="&#xD;&#xA;&#9;">'+sLineBreak+sLineBreak+#9#32+sLineBreak+'</root>';
+  outXML2: OWideString =  '<root attr="'+sLineBreak+#9'">'+sLineBreak+sLineBreak+#9#32+sLineBreak+'</root>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.LoadFromXML(inXML);
+  xXML.WriterSettings.LineBreak := lbLF;
+  xXML.WriterSettings.UseTabCRLFEntitiesInAttributes := True;
+
+  Result := (xXML.XML = outXML1);
+  if not Result then
+    Exit;
+
+  xXML.WriterSettings.UseTabCRLFEntitiesInAttributes := False;
+
+  Result := (xXML.XML = outXML2);
+end;
+
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
 const
   inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
@@ -2016,6 +2042,7 @@ var
     xXml.ReaderSettings.BreakReading := brNone;
     xXml.WhiteSpaceHandling := wsPreserveAll;
     xXml.WriterSettings.UseGreaterThanEntity := False;
+    xXml.WriterSettings.UseTabCRLFEntitiesInAttributes := False;
     xXml.LoadFromBuffer(xOriginalFileBuffer[TEncodingBuffer_FirstElement], Length(xOriginalFileBuffer));
 
     Result := not Assigned(xXml.ParseError);
