@@ -309,7 +309,9 @@ type
     //clone node
     //  aDeep = false: only node with attributes,
     //  aDeep = true: node with attributes and all child tree
-    function CloneNode(const aDeep: Boolean): PXMLNode;
+    //  aToDocument: the document that will be the owner of the created node, nil = the same document
+    //  + append the created node after cloning with TXMLNode.AppendChild()
+    function CloneNode(const aDeep: Boolean; const aToDocument: TXMLDocument = nil): PXMLNode;
     //consolidate adjacent text nodes and remove any empty text nodes
     procedure Normalize;
   public
@@ -1069,20 +1071,24 @@ begin
     Result.Add(xChildNode.NodeNameId, xChildNode);
 end;
 
-function TXMLNode.CloneNode(const aDeep: Boolean): PXMLNode;
+function TXMLNode.CloneNode(const aDeep: Boolean; const aToDocument: TXMLDocument): PXMLNode;
 var
   xIter, xNewNode: PXMLNode;
 begin
-  Result := fOwnerDocument.CreateNode(fNodeType, fNodeNameId, fNodeValueId);
+  if aToDocument = nil then
+    Result := fOwnerDocument.CreateNode(fNodeType, fNodeNameId, fNodeValueId)
+  else
+    Result := aToDocument.CreateNode(fNodeType, NodeName, NodeValue);
   Result.AssignProperties(@Self);
 
   xIter := Self.FirstAttribute;
   while Assigned(xIter) do
   begin
-    xNewNode := fOwnerDocument.CreateNode(xIter.fNodeType, xIter.fNodeNameId,
-      xIter.fNodeValueId);
+    if aToDocument = nil then
+      xNewNode := fOwnerDocument.CreateNode(xIter.fNodeType, xIter.fNodeNameId, xIter.fNodeValueId)
+    else
+      xNewNode := aToDocument.CreateNode(xIter.fNodeType, xIter.NodeName, xIter.NodeValue);
     xNewNode.AssignProperties(xIter);
-
     Result.Append(xNewNode, ctAttribute);
     xIter := xIter.NextSibling;
   end;
