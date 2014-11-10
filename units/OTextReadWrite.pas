@@ -389,7 +389,7 @@ function GetEncodingFromStream(const aStream: TStream;
   const aLastPosition: OStreamInt;
   const aDefaultEncoding: TEncoding): TEncoding;
 var
-  xSize: Integer;
+  xSize: OStreamInt;
   xBuffer: TEncodingBuffer;
   xEncoding: TEncoding;
 begin
@@ -468,7 +468,7 @@ end;
 procedure TOTextReader.DoInit(const aNewStream: TStream;
   const aNewOwnsStream: Boolean; const aDefaultEncoding: TEncoding);
 var
-  xStreamPosition: Integer;
+  xStreamPosition: OStreamInt;
 begin
   fEOF := False;
   ReleaseDocument;
