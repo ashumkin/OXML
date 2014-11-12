@@ -329,10 +329,11 @@ type
     function SelectNode(const aXPath: OWideString): TXMLNode; overload;
     //select the first node by XPath, if not found return a fake "dummy" node (name="", value="")
     function SelectNodeDummy(const aXPath: OWideString): TXMLNode;
-    //select the first node (element/attribute) by name (not XPath!!!),
-    //  if not found the element is created, appended to current node and returned
-    //  - use "NodeName" to find node, use "@AttrName" to find attribute
-    function SelectNodeCreate(const aNodeName: OWideString): TXMLNode;
+    //select the first node (element or attribute) by name
+    //  it is possible to use a normal path "element1/element2/element3"
+    //  it is also possible to use an attribute path "element1/element2/@attribute"
+    //  if not found the whole node path is created!
+    function SelectNodeCreate(const aNodePath: OWideString): TXMLNode;
     //select all nodes by XPath, return maximum of aMaxNodeCount nodes
     //  if nothing found return a aNodeList with no items (count = 0)
     function SelectNodes(const aXPath: OWideString;
@@ -2419,17 +2420,36 @@ begin
   SelectNode(aXPath, {%H-}Result);
 end;
 
-function TXMLNode.SelectNodeCreate(const aNodeName: OWideString): TXMLNode;
+function TXMLNode.SelectNodeCreate(const aNodePath: OWideString): TXMLNode;
+var
+  xNodeList: TOWideStringList;
+  xNodeName: OWideString;
+  xParentNode, xCurrentNode: TXMLNode;
+  I: Integer;
 begin
-  if aNodeName = '' then
-    raise EXmlDOMException.Create(OXmlLng_NodeNameCannotBeEmpty);
+  xNodeList := TOWideStringList.Create;
+  try
+    OExplode(aNodePath, '/', xNodeList);
 
-  if not SelectNode(aNodeName, {%H-}Result) then
-  begin
-    if aNodeName[1] = '@' then
-      Result := AddAttribute(Copy(aNodeName, 2, High(Integer)), '')
-    else
-      Result := AddChild(aNodeName);
+    xParentNode := Self;
+    for I := 0 to xNodeList.Count-1 do
+    begin
+      xNodeName := xNodeList[I];
+      if xNodeName = '' then
+        raise EXmlDOMException.Create(OXmlLng_NodeNameCannotBeEmpty);
+
+      if not xParentNode.SelectNode(xNodeName, {%H-}xCurrentNode) then
+      begin
+        if xNodeName[1] = '@' then
+          xCurrentNode := xParentNode.AddAttribute(Copy(xNodeName, 2, High(Integer)), '')
+        else
+          xCurrentNode := xParentNode.AddChild(xNodeName);
+      end;
+      xParentNode := xCurrentNode;
+    end;
+    Result := xCurrentNode;
+  finally
+    xNodeList.Free;
   end;
 end;
 

@@ -42,7 +42,7 @@ uses
   ;
 
 const
-  cTestCount = 56;
+  cTestCount = 58;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -86,6 +86,7 @@ type
     function Test_OXmlPDOM_Id: Boolean;
     function Test_OXmlPDOM_NextNodeInTree: Boolean;
     function Test_OXmlPDOM_Sort: Boolean;
+    function Test_OXmlPDOM_SelectNodeCreate: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
@@ -106,6 +107,7 @@ type
     function Test_OXmlCDOM_ChildCount: Boolean;
     function Test_OXmlCDOM_NextNodeInTree: Boolean;
     function Test_OXmlCDOM_Sort: Boolean;
+    function Test_OXmlCDOM_SelectNodeCreate: Boolean;
     function Test_OXmlCDOM_OASIS: Boolean;
   private
     //OWideSupp.pas
@@ -336,6 +338,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_Id, 'Test_OXmlPDOM_Id');
   ExecuteFunction(Test_OXmlPDOM_NextNodeInTree, 'Test_OXmlPDOM_NextNodeInTree');
   ExecuteFunction(Test_OXmlPDOM_Sort, 'Test_OXmlPDOM_Sort');
+  ExecuteFunction(Test_OXmlPDOM_SelectNodeCreate, 'Test_OXmlPDOM_SelectNodeCreate');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -353,6 +356,7 @@ begin
   ExecuteFunction(Test_OXmlCDOM_ChildCount, 'Test_OXmlCDOM_ChildCount');
   ExecuteFunction(Test_OXmlCDOM_NextNodeInTree, 'Test_OXmlCDOM_NextNodeInTree');
   ExecuteFunction(Test_OXmlCDOM_Sort, 'Test_OXmlCDOM_Sort');
+  ExecuteFunction(Test_OXmlCDOM_SelectNodeCreate, 'Test_OXmlCDOM_SelectNodeCreate');
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TOVirtualHashIndex, 'Test_TOVirtualHashIndex');
@@ -975,6 +979,21 @@ begin
     (Length(xOutBuffer1) = Length(xOutBuffer2)) and
     (Length(xOutBuffer1) > 0) and
     CompareMem(@xOutBuffer1[0], @xOutBuffer2[0], Length(xOutBuffer1));
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_SelectNodeCreate: Boolean;
+var
+  xXML: OXmlPDOM.IXMLDocument;
+const
+  outXML: OWideString = '<root><settings><text>hello</text><number attr="value">2</number></settings></root>';
+begin
+  xXML := OXmlPDOM.CreateXMLDoc('root');
+  xXML.Node.SelectNodeCreate('root/settings/text').Text := 'hello';
+  xXML.Node.SelectNodeCreate('root/settings/number').Text := '2';
+  xXML.Node.SelectNodeCreate('root/settings/number/@attr').NodeValue := 'value';
+
+  xXML.WriterSettings.IndentType := itNone;
+  Result := xXML.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_Sort: Boolean;
@@ -2487,6 +2506,21 @@ end;
 function TOXmlUnitTest.Test_OXmlCDOM_OASIS: Boolean;
 begin
   Result := Test_OASIS(False);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_SelectNodeCreate: Boolean;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+const
+  outXML: OWideString = '<root><settings><text>hello</text><number attr="value">2</number></settings></root>';
+begin
+  xXML := OXmlCDOM.CreateXMLDoc('root');
+  xXML.Node.SelectNodeCreate('root/settings/text').Text := 'hello';
+  xXML.Node.SelectNodeCreate('root/settings/number').Text := '2';
+  xXML.Node.SelectNodeCreate('root/settings/number/@attr').NodeValue := 'value';
+
+  xXML.WriterSettings.IndentType := itNone;
+  Result := xXML.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_Sort: Boolean;
