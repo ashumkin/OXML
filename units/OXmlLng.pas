@@ -90,6 +90,7 @@ var
   OXmlLng_CannotSetIndentLevelAfterWrite: String = 'You can''t set the IndentLevel after something has been already written to the document.';
   OXmlLng_NodeNameCannotBeEmpty: String = 'Node name cannot be empty.';
   OXmlLng_XPathCannotBeEmpty: String = 'XPath cannot be empty.';
+  OXmlLng_PathCannotBeEmpty: String = 'Path cannot be empty.';
   OXmlLng_CannotWriteToVirtualMemoryStream: String = 'You cannot write to a TVirtualMemoryStream.';
 
   OXmlLng_CannotChangeRootNodeName: String = 'Cannot change RootNodeName after data has been written.';

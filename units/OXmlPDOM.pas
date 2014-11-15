@@ -2707,9 +2707,13 @@ var
   xParentNode, xCurrentNode: PXMLNode;
   I: Integer;
 begin
+  xCurrentNode := nil;
   xNodeList := TOWideStringList.Create;
   try
     OExplode(aNodePath, '/', xNodeList);
+
+    if xNodeList.Count = 0 then
+      raise EXMLDOMException.Create(OXmlLng_PathCannotBeEmpty);
 
     xParentNode := @Self;
     for I := 0 to xNodeList.Count-1 do
@@ -2727,10 +2731,11 @@ begin
       end;
       xParentNode := xCurrentNode;
     end;
-    Result := xCurrentNode;
   finally
     xNodeList.Free;
   end;
+
+  Result := xCurrentNode;
 end;
 
 function TXMLNode.SelectNodeDummy(const aXPath: OWideString): PXMLNode;
