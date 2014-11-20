@@ -147,8 +147,12 @@ type
     //read char-by-char, returns false if EOF is reached
     function ReadNextChar(var outChar: OWideChar): Boolean;
     //read text, if aMaxChars not defined, read until end
-    function ReadString(const aBreakAtNewLine: Boolean = False): OWideString; overload;
-    function ReadString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): OWideString; overload;
+    //  aBreakAtNewLine - break at #10, #13, #13#10
+    //  aMoveCaretAfterNewLine - if true and aBreakAtNewLine: move read caret behind the new line string (#10, #13, #13#10)
+    function ReadString(const aBreakAtNewLine: Boolean = False;
+      const aMoveCaretAfterNewLine: Boolean = False): OWideString; overload;
+    function ReadString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False;
+      const aMoveCaretAfterNewLine: Boolean = False): OWideString; overload;
     //get text from temp buffer that has been already read
     //  -> it's not assured that some text can be read, use only as extra information
     //     e.g. for errors etc.
@@ -374,6 +378,7 @@ uses
 
 var
   OTextReadWrite_CannotUndo2Times: OWideString = 'Unsupported: you tried to run the undo function two times in a row.';
+  OTextReadWrite_CannotUndoAtEOF: OWideString = 'You cannot run the undo function when end-of-file has been reached.';
   OTextReadWrite_ReadingAt: String =
     'Reading at:'+sLineBreak+
     'Line: %d'+sLineBreak+
@@ -730,6 +735,7 @@ begin
     Result := True;
     Inc(fLinePosition);
     Inc(fFilePosition);
+
     Exit;
   end;
 
@@ -767,9 +773,9 @@ begin
   end;
 end;
 
-function TOTextReader.ReadString(const aBreakAtNewLine: Boolean): OWideString;
+function TOTextReader.ReadString(const aBreakAtNewLine, aMoveCaretAfterNewLine: Boolean): OWideString;
 begin
-  Result := ReadString(High(Integer), aBreakAtNewLine);
+  Result := ReadString(High(Integer), aBreakAtNewLine, aMoveCaretAfterNewLine);
 end;
 
 function TOTextReader.ReadPreviousString(const aMaxChars: Integer;
@@ -807,7 +813,7 @@ begin
 end;
 
 function TOTextReader.ReadString(const aMaxChars: Integer;
-  const aBreakAtNewLine: Boolean): OWideString;
+  const aBreakAtNewLine, aMoveCaretAfterNewLine: Boolean): OWideString;
 var
   I, R: Integer;
   xC: OWideChar;
@@ -829,7 +835,8 @@ begin
   begin
     if aBreakAtNewLine then
     case xC of
-      #10, #13: begin
+      #10, #13:
+      begin
         UndoRead;
         Break;
       end;
@@ -843,6 +850,21 @@ begin
     end;
     Result[I] := xC;
     Dec(R);
+  end;
+
+  if aBreakAtNewLine and aMoveCaretAfterNewLine then
+  begin
+    if ReadNextChar(xC) then
+    case xC of
+      #13: //search for #13#10
+        if ReadNextChar(xC) and (xC <> #10) then
+        begin
+          UndoRead;
+        end;
+      #10: begin end;//nothing, go over #10
+    else
+      UndoRead;//a different character, undo read
+    end;
   end;
 
   if I < aMaxChars then
@@ -886,6 +908,9 @@ procedure TOTextReader.UndoRead;
 begin
   if fReadFromUndo then
     raise EOTextReader.Create(OTextReadWrite_CannotUndo2Times);
+
+  if fEOF then
+    raise EOTextReader.Create(OTextReadWrite_CannotUndoAtEOF);
 
   fReadFromUndo := True;
   Dec(fLinePosition);
