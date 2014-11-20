@@ -1,6 +1,33 @@
 OXml Change Log
 ---------------
 
+Version 1.2 2014-11-20 [SVN commit: 56, https://sourceforge.net/p/oxml/code/56/]
+  - SelectNodeCreate can handle a whole path now. E.g. "element1/element2/@attribute".
+  - Added the aToDocument parameter to TXMLNode.CloneNode.
+  - Default line break handling of the writer changed! 
+    Now WriterSettings.LineBreak is lbLF to comply with XML standards. 
+    The functions SaveToXML use always the system line breaks.
+  - Fixed bug in ISOTryStrToBool.
+  - TXMLNode.AbsolutePath and TXMLNode.NodeLevel properties added.
+  - Resolved bugs in Delphi 2009-XE.
+  - Faster ISOStrToFloat and ISOFloatToStr functions, they are still thread-safe.
+  - FPC writer optimalizations.
+  - ORealWideString renamed to OUnicodeString
+  - Characters that are not in the target encoding are written as XML entities to the file. Works only for text nodes, cdata and attribute values.
+  - Fixed bug in OXmlSerialize.pas
+  - Removed UseIndex property from TXMLDeserializer and TXMLRTTIDeserializer (not used any more).
+  - Added XML declaration and encoding support to TXMLSerializer and TXMLRTTISerializer.
+  - Added TXMLNode.SortChildNodes, SortAttributeNodes, SortChildNodesByName, SortAttributeNodesByName
+  - Added TXMLSerializer.UseRoot and TXMLDeserializer.UseRoot + more options/attributes in WriteObject and ReadObject (ReadObjectFromNode)
+  - Added TXMLRTTISerializer.UseRoot and TXMLRTTISerializer.UseRoot + more options/attributes in WriteObject and ReadObject (ReadObjectFromNode)
+  - Fixed bug in TXMLReader.NodePathAsString
+  - RTTI serializer - added TObject in records support.
+  - RTTI serializer generic record support.
+  - OXmlPDOM and OXmlCDOM - added TXMLNode.FindChildWithIndex* functions for fast searching within ChildNodes.
+  - Added TSerializableObjectDictionary.
+  - Added TSerializableDictionary.
+
+
 Version 1.1 2014-09-24 [SVN commit: 33, https://sourceforge.net/p/oxml/code/33/]
   - Added OXmlSerialize.pas and OXmlRTTISerialize.pas - XML serializers
   - Added Delphi XE7 packages
