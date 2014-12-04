@@ -75,7 +75,7 @@ type
     function GetText: OWideString;
     {$ENDIF}
   public
-    function SameText(const aText: OWideString): Boolean;
+    function SameText(const aTextWithCase: OWideString; const aCaseSensitive: Boolean): Boolean;//aTextWithCase must be in correct case already (lowercase if not aCaseSensitive!
   public
     property TextFast: OFastString read fTextFast;
     property Text: OWideString read {$IFDEF O_UNICODE}fTextFast{$ELSE}GetText{$ENDIF};
@@ -83,18 +83,19 @@ type
 
   TOHashedStrings = class(TPersistent)
   private
-    fItems: Array of POHashItem;//array indexed by index
-    fObjects: Array of TObject;
+    fCaseSensitive: Boolean;
+    fItems: array of POHashItem;//array indexed by index
+    fObjects: array of TObject;
     fNextItemId: OHashedStringsIndex;//next list index to use
     fItemLength: OHashedStringsIndex;//count of allocated items in fList
     fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
-    fBuckets: Array of POHashItem;//array indexed by hash
+    fBuckets: array of POHashItem;//array indexed by hash
 
     fLastHashI: OHashedStringsIndex;
+
+    procedure SetCaseSensitive(const aCaseSensitive: Boolean);
   protected
-    function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POHashItem;
-    //function HashOf(const aKey: OWideString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
-    //function HashOfFast(const aKey: OFastString): Cardinal; virtual;//must be virtual for better performance in D7 (don't ask me why)
+    function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POHashItem;//aKey must be already processed with LowerCaseIfNotCaseSensitive
     procedure AddItem(const aItem: POHashItem; const aHash: OHashedStringsIndex);
 
     procedure GrowBuckets;
@@ -116,6 +117,7 @@ type
     procedure SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
     {$ENDIF}
+    property CaseSensitive: Boolean read fCaseSensitive write SetCaseSensitive;
     property Count: OHashedStringsIndex read fNextItemId;
     procedure Clear(const aFullClear: Boolean = True);
   end;
@@ -134,8 +136,10 @@ type
   private
     fKeys: TOHashedStrings;
     fValues: TOWideStringList;
+    function GetCaseSensitive: Boolean;
     function GetKey(const aIndex: OHashedStringsIndex): OWideString;
     function GetValue(const aIndex: OHashedStringsIndex): OWideString;
+    procedure SetCaseSensitive(aCaseSensitive: Boolean);
     procedure SetValue(const aIndex: OHashedStringsIndex; aValue: OWideString);
     function GetValueOfKey(const aKey: OWideString): OWideString;
     procedure SetValueOfKey(const aKey, aValue: OWideString);
@@ -151,8 +155,7 @@ type
     function TryGetValue(const aKey: OWideString; var outValue: OWideString): Boolean;
     function Count: OHashedStringsIndex;
     procedure Clear;
-    {procedure Delete(const aIndex: OHashedStringsIndex);
-    procedure Remove(const aKey: OWideString);}
+    property CaseSensitive: Boolean read GetCaseSensitive write SetCaseSensitive;
 
     property Keys[const aIndex: OHashedStringsIndex]: OWideString read GetKey;
     property Values[const aIndex: OHashedStringsIndex]: OWideString read GetValue write SetValue;
@@ -229,6 +232,8 @@ type
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
 function HashOf(const aKey: OWideString): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
 function HashOfFast(const aKey: OFastString): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
+function LowerCaseIfNotCaseSensitive(const aText: OWideString; const aCaseSensitive: Boolean): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function FastLowerCaseIfNotCaseSensitive(const aText: OFastString; const aCaseSensitive: Boolean): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 const
   OHASHEDSTRINGSINDEX_UNASSIGNED = -1;
@@ -236,7 +241,24 @@ const
 implementation
 
 uses
-  OXmlLng;
+  OXmlLng
+  {$IFDEF FPC}, LazUTF8{$ENDIF};
+
+function LowerCaseIfNotCaseSensitive(const aText: OWideString; const aCaseSensitive: Boolean): OWideString;
+begin
+  if aCaseSensitive then
+    Result := aText
+  else
+    Result := OLowerCase(aText);
+end;
+
+function FastLowerCaseIfNotCaseSensitive(const aText: OFastString; const aCaseSensitive: Boolean): OFastString;
+begin
+  if aCaseSensitive then
+    Result := aText
+  else
+    Result := OFastLowerCase(aText);
+end;
 
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
 begin
@@ -327,6 +349,11 @@ begin
   Result := fKeys.IndexOf(aKey);
 end;
 
+procedure TOHashedStringDictionary.SetCaseSensitive(aCaseSensitive: Boolean);
+begin
+  fKeys.CaseSensitive := aCaseSensitive;
+end;
+
 procedure TOHashedStringDictionary.SetValue(const aIndex: OHashedStringsIndex; aValue: OWideString
   );
 begin
@@ -353,6 +380,11 @@ begin
   fValues.Free;
 
   inherited Destroy;
+end;
+
+function TOHashedStringDictionary.GetCaseSensitive: Boolean;
+begin
+  Result := fKeys.CaseSensitive;
 end;
 
 function TOHashedStringDictionary.Add(const aKey, aValue: OWideString
@@ -445,8 +477,10 @@ function TOHashedStrings.Add(const aText: OWideString;
 var
   xBucket: POHashItem;
   xHash: OHashedStringsIndex;
+  xTextCase: OWideString;
 begin
-  xBucket := Find(aText, {%H-}xHash);
+  xTextCase := LowerCaseIfNotCaseSensitive(aText, fCaseSensitive);
+  xBucket := Find(xTextCase, {%H-}xHash);
   if Assigned(xBucket) then
   begin
     Result := xBucket.fIndex;
@@ -457,7 +491,7 @@ begin
   if fNextItemId = fMaxItemsBeforeGrowBuckets then
   begin
     GrowBuckets;
-    xHash := HashOf(aText) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
+    xHash := HashOf(xTextCase) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
   end;
 
   if fNextItemId = fItemLength then
@@ -540,7 +574,9 @@ end;
 
 constructor TOHashedStrings.Create;
 begin
-  inherited;
+  inherited Create;
+
+  fCaseSensitive := True;
 
   GrowBuckets;
 end;
@@ -558,7 +594,7 @@ begin
   Result := fBuckets[outHash];
   while Result <> nil do
   begin
-    if Result.SameText(aKey) then
+    if Result.SameText(aKey, fCaseSensitive) then
       Exit
     else
       Result := Result.fNext;
@@ -608,7 +644,7 @@ begin
   SetLength(fObjects, fMaxItemsBeforeGrowBuckets);
 
   for I := 0 to fNextItemId-1 do
-    AddItem(fItems[I], HashOfFast(fItems[I].fTextFast) mod Cardinal(Length(fBuckets)));
+    AddItem(fItems[I], HashOfFast(FastLowerCaseIfNotCaseSensitive(fItems[I].fTextFast, fCaseSensitive)) mod Cardinal(Length(fBuckets)));
 
   Inc(fLastHashI);
 end;
@@ -619,11 +655,22 @@ var
   xP: POHashItem;
   xH: OHashedStringsIndex;
 begin
-  xP := Find(aText, {%H-}xH);
+  xP := Find(LowerCaseIfNotCaseSensitive(aText, fCaseSensitive), {%H-}xH);
   if xP <> nil then
     Result := xP.fIndex
   else
     Result := -1;
+end;
+
+procedure TOHashedStrings.SetCaseSensitive(const aCaseSensitive: Boolean);
+begin
+  if fCaseSensitive = aCaseSensitive then
+    Exit;
+
+  if fNextItemId > 0 then
+    raise Exception.Create('TOHashedStrings: cannot set CaseSensitive to a non-empty list.');
+
+  fCaseSensitive := aCaseSensitive;
 end;
 
 procedure TOHashedStrings.SetObject(const aIndex: OHashedStringsIndex;
@@ -655,15 +702,22 @@ begin
 end;
 {$ENDIF}
 
-function TOHashItem.SameText(const aText: OWideString): Boolean;
+function TOHashItem.SameText(const aTextWithCase: OWideString;
+  const aCaseSensitive: Boolean): Boolean;
+{$IFNDEF O_UNICODE}
+var
+  xTextFastCase: OFastString;
+{$ENDIF}
 begin
   {$IFDEF O_UNICODE}
-  Result := (fTextFast = aText);
+  Result := (FastLowerCaseIfNotCaseSensitive(fTextFast, aCaseSensitive) = aTextWithCase);
   {$ELSE}
-  Result :=
-      (Length(fTextFast) = Length(aText)*SizeOf(OWideChar)) and
-      ((fTextFast = '') or //must be here, otherwise @fTextFast[1] causes range check error
-        CompareMem(@fTextFast[1], @aText[1], Length(fTextFast)));
+  Result := (Length(fTextFast) = Length(aTextWithCase)*SizeOf(OWideChar));
+  if Result and (fTextFast <> '') then
+  begin
+    xTextFastCase := FastLowerCaseIfNotCaseSensitive(fTextFast, aCaseSensitive);
+    Result := CompareMem(@xTextFastCase[1], @aTextWithCase[1], Length(xTextFastCase));
+  end;
   {$ENDIF}
 end;
 

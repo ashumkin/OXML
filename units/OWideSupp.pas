@@ -68,7 +68,7 @@ uses
   {$IFNDEF O_DELPHI_5_DOWN}{$IF DEFINED(O_DELPHI_2006_UP) AND DEFINED(O_DELPHI_2007_DOWN)}
   , WideStrUtils
   {$IFEND}{$ENDIF}
-  {$IFDEF O_DELPHI_5_DOWN}
+  {$IFNDEF O_UNICODE}
   , Windows
   {$ENDIF}
 
@@ -383,6 +383,9 @@ function OStringReplace(const S, OldPattern, NewPattern: OWideString;
   Flags: TReplaceFlags): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OLowerCase(const aStr: OWideString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OUpperCase(const aStr: OWideString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OFastLowerCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OFastUpperCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OCompareText(const aStr1, aStr2: OWideString): Integer;
 
 {$IFNDEF NEXTGEN}
 //CharInSet for all compilers
@@ -450,6 +453,11 @@ function OSameText(const S1, S2: OWideString): Boolean; {$IFDEF O_INLINE}inline;
 function OReplaceLineBreaks(const aString: OWideString; const aLineBreak: OWideString = sLineBreak): OWideString;
 
 implementation
+
+{$IFDEF FPC}
+uses
+  LazUTF8;
+{$ENDIF}
 
 function OReplaceLineBreaks(const aString: OWideString; const aLineBreak: OWideString = sLineBreak): OWideString;
 var
@@ -601,12 +609,48 @@ begin
 end;
 {$ENDIF}
 
+function OFastLowerCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+{$IFNDEF O_UNICODE}
+var
+  xLength: Integer;
+{$ENDIF}
+begin
+  {$IFDEF O_UNICODE}
+  Result := OLowerCase(aStr);
+  {$ELSE}
+  xLength := Length(aStr);
+  SetString(Result, PAnsiChar(aStr), xLength);//MUST BE PAnsiChar(aStr)
+  if xLength > 0 then
+    CharLowerBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
+  {$ENDIF}
+end;
+
 function OLowerCase(const aStr: OWideString): OWideString;
 begin
   {$IFDEF O_UNICODE}
+  {$IFDEF FPC}
+  Result := UTF8LowerCase(aStr);
+  {$ELSE}
   Result := LowerCase(aStr);
+  {$ENDIF}
   {$ELSE}
   Result := WideLowerCase(aStr);
+  {$ENDIF}
+end;
+
+function OFastUpperCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+{$IFNDEF O_UNICODE}
+var
+  xLength: Integer;
+{$ENDIF}
+begin
+  {$IFDEF O_UNICODE}
+  Result := OUpperCase(aStr);
+  {$ELSE}
+  xLength := Length(aStr);
+  SetString(Result, PWideChar(aStr), xLength);
+  if xLength > 0 then
+    CharUpperBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
   {$ENDIF}
 end;
 
@@ -625,9 +669,26 @@ end;
 function OUpperCase(const aStr: OWideString): OWideString;
 begin
   {$IFDEF O_UNICODE}
+  {$IFDEF FPC}
+  Result := UTF8UpperCase(aStr);
+  {$ELSE}
   Result := UpperCase(aStr);
+  {$ENDIF}
   {$ELSE}
   Result := WideUpperCase(aStr);
+  {$ENDIF}
+end;
+
+function OCompareText(const aStr1, aStr2: OWideString): Integer;
+begin
+  {$IFDEF O_UNICODE}
+  {$IFDEF FPC}
+  Result := UTF8CompareText(aStr1, aStr2);
+  {$ELSE}
+  Result := CompareText(aStr1, aStr2);
+  {$ENDIF}
+  {$ELSE}
+  Result := WideCompareText(aStr1, aStr2);
   {$ENDIF}
 end;
 

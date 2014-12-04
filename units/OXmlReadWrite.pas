@@ -141,7 +141,7 @@ type
 
     //process line breaks (#10, #13, #13#10) to the LineBreak character
     //  set to lbDoNotProcess if you don't want any processing
-    //  default is your OS line break (XmlDefaultLineBreak)
+    //  default is lbLF (#10) -> according to XML specification
     property LineBreak: TXMLLineBreak read fLineBreak write fLineBreak;
 
     //should be #9, #10 and #13 in attributes saved as entities? Default = True
@@ -771,8 +771,8 @@ begin
   begin
     if aLastChar = #13 then
     begin
-      aCustomReader.ReadNextChar({%H-}xC);
-      if xC <> #10 then
+      //search for #13#10 sequence
+      if (aCustomReader.ReadNextChar({%H-}xC)) and (xC <> #10) then
         aCustomReader.UndoRead;
     end;
 
@@ -822,7 +822,7 @@ var
   xOutputChar: Integer;
   xIsHex: Boolean;
 begin
-  xOutputChar := 0;
+  xOutputChar := -1;
   aCustomBuffer.Clear(False);
   aCustomReader.BlockFlushTempBuffer;
   xReaderStartPos := aCustomReader.TempStringPosition;
@@ -906,7 +906,7 @@ begin
     end;
   end;
 
-  if (xOutputChar > 0) and (outEntityValue = '') then
+  if (xOutputChar > -1) and (outEntityValue = '') then
   begin
     {$IFDEF FPC}
     //FPC, convert to UTF-8 first
@@ -1036,7 +1036,7 @@ begin
     end;
 
     fReader.ReadNextChar(xC);
-  end;(**)
+  end;
 
   if not fReader.EOF then
     fReader.UndoRead;

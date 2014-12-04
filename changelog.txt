@@ -1,6 +1,12 @@
 OXml Change Log
 ---------------
 
+Version 1.3 2014-12-04 [SVN commit: 57, https://sourceforge.net/p/oxml/code/57/]
+  - Case-insensitive TOHashedStrings.
+  - Fixed bug when reading file with last #10 character.
+  - Fixed bug when reading &#0; entity (this invalid entity can be read only with StrictXML = False).
+
+
 Version 1.2 2014-11-20 [SVN commit: 56, https://sourceforge.net/p/oxml/code/56/]
   - SelectNodeCreate can handle a whole path now. E.g. "element1/element2/@attribute".
   - Added the aToDocument parameter to TXMLNode.CloneNode.

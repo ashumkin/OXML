@@ -42,7 +42,7 @@ uses
   ;
 
 const
-  cTestCount = 58;
+  cTestCount = 60;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -87,6 +87,7 @@ type
     function Test_OXmlPDOM_NextNodeInTree: Boolean;
     function Test_OXmlPDOM_Sort: Boolean;
     function Test_OXmlPDOM_SelectNodeCreate: Boolean;
+    function Test_OXmlPDOM_LastCR: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
@@ -118,6 +119,7 @@ type
     function Test_TOHashedStrings_Grow: Boolean;
     function Test_TOVirtualHashIndex: Boolean;
     function Test_TOVirtualHashIndex_GetString(const aIndex: OHashedStringsIndex): OWideString;
+    function Test_TOHashedStrings_NotCaseSensitive: Boolean;
   private
     //OXmlSAX.pas
     procedure Test_TSAXParser_HashIndex_SAXStartElement({%H-}aSaxParser: TSAXParser;
@@ -339,6 +341,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_NextNodeInTree, 'Test_OXmlPDOM_NextNodeInTree');
   ExecuteFunction(Test_OXmlPDOM_Sort, 'Test_OXmlPDOM_Sort');
   ExecuteFunction(Test_OXmlPDOM_SelectNodeCreate, 'Test_OXmlPDOM_SelectNodeCreate');
+  ExecuteFunction(Test_OXmlPDOM_LastCR, 'Test_OXmlPDOM_LastCR');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
@@ -360,6 +363,7 @@ begin
   ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TOVirtualHashIndex, 'Test_TOVirtualHashIndex');
+  ExecuteFunction(Test_TOHashedStrings_NotCaseSensitive, 'Test_TOHashedStrings_NotCaseSensitive');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
   ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
@@ -485,13 +489,40 @@ var
 begin
   xHS := TOHashedStrings.Create;
   try
-    for I := 1 to 35 do
+    for I := 1 to 20 do
       xHS.Add('a'+IntToStr(I));
+    for I := 1 to 15 do
+      xHS.Add('A'+IntToStr(I));
 
     //36 is the limit when GrowBuckets is called and new hashes are generated
     xHS.Add('x');
     //x must be found in created list by a new hash!
     xHS.Add('x');
+
+    Result := xHS.Count = 36;
+  finally
+    xHS.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_TOHashedStrings_NotCaseSensitive: Boolean;
+var
+  xHS: TOHashedStrings;
+  I: Integer;
+begin
+  xHS := TOHashedStrings.Create;
+  try
+    xHS.CaseSensitive := False;
+
+    for I := 1 to 35 do
+      xHS.Add('a'+IntToStr(I));
+    for I := 1 to 35 do
+      xHS.Add('A'+IntToStr(I));
+
+    //36 is the limit when GrowBuckets is called and new hashes are generated
+    xHS.Add('x');
+    //x must be found in created list by a new hash!
+    xHS.Add('X');
 
     Result := xHS.Count = 36;
   finally
@@ -841,6 +872,23 @@ begin
     if not Result then
       Exit;
   end;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_LastCR: Boolean;
+const
+  inXML: OWideString =
+    '<doc/>'+#13;
+  outXML: OWideString =
+    '<doc/>'+sLineBreak;
+var
+  xXML: OXmlPDOM.IXMLDocument;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.ReaderSettings.BreakReading := brNone;
+  xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.LoadFromXML(inXML);
+
+  Result := (xXML.XML = outXML);
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_NextNodeInTree: Boolean;

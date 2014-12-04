@@ -378,7 +378,6 @@ uses
 
 var
   OTextReadWrite_CannotUndo2Times: OWideString = 'Unsupported: you tried to run the undo function two times in a row.';
-  OTextReadWrite_CannotUndoAtEOF: OWideString = 'You cannot run the undo function when end-of-file has been reached.';
   OTextReadWrite_ReadingAt: String =
     'Reading at:'+sLineBreak+
     'Line: %d'+sLineBreak+
@@ -909,12 +908,12 @@ begin
   if fReadFromUndo then
     raise EOTextReader.Create(OTextReadWrite_CannotUndo2Times);
 
-  if fEOF then
-    raise EOTextReader.Create(OTextReadWrite_CannotUndoAtEOF);
-
-  fReadFromUndo := True;
-  Dec(fLinePosition);
-  Dec(fFilePosition);
+  if not fEOF then
+  begin
+    fReadFromUndo := True;
+    Dec(fLinePosition);
+    Dec(fFilePosition);
+  end;
 end;
 
 { TOTextWriter }
