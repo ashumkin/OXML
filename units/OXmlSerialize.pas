@@ -27,6 +27,7 @@ unit OXmlSerialize;
     - Float (Date, Time, DateTime, Float).
     - Int64
     - Objects (TPersistent descendant).
+    - Collections (TCollection and TCollectionItem descendants).
 
 }
 
@@ -85,6 +86,8 @@ type
     procedure WriteObjectProperties(const aObject: TPersistent;
       var ioElement: TXMLWriterElement);
     procedure WriteObjectProperty(const aObject: TPersistent; const aPropInfo: PPropInfo;
+      var ioElement: TXMLWriterElement);
+    procedure WriteCollectionItems(const aCollection: TCollection;
       var ioElement: TXMLWriterElement);
   public
     //create
@@ -147,6 +150,8 @@ type
     procedure ReadObjectProperties(const aObject: TPersistent; const aElementNode: PXMLNode);
     procedure ReadObjectProperty(const aObject: TPersistent; const aPropInfo: PPropInfo;
       const aElementNode: PXMLNode; var ioPropNameIndex: TXMLNodeIndex);
+    procedure ReadCollectionItems(const aCollection: TCollection;
+      const aEnumerationNode: PXMLNode);
   public
     constructor Create;
     destructor Destroy; override;
@@ -304,6 +309,25 @@ begin
   WriteObject(aObject, aObject.ClassName, False);
 end;
 
+procedure TXMLSerializer.WriteCollectionItems(const aCollection: TCollection;
+  var ioElement: TXMLWriterElement);
+var
+  xColElem: TXMLWriterElement;
+  xColItem: TCollectionItem;
+  I: Integer;
+begin
+  if aCollection.Count = 0 then
+    Exit;
+
+  ioElement.OpenElementR('_oxmlcollection', {%H-}xColElem, stFinish);
+  for I := 0 to aCollection.Count-1 do
+  begin
+    xColItem := aCollection.Items[I];
+    WriteObject(xColItem, 'i', False);
+  end;
+  xColElem.CloseElement;
+end;
+
 procedure TXMLSerializer.WriteObject(const aObject: TPersistent;
   const aElementName: OWideString; const aWriteObjectType: Boolean);
 var
@@ -359,17 +383,19 @@ procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
     xPropElement.CloseElement(False);
   end;
 
-  procedure _WriteClass(const bClass: TObject);
+  procedure _WriteClass(const bObject: TObject);
   var
     xPropElement: TXMLWriterElement;
   begin
-    if bClass is TPersistent then
+    if bObject is TPersistent then
     begin
       if GetTypeData(aObject.ClassInfo)^.PropCount = 0 then
         Exit;
 
       ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
-      WriteObjectProperties(TPersistent(bClass), xPropElement);
+      WriteObjectProperties(TPersistent(bObject), xPropElement);
+      if bObject is TCollection then
+        WriteCollectionItems(TCollection(bObject), xPropElement);
       xPropElement.CloseElement;
     end;
   end;
@@ -529,6 +555,25 @@ begin
 end;
 {$ENDIF}
 
+procedure TXMLDeserializer.ReadCollectionItems(const aCollection: TCollection;
+  const aEnumerationNode: PXMLNode);
+var
+  xItemNode: PXMLNode;
+  xNewItem: TCollectionItem;
+begin
+  aCollection.Clear;
+
+  xItemNode := aEnumerationNode.FirstChild;
+  while Assigned(xItemNode) do
+  begin
+    xNewItem := aCollection.Add;
+
+    ReadObjectFromNode(xNewItem, xItemNode);
+
+    xItemNode := xItemNode.NextSibling;
+  end;
+end;
+
 procedure TXMLDeserializer.ReadObject(const aObject: TPersistent);
 begin
   if not Assigned(fCurrentElementNode) then
@@ -627,10 +672,16 @@ procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
   procedure _ReadClass(const bPropElement: PXMLNode);
   var
     xPropObject: TObject;
+    xEnumerationNode: PXMLNode;
   begin
     xPropObject := GetObjectProp(aObject, aPropInfo);
     if Assigned(xPropObject) and (xPropObject is TPersistent) then
+    begin
       ReadObjectProperties(TPersistent(xPropObject), bPropElement);
+
+      if (xPropObject is TCollection) and bPropElement.SelectNode('_oxmlcollection', {%H-}xEnumerationNode) then
+        ReadCollectionItems(TCollection(xPropObject), xEnumerationNode);
+    end;
   end;
 var
   xPropType: PTypeInfo;

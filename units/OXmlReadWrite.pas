@@ -90,7 +90,6 @@ type
     fOwner: TXMLWriter;
     fElementName: OWideString;
     fOpenElementFinished: Boolean;
-    fChildrenWritten: Boolean;
 
     procedure FinishOpenElement;
   public
@@ -2708,7 +2707,6 @@ begin
     outElement.fOwner := Self;
     outElement.fElementName := aElementName;
     outElement.fOpenElementFinished := (aMode = stFinish);
-    outElement.fChildrenWritten := False;
   end;
 end;
 
@@ -2758,20 +2756,18 @@ end;
 procedure TXMLWriterElement.CData(const aText: OWideString);
 begin
   FinishOpenElement;
-  fChildrenWritten := True;
   fOwner.CData(aText);
 end;
 
 procedure TXMLWriterElement.Comment(const aText: OWideString);
 begin
   FinishOpenElement;
-  fChildrenWritten := True;
   fOwner.Comment(aText);
 end;
 
 procedure TXMLWriterElement.CloseElement(const aIndent: Boolean);
 begin
-  if fChildrenWritten then
+  if fOpenElementFinished then
     fOwner.CloseElement(fElementName, aIndent)
   else
     fOwner.FinishOpenElementClose;
@@ -2785,7 +2781,6 @@ procedure TXMLWriterElement.ProcessingInstruction(const aTarget,
   aContent: OWideString);
 begin
   FinishOpenElement;
-  fChildrenWritten := True;
   fOwner.ProcessingInstruction(aTarget, aContent);
 end;
 
@@ -2793,7 +2788,6 @@ procedure TXMLWriterElement.OpenElementR(const aElementName: OWideString;
   var outElement: TXMLWriterElement; const aMode: TXMLWriterElementMode);
 begin
   FinishOpenElement;
-  fChildrenWritten := True;
   fOwner.OpenElementR(aElementName, outElement, aMode);
 end;
 
@@ -2815,7 +2809,6 @@ end;
 procedure TXMLWriterElement.Text(const aText: OWideString; const aIndent: Boolean);
 begin
   FinishOpenElement;
-  fChildrenWritten := True;
   fOwner.Text(aText, aIndent);
 end;
 

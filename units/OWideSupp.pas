@@ -20,13 +20,13 @@ unit OWideSupp;
 
   OWideString type:
     Default string type that supports unicode characters
-    - Delphi 2009+   String         (UTF-16)
+    - Delphi 2009+   string         (UTF-16)
     - Delphi 2007-   WideString     (UTF-16)
-    - FPC            String         (UTF-8)
+    - FPC            string         (UTF-8)
 
   OUnicodeString type:
     Always a UTF-16 string type
-    - Delphi 2009+   String         (UTF-16)
+    - Delphi 2009+   string         (UTF-16)
     - Delphi 2007-   WideString     (UTF-16)
     - FPC            UnicodeString  (UTF-16)
 
@@ -35,9 +35,9 @@ unit OWideSupp;
     !!! must be converted with OFastToWide/OWideToFast to OWideString !!!
     - should be used as internal string storage where high performance is needed
       (basically only for D6-D2007 - their WideString performance is bad)
-    - Delphi 2009+   String         (UTF-16)
-    - Delphi 2007-   String         (UTF-16 is stored inside!!!)
-    - FPC            String         (UTF-8)
+    - Delphi 2009+   string         (UTF-16)
+    - Delphi 2007-   string         (UTF-16 is stored inside!!!)
+    - FPC            string         (UTF-8)
 
   TOWideStringList
     - For Delphi 7-2007: TStringList replacement with WideStrings
@@ -87,7 +87,7 @@ uses
 
 type
   {$IFDEF FPC}
-    OWideString = String;//UTF-8
+    OWideString = string;//UTF-8
     OUnicodeString = UnicodeString;//UTF-16
     OWideChar = Char;
     POWideChar = PChar;
@@ -98,8 +98,8 @@ type
     ONativeUInt = NativeUInt;
   {$ELSE}
     {$IFDEF O_UNICODE}
-      OWideString = String;//UTF-16
-      OUnicodeString = String;//UTF-16
+      OWideString = string;//UTF-16
+      OUnicodeString = string;//UTF-16
       OWideChar = Char;
       POWideChar = PChar;
       OUnicodeChar = Char;
@@ -134,14 +134,12 @@ type
   {$ENDIF}
 
   //OFastString is the fastest possible WideString replacement
-  //Unicode Delphi: String
-  //Non-unicode Delphi: WideString casted as AnsiString
+  //Unicode Delphi: string
+  //Non-unicode Delphi: WideString stored in AnsiString -> with double char size!!!
   //Lazarus: UTF8
-  {$IFDEF O_UNICODE}
-  OFastString = String;
-  {$ELSE}
-  OFastString = String;//WideString data is stored inside -> with double char size!!!
-  {$ENDIF}
+  OFastString = string;
+  POFastChar = PChar;
+
   TOWideStringArray = array of OWideString;
 
   {$IFDEF O_DELPHI_5_DOWN}
@@ -240,7 +238,7 @@ type
     procedure Insert(Index: Integer; const S: OWideString);
     procedure InsertObject(Index: Integer; const S: OWideString;
       AObject: TObject);
-    procedure LoadFromFile(const FileName: String);
+    procedure LoadFromFile(const FileName: string);
     procedure LoadFromStream(Stream: TStream);
     procedure Move(CurIndex, NewIndex: Integer);
     procedure SaveToFile(const FileName: string);
@@ -392,7 +390,7 @@ function OCompareText(const aStr1, aStr2: OWideString): Integer;
 function OCharInSet(const aChar: OWideChar; const aSet: TSysCharSet): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 {$ENDIF}
 //really WideString enabled CharInSet -> but slower!
-function OCharInSetW(const aChar: OWideChar; const aCharArray: Array of OWideChar): Boolean;//TRUE WIDE SUPPORT
+function OCharInSetW(const aChar: OWideChar; const aCharArray: array of OWideChar): Boolean;//TRUE WIDE SUPPORT
 
 {$IFDEF O_DELPHI_6_DOWN}
 type
@@ -609,7 +607,7 @@ begin
 end;
 {$ENDIF}
 
-function OFastLowerCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OFastLowerCase(const aStr: OFastString): OFastString;
 {$IFNDEF O_UNICODE}
 var
   xLength: Integer;
@@ -619,7 +617,7 @@ begin
   Result := OLowerCase(aStr);
   {$ELSE}
   xLength := Length(aStr);
-  SetString(Result, PAnsiChar(aStr), xLength);//MUST BE PAnsiChar(aStr)
+  SetString(Result, POFastChar(aStr), xLength);
   if xLength > 0 then
     CharLowerBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
   {$ENDIF}
@@ -638,7 +636,7 @@ begin
   {$ENDIF}
 end;
 
-function OFastUpperCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OFastUpperCase(const aStr: OFastString): OFastString;
 {$IFNDEF O_UNICODE}
 var
   xLength: Integer;
@@ -648,7 +646,7 @@ begin
   Result := OUpperCase(aStr);
   {$ELSE}
   xLength := Length(aStr);
-  SetString(Result, PWideChar(aStr), xLength);
+  SetString(Result, POFastChar(aStr), xLength);
   if xLength > 0 then
     CharUpperBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
   {$ENDIF}
@@ -775,7 +773,7 @@ begin
   Result := False;
 end;
 
-function OWSLength(const aOWS: OWideString): Integer; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OWSLength(const aOWS: OWideString): Integer;
 begin
   {$IFDEF FPC}
   Result := Length(OWSToWS(aOWS));
@@ -785,7 +783,7 @@ begin
 end;
 
 {$IFNDEF NEXTGEN}
-function ASToOWS(const aAS: AnsiString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function ASToOWS(const aAS: AnsiString): OWideString;
 begin
   {$IFDEF FPC}
   Result := AnsiToUtf8(aAS);
@@ -793,7 +791,7 @@ begin
   Result := OWideString(aAS);
   {$ENDIF}
 end;
-function WSToOWS(const aWS: WideString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function WSToOWS(const aWS: WideString): OWideString;
 begin
   {$IFDEF FPC}
   Result := UTF8Encode(aWS);
@@ -802,7 +800,7 @@ begin
   {$ENDIF}
 end;
 
-function OWSToWS(const aOWS: OWideString): WideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OWSToWS(const aOWS: OWideString): WideString;
 begin
   {$IFDEF FPC}
   Result := UTF8Decode(aOWS);
@@ -992,12 +990,12 @@ end;
 
 function TOWideStringList.Add(const S: OWideString): Integer;
 begin
-  Result := fList.Add(UTF8Decode(S));
+  Result := fList.Add(UTF8Encode(S));
 end;
 
 function TOWideStringList.AddObject(const S: OWideString; AObject: TObject): Integer;
 begin
-  Result := fList.AddObject(UTF8Decode(S), AObject);
+  Result := fList.AddObject(UTF8Encode(S), AObject);
 end;
 
 procedure TOWideStringList.AddStrings(Strings: TOWideStringList);

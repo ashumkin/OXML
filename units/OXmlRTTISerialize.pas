@@ -107,6 +107,7 @@ type
     procedure WriteRootStartElement;
     procedure WriteRootEndElement;
 
+    procedure WriteCollectionItems(const aCollection: TCollection);
     procedure WriteObjectEnumeration(const aObject: TObject; const aType: TRttiType);
     procedure WriteObjectProperty(
       aTagName: OWideString; aType: TRttiType;
@@ -182,6 +183,8 @@ type
     function CreateNewValue(const aType: TRttiType;
       aTypeName: string; const aItemNode: PXMLNode;
       var outAllocatedData: Pointer): TValue;
+    procedure ReadCollectionItems(const aCollection: TCollection;
+      const aEnumerationNode: PXMLNode);
     procedure ReadObjectEnumeration(const aObject: TObject;
       const aType: TRttiType; const aEnumerationNode: PXMLNode);
     procedure ReadObjectProperties(const aInstance: Pointer;
@@ -400,6 +403,23 @@ begin
   WriteObject<T>(aObject, '', False);
 end;
 
+procedure TXMLRTTISerializer.WriteCollectionItems(const aCollection: TCollection);
+var
+  xColItem: TCollectionItem;
+  xItemType: TRttiType;
+begin
+  xItemType := nil;
+  fWriter.OpenElement('_oxmlcollection', stFinish);
+  for xColItem in aCollection do
+  begin
+    if not Assigned(xItemType) then//the collection has items only of 1 kind, no need to check all of them
+      xItemType := Context.GetRealObjectType<TCollectionItem>(xColItem);
+
+    WriteObjectProperty('i', xItemType, TValue.From(xColItem), False, False);
+  end;
+  fWriter.CloseElement('_oxmlcollection');
+end;
+
 procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T;
   aElementName: OWideString; const aWriteObjectType: Boolean);
 var
@@ -523,15 +543,6 @@ begin
       _WriteObjectProperty(aTagName, IntToStr(aValue.AsInt64));
     tkClass, tkRecord, tkInterface:
     begin
-      fWriter.OpenElement(aTagName, stOpenOnly);
-      if (aType.TypeKind = tkClass) then
-      begin
-        xClassName := OXmlNameToXML(aValue.AsObject.ClassName);
-        if aWriteObjectType and (aTagName <> xClassName) then
-          fWriter.Attribute('type', xClassName);
-      end;
-      fWriter.FinishOpenElement;
-
       case aType.TypeKind of
         tkClass: xInstance := aValue.AsObject;
         tkRecord: xInstance := aValue.GetReferenceToRawData;
@@ -540,18 +551,39 @@ begin
         xInstance := nil;
       end;
 
+      fWriter.OpenElement(aTagName, stOpenOnly);
+      if (aType.TypeKind = tkClass) then
+      begin
+        xClassName := OXmlNameToXML(TObject(xInstance).ClassName);
+        if aWriteObjectType and (aTagName <> xClassName) then
+          fWriter.Attribute('type', xClassName);
+      end;
+      fWriter.FinishOpenElement;
+
       for xField in aType.GetFields do
       if (xField.Visibility in fVisibility) then
         WriteObjectProperty(xField.Name, xField.FieldType, xField.GetValue(xInstance), False, True);
 
       for xProperty in aType.GetProperties do
       if (xProperty.Visibility in fVisibility) and
-        (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
+         (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
       then
-        WriteObjectProperty(xProperty.Name, xProperty.PropertyType, xProperty.GetValue(xInstance), False, True);
+      begin
+        xValue := xProperty.GetValue(xInstance);
+        if not((TObject(xInstance) is TCollectionItem) and  //DO NOT WRITE Collection property of TCollectionItem!!!
+               (xValue.IsObject) and
+               (TObject(xValue.AsObject) = TCollectionItem(xInstance).Collection))
+        then
+          WriteObjectProperty(xProperty.Name, xProperty.PropertyType, xProperty.GetValue(xInstance), False, True);
+      end;
 
       if aType.TypeKind = tkClass then
-        WriteObjectEnumeration(TObject(xInstance), aType);
+      begin
+        if TObject(xInstance) is TCollection then
+          WriteCollectionItems(TCollection(xInstance))
+        else
+          WriteObjectEnumeration(TObject(xInstance), aType);
+      end;
 
       fWriter.CloseElement(aTagName, True);
     end;
@@ -806,6 +838,31 @@ begin
 end;
 {$ENDIF}
 
+procedure TXMLRTTIDeserializer.ReadCollectionItems(
+  const aCollection: TCollection; const aEnumerationNode: PXMLNode);
+var
+  xValue: TValue;
+  xItemNode: PXMLNode;
+  xItemType: TRttiType;
+  xNewItem: TCollectionItem;
+begin
+  aCollection.Clear;
+
+  xItemType := nil;
+  xItemNode := aEnumerationNode.FirstChild;
+  while Assigned(xItemNode) do
+  begin
+    xNewItem := aCollection.Add;
+    if not Assigned(xItemType) then//the collection has items only of 1 kind, no need to check all of them
+      xItemType := Context.GetRealObjectType<TCollectionItem>(xNewItem);
+
+    xValue := TValue.From(xNewItem);
+    ReadObjectPropertyValue(xItemType, xItemNode, xValue);
+
+    xItemNode := xItemNode.NextSibling;
+  end;
+end;
+
 procedure TXMLRTTIDeserializer.ReadObject<T>(const aObject: T);
 begin
   if not Assigned(fCurrentElementNode) then
@@ -934,9 +991,13 @@ begin
     then
       ReadObjectProperty(aInstance, xProperty, xProperty.PropertyType, xProperty.GetValue(aInstance), aElementNode, xPropNameIndex);
 
-    if (aType.TypeKind = tkClass) and aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
-      ReadObjectEnumeration(TObject(aInstance), aType, xEnumerationNode);
-
+    if (aType.TypeKind = tkClass) then
+    begin
+      if (TObject(aInstance) is TCollection) and aElementNode.SelectNode('_oxmlcollection', xEnumerationNode) then
+        ReadCollectionItems(TCollection(aInstance), xEnumerationNode)
+      else if aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
+        ReadObjectEnumeration(TObject(aInstance), aType, xEnumerationNode);
+    end;
   finally
     xPropNameIndex.Free;
   end;

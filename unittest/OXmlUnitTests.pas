@@ -193,6 +193,7 @@ type
     fMyWideString: MyWideString;//WideString ist not supported in Delphi XE -> Delphi BUG
     {$ENDIF}
     fMyClass: TText_OXmlSerializer_Test1_Class2;
+    fMyCollection: TCollection;
   public
     constructor Create;
     destructor Destroy; override;
@@ -211,6 +212,7 @@ type
     property MyWideString: MyWideString read fMyWideString write fMyWideString;
     {$ENDIF}
     property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
+    property MyCollection: TCollection read fMyCollection;
   end;
 
   {$IFDEF USE_RTTI}
@@ -263,6 +265,13 @@ type
     property MyObjList: TObjectList<TText_OXmlSerializer_Test1_Class2> read fMyObjList;
   end;
   {$ENDIF}
+
+  TText_OXmlSerializer_Test1_CollectionItem = class(TCollectionItem)
+  private
+    fValue: Integer;
+  published
+    property Value: Integer read fValue write fValue;
+  end;
 
 implementation
 
@@ -1366,6 +1375,8 @@ begin
     xObjectIn.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
     {$ENDIF}
     xObjectIn.MyClass.MyInt := 10;
+    TText_OXmlSerializer_Test1_CollectionItem(xObjectIn.MyCollection.Add).Value := 5;
+    TText_OXmlSerializer_Test1_CollectionItem(xObjectIn.MyCollection.Add).Value := -8;
 
     xSerializer.WriteObject(xObjectIn, 'customobject', True);
 
@@ -1450,6 +1461,8 @@ begin
       xObjectIn[I].MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
       {$ENDIF}
       xObjectIn[I].MyClass.MyInt := I + 10;
+      TText_OXmlSerializer_Test1_CollectionItem(xObjectIn[I].MyCollection.Add).Value := 5 + I;
+      TText_OXmlSerializer_Test1_CollectionItem(xObjectIn[I].MyCollection.Add).Value := -8 - I;
 
       xSerializer.WriteObject(xObjectIn[I]);
     end;
@@ -3036,6 +3049,7 @@ end;
 constructor TText_OXmlSerializer_Test1_Class.Create;
 begin
   fMyClass := TText_OXmlSerializer_Test1_Class2.Create;
+  fMyCollection := TCollection.Create(TText_OXmlSerializer_Test1_CollectionItem);
 
   inherited Create;
 end;
@@ -3043,12 +3057,15 @@ end;
 destructor TText_OXmlSerializer_Test1_Class.Destroy;
 begin
   fMyClass.Free;
+  fMyCollection.Free;
 
   inherited;
 end;
 
 function TText_OXmlSerializer_Test1_Class.SameAs(
   aCompare: TText_OXmlSerializer_Test1_Class): Boolean;
+var
+  I: Integer;
 begin
   Result :=
     (MyInt = aCompare.MyInt) and
@@ -3064,7 +3081,19 @@ begin
     {$IFDEF O_DELPHI_XE2_UP}
     (MyWideString = aCompare.MyWideString) and
     {$ENDIF}
-    (MyClass.MyInt = aCompare.MyClass.MyInt);
+    (MyClass.MyInt = aCompare.MyClass.MyInt) and
+    (MyCollection.Count = aCompare.MyCollection.Count);
+
+  if Result then
+  for I := 0 to MyCollection.Count-1 do
+  begin
+    Result :=
+      TText_OXmlSerializer_Test1_CollectionItem(MyCollection.Items[I]).Value =
+      TText_OXmlSerializer_Test1_CollectionItem(aCompare.MyCollection.Items[I]).Value;
+
+    if not Result then
+      Break;
+  end;
 end;
 
 { TText_OXmlSerializer_Test1_Class2A }

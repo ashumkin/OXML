@@ -1,6 +1,15 @@
 OXml Change Log
 ---------------
 
+Version 1.4 2014-12-10 [SVN commit: 58, https://sourceforge.net/p/oxml/code/58/]
+  - Fixed bug in TOWideStringList (only Delphi 5-2007).
+  - OEncoding.pas: added support for Big Endian UTF-16.
+  - OEncoding.pas: added support for UTF-7 (only Delphi 2009+ or Windows platform).
+  - OXmlSerialize.pas: added support for TCollection.
+  - OXmlRTTISerialize.pas: added support for TCollection.
+  - Small bug in TXMLWriterElement fixed.
+
+
 Version 1.3 2014-12-04 [SVN commit: 57, https://sourceforge.net/p/oxml/code/57/]
   - Case-insensitive TOHashedStrings.
   - Fixed bug when reading file with last #10 character.
