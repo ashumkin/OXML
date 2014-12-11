@@ -63,7 +63,7 @@ uses
   SysUtils, Classes, TypInfo, RTTI, Generics.Collections,
   {$ENDIF}
   OWideSupp, OEncoding, OHashedStrings, OTextReadWrite,
-  OXmlReadWrite, OXmlPDOM, OXmlSeq;
+  OXmlReadWrite, OXmlPDOM, OXmlSeq, OXmlUtils;
 
 type
   TXMLRTTISerializer = class;
@@ -72,19 +72,27 @@ type
 
   TCustomXMLRTTISerDes = class abstract(TObject)
   private
-    fVisibility: TMemberVisibilitySet;
-
     fContext: TRttiContext;
+
+    fVisibility: TMemberVisibilitySet;
+    fUseRoot: Boolean;
+    fCollectionStyle: TXMLSerializeCollectionStyle;
   protected
     procedure DoCreate; virtual;
 
     property Context: TRttiContext read fContext;
+    procedure SetUseRoot(const aUseRoot: Boolean); virtual;
   public
     constructor Create;
     destructor Destroy; override;
   public
     //write properties only from a specific visibility
     property Visibility: TMemberVisibilitySet read fVisibility write fVisibility;
+    //use root
+    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+    //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
+    //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
+    property CollectionStyle: TXMLSerializeCollectionStyle read fCollectionStyle write fCollectionStyle;
   end;
 
   TXMLRTTISerializer = class(TCustomXMLRTTISerDes)
@@ -93,14 +101,14 @@ type
     fRootElementWritten: Boolean;
 
     fXMLDeclaration: TXMLWriterDeclaration;
-    fUseRoot: Boolean;
     fRootNodeName: OWideString;
     fWriteDefaultValues: Boolean;
   private
     function GetWriterSettings: TXMLWriterSettings;
-    procedure SetUseRoot(const aUseRoot: Boolean);
     procedure SetRootNodeName(const aRootNodeName: OWideString);
   protected
+    procedure SetUseRoot(const aUseRoot: Boolean); override;
+
     procedure DoCreate; override;
     procedure DoInit; virtual;
 
@@ -147,11 +155,14 @@ type
     //  please note that if you disable it (UseRoot = false) and
     //  write more objects to the XML, the XML won't be valid because
     //  XML documents can have only one root
-    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+    property UseRoot;
     //custom root node
     property RootNodeName: OWideString read fRootNodeName write SetRootNodeName;
     //write object properties with default values?
     property WriteDefaultValues: Boolean read fWriteDefaultValues write fWriteDefaultValues;
+    //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
+    //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
+    property CollectionStyle;
     //write properties only from a specific visibility
     property Visibility;
 
@@ -164,16 +175,15 @@ type
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
 
-    fUseRoot: Boolean;
-
     fCreateClasses: TDictionary<string,TClass>;
 
     function GetApproxStreamPosition: OStreamInt;
     function GetStreamSize: OStreamInt;
     function GetReaderSettings: TXMLReaderSettings;
     function GetParseError: IOTextParseError;
-    procedure SetUseRoot(const aUseRoot: Boolean);
   protected
+    procedure SetUseRoot(const aUseRoot: Boolean); override;
+
     procedure DoCreate; override;
     procedure DoInit; virtual;
 
@@ -184,7 +194,7 @@ type
       aTypeName: string; const aItemNode: PXMLNode;
       var outAllocatedData: Pointer): TValue;
     procedure ReadCollectionItems(const aCollection: TCollection;
-      const aEnumerationNode: PXMLNode);
+      const aEnumerationNode: PXMLNode; const aChildName: OWideString);
     procedure ReadObjectEnumeration(const aObject: TObject;
       const aType: TRttiType; const aEnumerationNode: PXMLNode);
     procedure ReadObjectProperties(const aInstance: Pointer;
@@ -242,7 +252,7 @@ type
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
 
     //use root - please use the same setting here as in TXMLSerialize
-    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+    property UseRoot;
   public
     //following functions and properties can be called only during parsing (after Init* has been called).
 
@@ -302,7 +312,7 @@ type
 implementation
 
 uses
-  OXmlLng, OXmlUtils;
+  OXmlLng;
 
 type
   TValueHelper = record helper for TValue
@@ -348,7 +358,6 @@ begin
   fWriter := TXMLWriter.Create;
   fXMLDeclaration := TXMLWriterDeclaration.Create;
   fRootNodeName := 'oxmlserializer';
-  fUseRoot := True;
 end;
 
 procedure TXMLRTTISerializer.DoInit;
@@ -395,7 +404,7 @@ begin
   if fRootElementWritten then
     raise EXMLRTTISerializer.Create(OXmlLng_CannotChangeUseRootDataWritten)
   else
-    fUseRoot := aUseRoot;
+    inherited SetUseRoot(aUseRoot);
 end;
 
 procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T);
@@ -409,15 +418,22 @@ var
   xItemType: TRttiType;
 begin
   xItemType := nil;
-  fWriter.OpenElement('_oxmlcollection', stFinish);
+  if CollectionStyle = csOXml then
+    fWriter.OpenElement('_oxmlcollection', stFinish);
+
   for xColItem in aCollection do
   begin
     if not Assigned(xItemType) then//the collection has items only of 1 kind, no need to check all of them
       xItemType := Context.GetRealObjectType<TCollectionItem>(xColItem);
 
-    WriteObjectProperty('i', xItemType, TValue.From(xColItem), False, False);
+    case CollectionStyle of
+      csOXml: WriteObjectProperty('i', xItemType, TValue.From(xColItem), False, False);
+      csOmniXML: WriteObjectProperty(xColItem.ClassName, xItemType, TValue.From(xColItem), False, False);
+    end;
   end;
-  fWriter.CloseElement('_oxmlcollection');
+
+  if CollectionStyle = csOXml then
+    fWriter.CloseElement('_oxmlcollection');
 end;
 
 procedure TXMLRTTISerializer.WriteObject<T>(const aObject: T;
@@ -610,7 +626,7 @@ end;
 
 procedure TXMLRTTISerializer.WriteRootEndElement;
 begin
-  if fUseRoot and fRootElementWritten then
+  if UseRoot and fRootElementWritten then
     fWriter.CloseElement(fRootNodeName);
 end;
 
@@ -620,7 +636,7 @@ begin
   begin
     fXMLDeclaration.WriteIfEnabled(fWriter);
 
-    if fUseRoot then
+    if UseRoot then
       fWriter.OpenElement(fRootNodeName, stFinish);
 
     fRootElementWritten := True;
@@ -767,7 +783,6 @@ begin
 
   fXMLParser := TXMLSeqParser.Create;
   fCreateClasses := TDictionary<string,TClass>.Create;
-  fUseRoot := True;
 end;
 
 procedure TXMLRTTIDeserializer.DoInit;
@@ -839,26 +854,34 @@ end;
 {$ENDIF}
 
 procedure TXMLRTTIDeserializer.ReadCollectionItems(
-  const aCollection: TCollection; const aEnumerationNode: PXMLNode);
+  const aCollection: TCollection; const aEnumerationNode: PXMLNode;
+  const aChildName: OWideString);
 var
   xValue: TValue;
   xItemNode: PXMLNode;
   xItemType: TRttiType;
   xNewItem: TCollectionItem;
+  xChildNameId: OHashedStringsIndex;
 begin
   aCollection.Clear;
+
+  xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString(aChildName);
+  if xChildNameId < 0 then
+    Exit;
 
   xItemType := nil;
   xItemNode := aEnumerationNode.FirstChild;
   while Assigned(xItemNode) do
   begin
-    xNewItem := aCollection.Add;
-    if not Assigned(xItemType) then//the collection has items only of 1 kind, no need to check all of them
-      xItemType := Context.GetRealObjectType<TCollectionItem>(xNewItem);
+    if xItemNode.NodeNameId = xChildNameId then
+    begin
+      xNewItem := aCollection.Add;
+      if not Assigned(xItemType) then//the collection has items only of 1 kind, no need to check all of them
+        xItemType := Context.GetRealObjectType<TCollectionItem>(xNewItem);
 
-    xValue := TValue.From(xNewItem);
-    ReadObjectPropertyValue(xItemType, xItemNode, xValue);
-
+      xValue := TValue.From(xNewItem);
+      ReadObjectPropertyValue(xItemType, xItemNode, xValue);
+    end;
     xItemNode := xItemNode.NextSibling;
   end;
 end;
@@ -939,7 +962,7 @@ function TXMLRTTIDeserializer.ReadObjectInfo(var outElementName,
 var
   xRootNodeOpen: Boolean;
 begin
-  if fUseRoot and not Assigned(fRootNode) then
+  if UseRoot and not Assigned(fRootNode) then
   begin
     Result :=
       fXMLParser.ReadNextChildElementHeader({%H-}fRootNode, {%H-}xRootNodeOpen) and//no root element
@@ -993,9 +1016,17 @@ begin
 
     if (aType.TypeKind = tkClass) then
     begin
-      if (TObject(aInstance) is TCollection) and aElementNode.SelectNode('_oxmlcollection', xEnumerationNode) then
-        ReadCollectionItems(TCollection(aInstance), xEnumerationNode)
-      else if aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
+      if (TObject(aInstance) is TCollection) then
+      begin
+        case CollectionStyle of
+          csOXml:
+            if aElementNode.SelectNode('_oxmlcollection', xEnumerationNode) then
+              ReadCollectionItems(TCollection(aInstance), xEnumerationNode, 'i');
+          csOmniXML:
+            ReadCollectionItems(TCollection(aInstance), aElementNode, TCollection(aInstance).ItemClass.ClassName);
+        end;
+      end else
+      if aElementNode.SelectNode('_oxmldefenum', xEnumerationNode) then
         ReadObjectEnumeration(TObject(aInstance), aType, xEnumerationNode);
     end;
   finally
@@ -1156,7 +1187,7 @@ begin
   if fXMLParser.ApproxStreamPosition > 0 then
     raise EXMLRTTISerializer.Create(OXmlLng_CannotChangeUseRootDataRead)
   else
-    fUseRoot := aUseRoot;
+    inherited SetUseRoot(aUseRoot);
 end;
 
 { TValueHelper }
@@ -1216,6 +1247,12 @@ procedure TCustomXMLRTTISerDes.DoCreate;
 begin
   fContext := TRttiContext.Create;
   fVisibility := [mvPublic, mvPublished];
+  fUseRoot := True;
+end;
+
+procedure TCustomXMLRTTISerDes.SetUseRoot(const aUseRoot: Boolean);
+begin
+  fUseRoot := aUseRoot;
 end;
 
 { TSerializableDictionary<TKey, TValue> }

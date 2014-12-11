@@ -65,6 +65,10 @@ type
      ckLowerThan, ckGreaterThan, ckSquareBracketOpen, ckSquareBracketClose,
      ckCharacter, ckInvalid);
 
+  //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
+  //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
+  TXMLSerializeCollectionStyle = (csOXml, csOmniXML);
+
   {$IFDEF O_GENERICARRAY}
   TXMLIntArray = TArray<Integer>;
   {$ELSE}

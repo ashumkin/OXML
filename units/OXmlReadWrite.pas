@@ -90,8 +90,6 @@ type
     fOwner: TXMLWriter;
     fElementName: OWideString;
     fOpenElementFinished: Boolean;
-
-    procedure FinishOpenElement;
   public
     // <aElementName ... >, <aElementName ... /> etc.
     procedure OpenElementR(const aElementName: OWideString;
@@ -99,6 +97,9 @@ type
       const aMode: TXMLWriterElementMode = stOpenOnly); overload;
     function OpenElementR(const aElementName: OWideString;
       const aMode: TXMLWriterElementMode = stOpenOnly): TXMLWriterElement; overload;
+
+    //"/>" if not already written
+    procedure FinishOpenElement;
 
     // </fElementName> or "/>" if no children were written
     procedure CloseElement(const aIndent: Boolean = True);

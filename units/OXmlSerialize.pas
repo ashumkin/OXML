@@ -60,24 +60,43 @@ uses
   {$IFNDEF O_GENERICS}
   ODictionary,
   {$ENDIF}
-  OWideSupp, OEncoding, OTextReadWrite, OXmlReadWrite, OXmlPDOM, OXmlSeq;
+  OWideSupp, OEncoding, OTextReadWrite, OXmlReadWrite, OXmlPDOM, OXmlSeq,
+  OXmlUtils;
 
 type
-  TXMLSerializer = class(TObject)
+  TCustomXMLSerDes = class(TObject)
+  private
+    fUseRoot: Boolean;
+    fCollectionStyle: TXMLSerializeCollectionStyle;
+  protected
+    procedure DoCreate; virtual;
+
+    procedure SetUseRoot(const aUseRoot: Boolean); virtual;
+  public
+    constructor Create;
+  public
+    //use root
+    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+    //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
+    //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
+    property CollectionStyle: TXMLSerializeCollectionStyle read fCollectionStyle write fCollectionStyle;
+  end;
+
+  TXMLSerializer = class(TCustomXMLSerDes)
   private
     fWriter: TXMLWriter;
     fRootElementWritten: Boolean;
 
     fXMLDeclaration: TXMLWriterDeclaration;
-    fUseRoot: Boolean;
     fRootNodeName: OWideString;
     fWriteDefaultValues: Boolean;
   private
     function GetWriterSettings: TXMLWriterSettings;
-    procedure SetUseRoot(const aUseRoot: Boolean);
     procedure SetRootNodeName(const aRootNodeName: OWideString);
   protected
-    procedure DoCreate;
+    procedure SetUseRoot(const aUseRoot: Boolean); override;
+
+    procedure DoCreate; override;
     procedure DoInit;
 
     procedure WriteRootStartElement;
@@ -122,38 +141,40 @@ type
     //  please note that if you disable it (UseRoot = false) and
     //  write more objects to the XML, the XML won't be valid because
     //  XML documents can have only one root
-    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+    property UseRoot;
     //custom root node
     property RootNodeName: OWideString read fRootNodeName write SetRootNodeName;
     //write object properties with default values?
     property WriteDefaultValues: Boolean read fWriteDefaultValues write fWriteDefaultValues;
+    //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
+    //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
+    property CollectionStyle;
 
     //XML writer settings
     property WriterSettings: TXMLWriterSettings read GetWriterSettings;
   end;
 
-  TXMLDeserializer = class(TObject)
+  TXMLDeserializer = class(TCustomXMLSerDes)
   private
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
-
-    fUseRoot: Boolean;
 
     function GetApproxStreamPosition: OStreamInt;
     function GetStreamSize: OStreamInt;
     function GetReaderSettings: TXMLReaderSettings;
     function GetParseError: IOTextParseError;
-    procedure SetUseRoot(const aUseRoot: Boolean);
   protected
+    procedure SetUseRoot(const aUseRoot: Boolean); override;
+
+    procedure DoCreate; override;
     procedure DoInit;
 
     procedure ReadObjectProperties(const aObject: TPersistent; const aElementNode: PXMLNode);
     procedure ReadObjectProperty(const aObject: TPersistent; const aPropInfo: PPropInfo;
       const aElementNode: PXMLNode; var ioPropNameIndex: TXMLNodeIndex);
     procedure ReadCollectionItems(const aCollection: TCollection;
-      const aEnumerationNode: PXMLNode);
+      const aEnumerationNode: PXMLNode; const aChildName: OWideString);
   public
-    constructor Create;
     destructor Destroy; override;
   public
     //The Init* procedures open and initialize a XML document for parsing.
@@ -186,7 +207,11 @@ type
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
 
     //use root - please use the same setting here as in TXMLSerialize
-    property UseRoot: Boolean read fUseRoot write SetUseRoot;
+    property UseRoot;
+
+    //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
+    //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
+    property CollectionStyle;
   public
     //following functions and properties can be called only during parsing (after Init* has been called).
 
@@ -216,25 +241,40 @@ type
 implementation
 
 uses
-  OXmlLng, OXmlUtils
+  OXmlLng, OHashedStrings
   {$IFDEF O_DELPHI_2007_DOWN}
   , Controls//definition of TTime and TDate
   {$ENDIF};
+
+{ TCustomXMLSerDes }
+
+constructor TCustomXMLSerDes.Create;
+begin
+  DoCreate;
+
+  inherited Create;
+end;
+
+procedure TCustomXMLSerDes.DoCreate;
+begin
+  fUseRoot := True;
+end;
+
+procedure TCustomXMLSerDes.SetUseRoot(const aUseRoot: Boolean);
+begin
+  fUseRoot := aUseRoot;
+end;
 
 { TXMLSerializer }
 
 constructor TXMLSerializer.Create;
 begin
   inherited Create;
-
-  DoCreate;
 end;
 
 constructor TXMLSerializer.Create(const aStream: TStream);
 begin
   inherited Create;
-
-  DoCreate;
 
   InitStream(aStream);
 end;
@@ -254,7 +294,6 @@ begin
   fXMLDeclaration := TXMLWriterDeclaration.Create;
 
   fRootNodeName := 'oxmlserializer';
-  fUseRoot := True;
 end;
 
 procedure TXMLSerializer.DoInit;
@@ -301,7 +340,7 @@ begin
   if fRootElementWritten then
     raise EXMLSerializer.Create(OXmlLng_CannotChangeUseRootDataWritten)
   else
-    fUseRoot := aUseRoot;
+    inherited SetUseRoot(aUseRoot);
 end;
 
 procedure TXMLSerializer.WriteObject(const aObject: TPersistent);
@@ -319,13 +358,21 @@ begin
   if aCollection.Count = 0 then
     Exit;
 
-  ioElement.OpenElementR('_oxmlcollection', {%H-}xColElem, stFinish);
+  ioElement.FinishOpenElement;
+  if CollectionStyle = csOXml then
+    ioElement.OpenElementR('_oxmlcollection', {%H-}xColElem, stFinish);
+
   for I := 0 to aCollection.Count-1 do
   begin
     xColItem := aCollection.Items[I];
-    WriteObject(xColItem, 'i', False);
+    case CollectionStyle of
+      csOXml: WriteObject(xColItem, 'i', False);
+      csOmniXML: WriteObject(xColItem, xColItem.ClassName, False);
+    end;
   end;
-  xColElem.CloseElement;
+
+  if CollectionStyle = csOXml then
+    xColElem.CloseElement;
 end;
 
 procedure TXMLSerializer.WriteObject(const aObject: TPersistent;
@@ -453,7 +500,7 @@ end;
 
 procedure TXMLSerializer.WriteRootEndElement;
 begin
-  if fUseRoot and fRootElementWritten then
+  if UseRoot and fRootElementWritten then
     fWriter.CloseElement(fRootNodeName);
 end;
 
@@ -463,7 +510,7 @@ begin
   begin
     fXMLDeclaration.WriteIfEnabled(fWriter);
 
-    if fUseRoot then
+    if UseRoot then
       fWriter.OpenElement(fRootNodeName, stFinish);
 
     fRootElementWritten := True;
@@ -472,19 +519,16 @@ end;
 
 { TXMLDeserializer }
 
-constructor TXMLDeserializer.Create;
-begin
-  inherited Create;
-
-  fXMLParser := TXMLSeqParser.Create;
-  fUseRoot := True;
-end;
-
 destructor TXMLDeserializer.Destroy;
 begin
   fXMLParser.Free;
 
   inherited;
+end;
+
+procedure TXMLDeserializer.DoCreate;
+begin
+  fXMLParser := TXMLSeqParser.Create;
 end;
 
 procedure TXMLDeserializer.DoInit;
@@ -556,20 +600,27 @@ end;
 {$ENDIF}
 
 procedure TXMLDeserializer.ReadCollectionItems(const aCollection: TCollection;
-  const aEnumerationNode: PXMLNode);
+  const aEnumerationNode: PXMLNode; const aChildName: OWideString);
 var
   xItemNode: PXMLNode;
   xNewItem: TCollectionItem;
+  xChildNameId: OHashedStringsIndex;
 begin
   aCollection.Clear;
+
+  xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString(aChildName);
+  if xChildNameId < 0 then
+    Exit;
 
   xItemNode := aEnumerationNode.FirstChild;
   while Assigned(xItemNode) do
   begin
-    xNewItem := aCollection.Add;
+    if xItemNode.NodeNameId = xChildNameId then
+    begin
+      xNewItem := aCollection.Add;
 
-    ReadObjectFromNode(xNewItem, xItemNode);
-
+      ReadObjectFromNode(xNewItem, xItemNode);
+    end;
     xItemNode := xItemNode.NextSibling;
   end;
 end;
@@ -595,7 +646,7 @@ function TXMLDeserializer.ReadObjectInfo(var outElementName,
 var
   xRootNodeOpen: Boolean;
 begin
-  if fUseRoot and not Assigned(fRootNode) then
+  if UseRoot and not Assigned(fRootNode) then
   begin
     Result :=
       fXMLParser.ReadNextChildElementHeader({%H-}fRootNode, {%H-}xRootNodeOpen) and//no root element
@@ -679,8 +730,16 @@ procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
     begin
       ReadObjectProperties(TPersistent(xPropObject), bPropElement);
 
-      if (xPropObject is TCollection) and bPropElement.SelectNode('_oxmlcollection', {%H-}xEnumerationNode) then
-        ReadCollectionItems(TCollection(xPropObject), xEnumerationNode);
+      if (xPropObject is TCollection) then
+      begin
+        case CollectionStyle of
+          csOXml:
+            if bPropElement.SelectNode('_oxmlcollection', {%H-}xEnumerationNode) then
+              ReadCollectionItems(TCollection(xPropObject), xEnumerationNode, 'i');
+          csOmniXML:
+            ReadCollectionItems(TCollection(xPropObject), bPropElement, TCollection(xPropObject).ItemClass.ClassName);
+        end;
+      end;
     end;
   end;
 var
@@ -762,7 +821,7 @@ begin
   if fXMLParser.ApproxStreamPosition > 0 then
     raise EXMLSerializer.Create(OXmlLng_CannotChangeUseRootDataRead)
   else
-    fUseRoot := aUseRoot;
+    inherited SetUseRoot(aUseRoot);
 end;
 
 end.
