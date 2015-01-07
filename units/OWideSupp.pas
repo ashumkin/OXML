@@ -662,7 +662,29 @@ begin
   if xLength > 0 then
     CharUpperBuffW(Pointer(Result), xLength);
 end;
-{$ENDIF}
+
+function WideCompareText(const S1, S2: WideString): Integer;
+  function _AnsiVersion(const S1, S2: WideString; CmpFlags: Integer): Integer;
+  var
+    a1, a2: AnsiString;
+  begin
+    a1 := s1;
+    a2 := s2;
+    Result := CompareStringA(LOCALE_USER_DEFAULT, CmpFlags, PChar(a1), Length(a1),
+      PChar(a2), Length(a2)) - 2;
+  end;
+begin
+  SetLastError(0);
+  Result := CompareStringW(LOCALE_USER_DEFAULT, NORM_IGNORECASE, PWideChar(S1),
+    Length(S1), PWideChar(S2), Length(S2)) - 2;
+  case GetLastError of
+    0: ;
+    ERROR_CALL_NOT_IMPLEMENTED: Result := _AnsiVersion(S1, S2, NORM_IGNORECASE);
+  else
+    RaiseLastWin32Error;
+  end;
+end;
+{$ENDIF O_DELPHI_5_DOWN}
 
 function OUpperCase(const aStr: OWideString): OWideString;
 begin

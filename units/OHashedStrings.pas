@@ -140,7 +140,7 @@ type
     function GetKey(const aIndex: OHashedStringsIndex): OWideString;
     function GetValue(const aIndex: OHashedStringsIndex): OWideString;
     procedure SetCaseSensitive(aCaseSensitive: Boolean);
-    procedure SetValue(const aIndex: OHashedStringsIndex; aValue: OWideString);
+    procedure SetValue(const aIndex: OHashedStringsIndex; const aValue: OWideString);
     function GetValueOfKey(const aKey: OWideString): OWideString;
     procedure SetValueOfKey(const aKey, aValue: OWideString);
     function GetPair(const aIndex: OHashedStringsIndex): TOHashedStringDictionaryPair;
@@ -354,8 +354,8 @@ begin
   fKeys.CaseSensitive := aCaseSensitive;
 end;
 
-procedure TOHashedStringDictionary.SetValue(const aIndex: OHashedStringsIndex; aValue: OWideString
-  );
+procedure TOHashedStringDictionary.SetValue(const aIndex: OHashedStringsIndex;
+  const aValue: OWideString);
 begin
   fValues[aIndex] := aValue;
 end;

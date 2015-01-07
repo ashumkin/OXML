@@ -1,6 +1,12 @@
 OXml Change Log
 ---------------
 
+Version 1.5 2015-01-07 [SVN commit: 60, https://sourceforge.net/p/oxml/code/60/]
+  - TEncoding.GetSupportedEncodings modified to a function.
+  - Fixed bug in TEncoding in Delphi 2009 and 2010.
+  - Some Delphi 5 issues solved.
+
+
 Version 1.4 2014-12-10 [SVN commit: 58, https://sourceforge.net/p/oxml/code/58/]
   - Fixed bug in TOWideStringList (only Delphi 5-2007).
   - OEncoding.pas: added support for Big Endian UTF-16.

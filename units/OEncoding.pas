@@ -140,7 +140,7 @@ type
     class function AliasToCodePage(const aAlias: OWideString): Cardinal;
     class function CodePageToAlias(const aCodePage: Cardinal): OWideString;
     class function GetFormattedEncodingName(const aCodePage: Cardinal; const aCPAlias: OWideString): OWideString;
-    class procedure GetSupportedEncodings(var outEncodingArray: TEncodingInfoArray);
+    class function GetSupportedEncodings: TEncodingInfoArray;
   public
     //retrieve standard encodings
     class function Default: TEncoding;
@@ -233,7 +233,7 @@ type
     class function AliasToCodePage(const aAlias: OWideString): Cardinal;
     class function CodePageToAlias(const aCodePage: Cardinal): OWideString;
     class function GetFormattedEncodingName(const aCodePage: Cardinal; const aCPAlias: OWideString): OWideString;
-    class procedure GetSupportedEncodings(var outEncodingArray: TEncodingInfoArray);
+    class function GetSupportedEncodings: TEncodingInfoArray;
     class function GetEncodingFromBOM(const aBuffer: TEncodingBuffer; var outEncoding: TEncoding): Integer; overload;
     class function GetEncodingFromBOM(const aBuffer: TEncodingBuffer; var outEncoding: TEncoding;
       aDefaultEncoding: TEncoding): Integer; overload;
@@ -246,10 +246,12 @@ type
 
     function CloneIfNotStandard: TEncoding;
   end;
+  {$IFNDEF O_DELPHI_XE_UP}
   TMBCSEncodingHelper = class helper for TMBCSEncoding
   public
-    function GetCodePage: Cardinal;
+    function CodePage: Cardinal;
   end;
+  {$ENDIF}
 {$ENDIF}
 
 function SameEncodingBuffer(const aBuffer1, aBuffer2: TEncodingBuffer): Boolean;
@@ -1067,21 +1069,19 @@ begin
 end;
 
 {$IFDEF O_DELPHI_2009_UP}
-class procedure TEncodingHelper.GetSupportedEncodings(
-  var outEncodingArray: TEncodingInfoArray);
+class function TEncodingHelper.GetSupportedEncodings: TEncodingInfoArray;
 {$ELSE}
-class procedure TEncoding.GetSupportedEncodings(
-  var outEncodingArray: TEncodingInfoArray);
+class function TEncoding.GetSupportedEncodings: TEncodingInfoArray;
 {$ENDIF}
 var
   I, L: Integer;
 begin
-  SetLength(outEncodingArray, Length(CodePages) + 1);//set length of result array to maximum possible fields
-  L := Low(outEncodingArray);
+  SetLength(Result, Length(CodePages) + 1);//set length of result array to maximum possible fields
+  L := Low(Result);
   {$IFDEF MSWINDOWS}
   //MOVE ANSI TO FIRST POSITION
-  outEncodingArray[L].CodePage := TEncoding.ANSI.EncodingCodePage;
-  outEncodingArray[L].CPAlias := TEncoding.ANSI.EncodingAlias;
+  Result[L].CodePage := TEncoding.ANSI.EncodingCodePage;
+  Result[L].CPAlias := TEncoding.ANSI.EncodingAlias;
   Inc(L);
   {$ENDIF}
 
@@ -1101,7 +1101,7 @@ begin
         if TEncoding.ANSI.EncodingCodePage <> CodePages[I].CodePage then
         {$ENDIF}
         begin
-          outEncodingArray[L] := CodePages[I];
+          Result[L] := CodePages[I];
           Inc(L);
         end;
     {$IFNDEF O_ENCODINGS_FULL}
@@ -1110,23 +1110,17 @@ begin
     end;
     {$ENDIF}
   end;
-  SetLength(outEncodingArray, L);//set length of result array to real fields
+  SetLength(Result, L);//set length of result array to real fields
 end;
 
 {$IFDEF O_DELPHI_2009_UP}
 { TEncodingHelper }
 
 {$IFNDEF O_DELPHI_XE_UP}
-type
-  TMyMBCSEncoding = class(TEncoding)
-  private
-    FCodePage: Cardinal;
-  end;
-
 function TEncodingHelper.Clone: TEncoding;
 begin
   if Self is TMBCSEncoding then
-    Result := TMBCSEncoding(Self).Create(TMyMBCSEncoding(Self).FCodePage)
+    Result := TMBCSEncoding(Self).Create(TMBCSEncoding(Self).CodePage)
   else
     Result := TEncoding(Self.ClassType.Create);
 end;
@@ -1220,10 +1214,12 @@ end;
 
 { TMBCSEncodingHelper }
 
-function TMBCSEncodingHelper.GetCodePage: Cardinal;
+{$IFNDEF O_DELPHI_XE_UP}
+function TMBCSEncodingHelper.CodePage: Cardinal;
 begin
   Result := Self.FCodePage;
 end;
+{$ENDIF}
 {$ENDIF O_DELPHI_2009_UP}
 
 {$IFNDEF O_DELPHI_2009_UP}
