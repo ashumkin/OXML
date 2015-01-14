@@ -85,7 +85,7 @@ type
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: string; const aForceEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil);
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -295,7 +295,7 @@ begin
   DoInit;
 end;
 
-procedure TXMLSeqParser.InitFile(const aFileName: string;
+procedure TXMLSeqParser.InitFile(const aFileName: OWideString;
   const aForceEncoding: TEncoding);
 begin
   fReader.InitFile(aFileName, aForceEncoding);

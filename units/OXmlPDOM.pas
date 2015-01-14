@@ -358,7 +358,7 @@ type
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function LoadFromFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil): Boolean;
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -377,7 +377,7 @@ type
     //save document with custom writer
     procedure SaveToWriter(const aWriter: TXMLWriter);
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: string);
+    procedure SaveToFile(const aFileName: OWideString);
     //save document to stream in encoding specified by the document
     procedure SaveToStream(const aStream: TStream);
     //returns XML as string (always in the system OWideString encoding and with system line breaks)
@@ -495,7 +495,7 @@ type
   TXMLDocument = class(TInterfacedObject, IXMLDocument, ICustomXMLDocument)
   private
     fLoading: Boolean;
-    fURL: string;
+    fURL: OWideString;
 
     fDictionary: TOHashedStrings;
 
@@ -528,6 +528,8 @@ type
     procedure SetXMLDeclarationAttribute(const aAttributeName, aAttributeValue: OWideString);
     function GetCodePage: Word;
     procedure SetCodePage(const aCodePage: Word);
+    function GetURL: OWideString;
+    procedure SetURL(const aURL: OWideString);
     function GetVersion: OWideString;
     procedure SetVersion(const aVersion: OWideString);
     function GetEncoding: OWideString;
@@ -601,7 +603,7 @@ type
 
   public
     function LoadFromReader(const aReader: TXMLReader; var outReaderToken: PXMLReaderToken): Boolean;
-    function LoadFromFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil): Boolean;
     function LoadFromStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
     function LoadFromXML(const aXML: OWideString): Boolean;
     {$IFDEF O_RAWBYTESTRING}
@@ -611,7 +613,7 @@ type
     function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
     procedure SaveToWriter(const aWriter: TXMLWriter);
-    procedure SaveToFile(const aFileName: string);
+    procedure SaveToFile(const aFileName: OWideString);
     procedure SaveToStream(const aStream: TStream);
 
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
@@ -632,6 +634,8 @@ type
     function XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString; overload;
     {$ENDIF}
   public
+    property URL: OWideString read GetURL write SetURL;
+
     property Node: PXMLNode read fBlankDocumentNode;//GetDocumentNode; performance
     property DocumentElement: PXMLNode read GetDocumentElement write SetDocumentElement;
     property AbsoluteNodeCount: XMLNodeId read GetAbsoluteNodeCount;
@@ -2196,13 +2200,13 @@ begin
   end;
 end;
 
-function TXMLNode.LoadFromFile(const aFileName: string;
+function TXMLNode.LoadFromFile(const aFileName: OWideString;
   const aForceEncoding: TEncoding): Boolean;
 var
-  xFS: TFileStream;
+  xFS: TOFileStream;
 begin
-  fOwnerDocument.fURL := aFileName;
-  xFS := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
+  fOwnerDocument.URL := aFileName;
+  xFS := TOFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
   try
     Result := LoadFromStream(xFS, aForceEncoding);
   finally
@@ -2275,7 +2279,7 @@ begin
     end;
   finally
     fOwnerDocument.Loading := False;
-    fOwnerDocument.fURL := '';
+    fOwnerDocument.URL := '';
   end;
 end;
 
@@ -2290,6 +2294,7 @@ begin
     xReader.ReaderSettings.Assign(OwnerDocument.fReaderSettings);
 
     xReader.InitStream(aStream, aForceEncoding);
+    xReader.URL := fOwnerDocument.URL;
 
     Result := LoadFromReader(xReader, {%H-}xReaderToken);
 
@@ -2578,11 +2583,11 @@ begin
 end;
 {$ENDIF}
 
-procedure TXMLNode.SaveToFile(const aFileName: string);
+procedure TXMLNode.SaveToFile(const aFileName: OWideString);
 var
-  xFS: TFileStream;
+  xFS: TOFileStream;
 begin
-  xFS := TFileStream.Create(aFileName, fmCreate);
+  xFS := TOFileStream.Create(aFileName, fmCreate);
   try
     SaveToStream(xFS);
   finally
@@ -3424,6 +3429,11 @@ begin
     Result := '';
 end;
 
+function TXMLDocument.GetURL: OWideString;
+begin
+  Result := fURL;
+end;
+
 function TXMLDocument.TryGetTempChildNodeList(const aParentNode: PXMLNode;
   const aChildType: TXMLChildType; var outList: TXMLChildNodeList): Boolean;
 begin
@@ -3505,7 +3515,7 @@ begin
   Result := Node.LoadFromBuffer(aBuffer, aBufferLength, aForceEncoding);
 end;
 
-function TXMLDocument.LoadFromFile(const aFileName: string;
+function TXMLDocument.LoadFromFile(const aFileName: OWideString;
   const aForceEncoding: TEncoding): Boolean;
 begin
   Clear;
@@ -3545,7 +3555,7 @@ begin
 end;
 {$ENDIF}
 
-procedure TXMLDocument.SaveToFile(const aFileName: string);
+procedure TXMLDocument.SaveToFile(const aFileName: OWideString);
 begin
   Node.SaveToFile(aFileName);
 end;
@@ -3639,6 +3649,11 @@ end;
 function TXMLDocument.SetString(const aString: OWideString): OHashedStringsIndex;
 begin
   Result := fDictionary.Add(aString);
+end;
+
+procedure TXMLDocument.SetURL(const aURL: OWideString);
+begin
+  fURL := aURL;
 end;
 
 procedure TXMLDocument.SetVersion(const aVersion: OWideString);

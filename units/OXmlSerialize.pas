@@ -120,7 +120,7 @@ type
     // Please note that the file/stream/... is locked until you destroy
     // TXMLSerializer or call ReleaseDocument!
 
-    procedure InitFile(const aFileName: string);
+    procedure InitFile(const aFileName: OWideString);
     procedure InitStream(const aStream: TStream);
 
     //Release the current document (that was loaded with Init*)
@@ -184,7 +184,7 @@ type
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: string; const aForceEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil);
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -306,7 +306,7 @@ begin
   Result := fWriter.WriterSettings;
 end;
 
-procedure TXMLSerializer.InitFile(const aFileName: string);
+procedure TXMLSerializer.InitFile(const aFileName: OWideString);
 begin
   fWriter.InitFile(aFileName);
 
@@ -571,7 +571,7 @@ begin
   DoInit;
 end;
 
-procedure TXMLDeserializer.InitFile(const aFileName: string;
+procedure TXMLDeserializer.InitFile(const aFileName: OWideString;
   const aForceEncoding: TEncoding);
 begin
   fXMLParser.InitFile(aFileName, aForceEncoding);

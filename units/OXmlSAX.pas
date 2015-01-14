@@ -146,10 +146,11 @@ type
 
   TSAXParser = class(TObject)
   private
+    fURL: OWideString;
+
     fReader: TXMLReader;
     fDataRead: Boolean;
     fStopParsing: Boolean;
-    fURL: string;
 
     fOnStartDocument: TSAXNotifyEvent;
     fOnEndDocument: TSAXNotifyEvent;
@@ -188,7 +189,7 @@ type
     //parse document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function ParseFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
+    function ParseFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil): Boolean;
     //parse document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -376,14 +377,14 @@ begin
   end;
 end;
 
-function TSAXParser.ParseFile(const aFileName: string;
+function TSAXParser.ParseFile(const aFileName: OWideString;
   const aForceEncoding: TEncoding): Boolean;
 var
-  xStream: TFileStream;
+  xStream: TOFileStream;
 begin
   fURL := aFileName;
 
-  xStream := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
+  xStream := TOFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
   try
     Result := ParseStream(xStream, aForceEncoding);
   finally
@@ -396,6 +397,7 @@ function TSAXParser.ParseStream(const aStream: TStream;
 begin
   try
     fReader.InitStream(aStream, aForceEncoding);
+    fReader.URL := fURL;
 
     Result := StartParsing;
   finally

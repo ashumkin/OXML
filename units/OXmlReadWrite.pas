@@ -248,7 +248,7 @@ type
     // Please note that the file/stream/... is locked until you destroy
     // TXMLWriter or call ReleaseDocument!
 
-    procedure InitFile(const aFileName: string);
+    procedure InitFile(const aFileName: OWideString);
     procedure InitStream(const aStream: TStream);
 
     //Release the current document (that was loaded with Init*)
@@ -430,7 +430,7 @@ type
     //Load external DTD
     //  DTD validation is NOT supported! Only defined entities will be read.
 
-    function LoadDTDFromFile(const aFileName: string; const aDefaultEncoding: TEncoding = nil): Boolean;
+    function LoadDTDFromFile(const aFileName: OWideString; const aDefaultEncoding: TEncoding = nil): Boolean;
     function LoadDTDFromStream(const aStream: TStream; const aDefaultEncoding: TEncoding = nil): Boolean;
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function LoadDTDFromString(const aString: OWideString): Boolean;
@@ -509,6 +509,8 @@ type
     function GetApproxStreamPosition: OStreamInt;
     function GetStreamSize: OStreamInt;
     function GetParseError: IOTextParseError;
+    function GetURL: OWideString;
+    procedure SetURL(const aURL: OWideString);
   private
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
@@ -561,7 +563,7 @@ type
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: string; const aForceEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil);
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -605,6 +607,9 @@ type
     //count of elements in path
     property NodePathCount: Integer read GetNodePathCount;
   public
+    //(optional) URL parameter that will be shown if an error occurs
+    property URL: OWideString read GetURL write SetURL;
+
     //encoding of the text file, when set, the file will be read again from the start
     property Encoding: TEncoding read GetEncoding write SetEncoding;
     property OwnsEncoding: Boolean read GetOwnsEncoding write SetOwnsEncoding;
@@ -642,6 +647,8 @@ type
   //protected
     function GetCodePage: Word;
     procedure SetCodePage(const aCodePage: Word);
+    function GetURL: OWideString;
+    procedure SetURL(const aURL: OWideString);
     function GetVersion: OWideString;
     procedure SetVersion(const aVersion: OWideString);
     function GetEncoding: OWideString;
@@ -666,7 +673,7 @@ type
     //  return false if the XML document is invalid
     function LoadFromReader(const aReader: TXMLReader; var outReaderToken: PXMLReaderToken): Boolean;
     //load document from file in encoding specified by the document
-    function LoadFromFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil): Boolean;
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -685,7 +692,7 @@ type
     //save document with custom writer
     procedure SaveToWriter(const aWriter: TXMLWriter);
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: string);
+    procedure SaveToFile(const aFileName: OWideString);
     //save document to stream in encoding specified by the document
     procedure SaveToStream(const aStream: TStream);
     //returns XML as string (always in the system OWideString encoding and with system line breaks)
@@ -712,6 +719,8 @@ type
     {$ENDIF}
 
   //public
+    // aURL: this URL is shown in an error message when reading (optional) - set it before you call LoadFrom*
+    property URL: OWideString read GetURL write SetURL;
 
     //document whitespace handling
     property WhiteSpaceHandling: TXmlWhiteSpaceHandling read GetWhiteSpaceHandling write SetWhiteSpaceHandling;
@@ -1312,6 +1321,11 @@ begin
   fReader.OwnsEncoding := aSetOwnsEncoding;
 end;
 
+procedure TXMLReader.SetURL(const aURL: OWideString);
+begin
+  fReader.URL := aURL;
+end;
+
 procedure TXMLReader.EntityReferenceInText;
 var
   xReadString, xEntityName, xEntityValue: OWideString;
@@ -1828,6 +1842,11 @@ begin
   Result := fReader.StreamSize;
 end;
 
+function TXMLReader.GetURL: OWideString;
+begin
+  Result := fReader.URL;
+end;
+
 function TXMLReader.GetLinePosition: OStreamInt;
 begin
   Result := fReader.LinePosition;
@@ -1857,7 +1876,7 @@ begin
   DoInit(aForceEncoding);
 end;
 
-procedure TXMLReader.InitFile(const aFileName: string;
+procedure TXMLReader.InitFile(const aFileName: OWideString;
   const aForceEncoding: TEncoding);
 begin
   fReader.InitFile(aFileName, TEncoding.UTF8);
@@ -2538,7 +2557,7 @@ begin
     RawText(fWriterSettings.fIndentString);
 end;
 
-procedure TXMLWriter.InitFile(const aFileName: string);
+procedure TXMLWriter.InitFile(const aFileName: OWideString);
 begin
   fWriter.InitFile(aFileName);
 
@@ -3059,12 +3078,12 @@ begin
   end;
 end;
 
-function TXMLReaderSettings.LoadDTDFromFile(const aFileName: string;
+function TXMLReaderSettings.LoadDTDFromFile(const aFileName: OWideString;
   const aDefaultEncoding: TEncoding): Boolean;
 var
-  xFS: TFileStream;
+  xFS: TOFileStream;
 begin
-  xFS := TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
+  xFS := TOFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone);
   try
     Result := LoadDTDFromStream(xFS, aDefaultEncoding);
   finally

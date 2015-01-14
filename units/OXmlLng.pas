@@ -58,15 +58,6 @@ var
   OXmlLng_WrongElementClosed: string = 'Trying to close wrong element. Close="%s", open element="%s".';
   OXmlLng_InvalidEntity: string = '"%s" is not a valid entity.';
   OXmlLng_EntityNameNotFound: string = 'The entity name "%s" was not found.';
-  OXmlLng_ReadingAt: string =
-    'Reading at:'+sLineBreak+
-    'Line: %d'+sLineBreak+
-    'Char: %d'+sLineBreak+
-    'XML token line: %d'+sLineBreak+
-    'XML token char: %d'+sLineBreak+
-    'Position in source stub: %d'+sLineBreak+
-    'Source stub:'+sLineBreak+
-    '%s';
 
   OXmlLng_XPathPredicateNotSupported: string = 'XPath predicate "%s" is not supported.'+sLineBreak+'XPath: %s';
   OXmlLng_XPathPredicateNotValid: string = 'XPath predicate "%s" is not valid.'+sLineBreak+'XPath: %s';
@@ -100,6 +91,18 @@ var
   OXmlLng_RTTIInternalError: string = 'RTTI Internal Error';
   OXmlLng_DeserializerNotSupportedListItemType: string = 'TXMLRTTIDeserializer: the type %s is not supported for TList<T> or array enumeration.';
   OXmlLng_DeserializerRegisterClass: string = 'TXMLRTTIDeserializer: you have to register the class %s with the RegisterClass method.';
+
+  OXmlLng_CannotUndo2Times: string = 'Unsupported: you tried to run the undo function two times in a row.';
+  OXmlLng_ReadingAt: string = 'Reading at:';
+  OXmlLng_URL: string = 'URL: %s';
+  OXmlLng_LineCharPosSourceStub: string =
+    'Line: %d'+sLineBreak+
+    'Char: %d'+sLineBreak+
+    'Position in source stub: %d'+sLineBreak+
+    'Source stub:'+sLineBreak+
+    '%s';
+
+  OXmlLng_FileNotFound: string = 'The file "%s" was not found.';
 
 implementation
 

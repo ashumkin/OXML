@@ -83,6 +83,10 @@ uses
     , Generics.Collections
     {$ENDIF}
   {$ENDIF}
+
+  {$IFDEF FPC}
+  , LazUTF8Classes, FileUtil
+  {$ENDIF}
   ;
 
 type
@@ -354,6 +358,28 @@ type
     property Count: Integer read fItemsUsedCount;
   end;
 
+  {$IFDEF O_DELPHI_2009_UP}
+  TOFileStream = TFileStream;
+  {$ELSE}{$IFDEF FPC}
+  //FPC
+  TOFileStream = class(TFileStreamUTF8)
+  public
+    constructor Create(const aFileName: OWideString; aMode: Word); overload;
+    constructor Create(const aFileName: OWideString; aMode: Word; aRights: Cardinal); overload;
+  end;
+  {$ELSE}
+  //non-unicode Delphi
+  TOFileStream = class(THandleStream)
+  private
+    fFileName: string;
+  public
+    constructor Create(const aFileName: string; aMode: Word); overload;
+    constructor Create(const aFileName: string; aMode: Word; aRights: Cardinal); overload;
+    destructor Destroy; override;
+    property FileName: string read fFileName;
+  end;
+  {$ENDIF FPC}{$ENDIF O_DELPHI_2009_UP}
+
 {$IFDEF FPC}{$DEFINE DEF_TValueRelationship}{$ENDIF}
 {$IFDEF O_DELPHI_5_DOWN}{$DEFINE DEF_TValueRelationship}{$ENDIF}
 {$IFDEF DEF_TValueRelationship}
@@ -452,10 +478,15 @@ function OReplaceLineBreaks(const aString: OWideString; const aLineBreak: OWideS
 
 implementation
 
-{$IFDEF FPC}
 uses
-  LazUTF8;
+{$IFDEF FPC}
+  LazUTF8,
+{$ELSE}
+  {$IFNDEF O_DELPHI_2009_UP}
+  RTLConsts,
+  {$ENDIF}
 {$ENDIF}
+  OXmlLng;
 
 function OReplaceLineBreaks(const aString: OWideString; const aLineBreak: OWideString = sLineBreak): OWideString;
 var
@@ -974,11 +1005,14 @@ begin
   if GetLastError = ERROR_CALL_NOT_IMPLEMENTED then
     Result := CompareText(S1, S2);
   {$ELSE}
+  {$IFDEF FPC}
+  Result := UTF8CompareText(S1, S2);
+  {$ELSE}
   {$IFDEF O_UNICODE}
   Result := CompareText(S1, S2);
   {$ELSE}
   Result := WideCompareText(S1, S2);
-  {$ENDIF}{$ENDIF}
+  {$ENDIF}{$ENDIF}{$ENDIF}
 end;
 
 function OWideCompareStr(const S1, S2: OWideString): Integer;
@@ -990,11 +1024,14 @@ begin
   if GetLastError = ERROR_CALL_NOT_IMPLEMENTED then
     Result := CompareStr(S1, S2);
   {$ELSE}
+  {$IFDEF FPC}
+  Result := UTF8CompareStr(S1, S2);
+  {$ELSE}
   {$IFDEF O_UNICODE}
   Result := CompareStr(S1, S2);
   {$ELSE}
   Result := WideCompareStr(S1, S2);
-  {$ENDIF}{$ENDIF}
+  {$ENDIF}{$ENDIF}{$ENDIF}
 end;
 
 function OSameStr(const S1, S2: OWideString): Boolean;
@@ -1006,6 +1043,141 @@ function OSameText(const S1, S2: OWideString): Boolean;
 begin
   Result := (OWideCompareText(S1, S2) = 0);
 end;
+
+{$IFNDEF O_DELPHI_2009_UP}
+{ TOFileStream }
+
+{$IFDEF FPC}
+//FPC
+constructor TOFileStream.Create(const aFileName: OWideString; aMode: Word);
+begin
+  {$IFDEF MSWINDOWS}
+  Create(aFileName, aMode, 0);
+  {$ELSE}
+  Create(aFileName, aMode, 438);
+  {$ENDIF}
+end;
+
+constructor TOFileStream.Create(const aFileName: OWideString; aMode: Word;
+  aRights: Cardinal);
+begin
+  //SOLVES FPC BUG WITH "FILE NOT FOUND"
+  if
+    not (aMode and fmCreate = fmCreate) and
+    not FileExistsUTF8(aFileName)
+  then
+    raise EFCreateError.CreateFmt(OXmlLng_FileNotFound, [aFileName]);
+
+  inherited Create(aFileName, aMode, aRights);
+end;
+{$ELSE !FPC}
+//non-unicode Delphi
+constructor TOFileStream.Create(const aFileName: string; aMode: Word);
+begin
+  {$IFDEF MSWINDOWS}
+  Create(aFileName, aMode, 0);
+  {$ELSE}
+  Create(aFileName, aMode, 438);
+  {$ENDIF}
+end;
+
+const
+  O_INVALID_FILE_HANDLE = -1;
+
+function FileCreateW(const aFileName: WideString; aMode: LongWord; aRights: Cardinal): Integer;
+{$IFDEF MSWINDOWS}
+const
+  cExclusive: array[0..1] of LongWord = (
+    CREATE_ALWAYS,
+    CREATE_NEW);
+  cShareMode: array[0..4] of LongWord = (
+    0,
+    0,
+    FILE_SHARE_READ,
+    FILE_SHARE_WRITE,
+    FILE_SHARE_READ or FILE_SHARE_WRITE);
+begin
+  Result := O_INVALID_FILE_HANDLE;
+  if (aMode and $F0) <= fmShareDenyNone then
+  begin
+    Result := CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
+      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0);
+  end;
+end;
+{$ELSE}
+begin
+  Result := FileCreate(UTF8Encode(aFileName), aMode, aRights);
+end;
+{$ENDIF MSWINDOWS}
+
+function FileOpenW(const aFileName: WideString; aMode: LongWord): Integer;
+{$IFDEF MSWINDOWS}
+const
+  cAccessMode: array[0..2] of LongWord = (
+    GENERIC_READ,
+    GENERIC_WRITE,
+    GENERIC_READ or GENERIC_WRITE);
+  cShareMode: array[0..4] of LongWord = (
+    0,
+    0,
+    FILE_SHARE_READ,
+    FILE_SHARE_WRITE,
+    FILE_SHARE_READ or FILE_SHARE_WRITE);
+begin
+  Result := O_INVALID_FILE_HANDLE;
+  if ((aMode and 3) <= fmOpenReadWrite) and
+    ((aMode and $F0) <= fmShareDenyNone) then
+    Result := CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
+      cShareMode[(aMode and $F0) shr 4], nil, OPEN_EXISTING,
+      FILE_ATTRIBUTE_NORMAL, 0);
+end;
+{$ELSE !MSWINDOWS}
+begin
+  Result := FileOpen(UTF8Encode(aFileName), aMode);
+end;
+{$ENDIF MSWINDOWS}
+
+constructor TOFileStream.Create(const aFileName: string; aMode: Word; aRights: Cardinal);
+var
+  xShareMode: Word;
+begin
+  if (aMode and fmCreate = fmCreate) then
+  begin
+    xShareMode := aMode and $FF;
+    if xShareMode = $FF then
+      xShareMode := fmShareExclusive; // For compat in case $FFFF passed as Mode
+    inherited Create(FileCreateW(aFileName, xShareMode, aRights));
+    if fHandle = O_INVALID_FILE_HANDLE then
+    begin
+      {$IFDEF O_DELPHI_7_UP}
+      raise EFCreateError.CreateResFmt(@SFCreateErrorEx, [ExpandFileName(aFileName), SysErrorMessage(GetLastError)]);
+      {$ELSE}
+      raise EFCreateError.CreateResFmt(@SFCreateError, [ExpandFileName(aFileName)]);
+      {$ENDIF}
+    end;
+  end else
+  begin
+    inherited Create(FileOpenW(aFileName, aMode));
+    if fHandle = O_INVALID_FILE_HANDLE then
+    begin
+      {$IFDEF O_DELPHI_7_UP}
+      raise EFOpenError.CreateResFmt(@SFOpenErrorEx, [ExpandFileName(aFileName), SysErrorMessage(GetLastError)]);
+      {$ELSE}
+      raise EFOpenError.CreateResFmt(@SFOpenError, [ExpandFileName(aFileName)]);
+      {$ENDIF}
+    end;
+  end;
+  fFileName := aFileName;
+end;
+
+destructor TOFileStream.Destroy;
+begin
+  if fHandle <> O_INVALID_FILE_HANDLE then
+    FileClose(fHandle);
+  inherited Destroy;
+end;
+{$ENDIF FPC}
+{$ENDIF O_DELPHI_2009_UP}
 
 {$IFNDEF O_UNICODE}
 { TOWideStringList }

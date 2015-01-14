@@ -60,6 +60,8 @@ type
 
   TOTextReader = class(TObject)
   private
+    fURL: OWideString;
+
     fTempString: OWideString;
     fTempStringPosition: Integer;
     fTempStringLength: Integer;
@@ -125,7 +127,7 @@ type
 
     //load document from file
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: string; const aDefaultEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: OWideString; const aDefaultEncoding: TEncoding = nil);
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -165,6 +167,9 @@ type
     procedure BlockFlushTempBuffer;
     procedure UnblockFlushTempBuffer;
   public
+    //(optional) URL parameter that will be shown if an error occurs
+    property URL: OWideString read fURL write fURL;
+
     //encoding of the text that is read from the stream
     //  when changing encoding, the stream is always reset to the starting position
     //  and the stream has to be read again
@@ -227,7 +232,7 @@ type
     // Please note that the file/stream/... is locked until you destroy
     // TOTextWriter or call ReleaseDocument!
 
-    procedure InitFile(const aFileName: string;
+    procedure InitFile(const aFileName: OWideString;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
     procedure InitStream(const aStream: TStream;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
@@ -255,6 +260,7 @@ type
 
   EOTextReaderException = class(Exception)
   private
+    fURL: OWideString;
     fReason: string;
     fFilePos: OStreamInt;
     fLinePos: OStreamInt;
@@ -271,6 +277,8 @@ type
     //error code
     class function GetErrorCode: Integer; virtual;
   public
+    //url of the document
+    property URL: OWideString read fURL;
     //error code
     property ErrorCode: Integer read GetErrorCode;
     //reason
@@ -321,7 +329,7 @@ type
 
   TOTextParseError = class(TInterfacedObject, IOTextParseError)
   private
-    fURL: string;
+    fURL: OWideString;
     fReason: OWideString;
     fSrcText: OWideString;
     fSrcTextPos: Integer;
@@ -371,22 +379,11 @@ function GetEncodingFromStream(const aStream: TStream;
 
 implementation
 
-{$IFDEF FPC}
 uses
-  LazUTF8;
+{$IFDEF FPC}
+  LazUTF8,
 {$ENDIF}
-
-var
-  OTextReadWrite_CannotUndo2Times: OWideString = 'Unsupported: you tried to run the undo function two times in a row.';
-  OTextReadWrite_ReadingAt: string =
-    'Reading at:'+sLineBreak+
-    'Line: %d'+sLineBreak+
-    'Char: %d'+sLineBreak+
-    //'XML token line: %d'+sLineBreak+
-    //'XML token char: %d'+sLineBreak+
-    'Position in source stub: %d'+sLineBreak+
-    'Source stub:'+sLineBreak+
-    '%s';
+  OXmlLng;
 
 function GetEncodingFromStream(const aStream: TStream;
   var ioTempStringPosition: OStreamInt;
@@ -503,6 +500,7 @@ begin
   fFilePosition := 0;
   fLinePosition := 0;
   fLine := 1;
+  fURL := '';
 end;
 
 procedure TOTextReader.DoRaiseException;
@@ -557,21 +555,23 @@ begin
   DoInit(xNewStream, True, aDefaultEncoding);
 end;
 
-procedure TOTextReader.InitFile(const aFileName: string;
+procedure TOTextReader.InitFile(const aFileName: OWideString;
   const aDefaultEncoding: TEncoding);
 begin
   DoInit(
-    TFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone),
+    TOFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone),
     True,
     aDefaultEncoding);
+
+  fURL := aFileName;
 end;
 
 procedure TOTextReader.InitStream(const aStream: TStream;
   const aDefaultEncoding: TEncoding);
 begin
-  if (aStream is TCustomMemoryStream) or (aStream is TFileStream)
+  if (aStream is TCustomMemoryStream) or (aStream is THandleStream)
   then begin
-    //no need for buffering on memory stream or file stream
+    //no need for buffering on memory stream or file stream (= THandleStream)
     //  buffering is here just because some (custom) streams may not support seeking
     //  which is needed when reading encoding from xml header
     DoInit(aStream, False, aDefaultEncoding);
@@ -906,7 +906,7 @@ end;
 procedure TOTextReader.UndoRead;
 begin
   if fReadFromUndo then
-    raise EOTextReader.Create(OTextReadWrite_CannotUndo2Times);
+    raise EOTextReader.Create(OXmlLng_CannotUndo2Times);
 
   if not fEOF then
   begin
@@ -999,10 +999,10 @@ begin
   end;
 end;
 
-procedure TOTextWriter.InitFile(const aFileName: string;
+procedure TOTextWriter.InitFile(const aFileName: OWideString;
   const aEncoding: TEncoding; const aWriteBOM: Boolean);
 begin
-  DoInit(TFileStream.Create(aFileName, fmCreate), True, aEncoding, aWriteBOM);
+  DoInit(TOFileStream.Create(aFileName, fmCreate), True, aEncoding, aWriteBOM);
 end;
 
 procedure TOTextWriter.InitStream(const aStream: TStream;
@@ -1127,6 +1127,7 @@ procedure EOTextReaderException.DoCreate(const aError: TOTextParseError;
   const aReason: string);
 begin
   fReason := aReason;
+  fURL := aError.URL;
   fLinePos := aError.LinePos;
   fLine := aError.Line;
   fSrcText := aError.SrcText;
@@ -1140,8 +1141,12 @@ end;
 
 function EOTextReaderException.GetFormattedErrorText: OWideString;
 begin
-  Result :=
-    Format(OTextReadWrite_ReadingAt, [
+  Result := OXmlLng_ReadingAt;
+  if fURL <> '' then
+    Result := Result + sLineBreak + Format(OXmlLng_URL, [URL]);
+
+  Result := Result + sLineBreak +
+    Format(OXmlLng_LineCharPosSourceStub, [
       Line,
       LinePos,
       SrcTextPos,
@@ -1172,6 +1177,7 @@ end;
 procedure TOTextParseError.DoCreate(const aReader: TOTextReader;
   const aReason: string);
 begin
+  fURL := aReader.URL;
   fReason := aReason;
   fLinePos := aReader.LinePosition;
   fLine := aReader.Line;
