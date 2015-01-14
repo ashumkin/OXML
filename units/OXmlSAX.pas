@@ -149,7 +149,7 @@ type
     fReader: TXMLReader;
     fDataRead: Boolean;
     fStopParsing: Boolean;
-    fURL: String;
+    fURL: string;
 
     fOnStartDocument: TSAXNotifyEvent;
     fOnEndDocument: TSAXNotifyEvent;
@@ -188,7 +188,7 @@ type
     //parse document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function ParseFile(const aFileName: String; const aForceEncoding: TEncoding = nil): Boolean;
+    function ParseFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
     //parse document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -376,7 +376,7 @@ begin
   end;
 end;
 
-function TSAXParser.ParseFile(const aFileName: String;
+function TSAXParser.ParseFile(const aFileName: string;
   const aForceEncoding: TEncoding): Boolean;
 var
   xStream: TFileStream;

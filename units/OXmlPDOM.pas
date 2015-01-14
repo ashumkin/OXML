@@ -173,8 +173,9 @@ type
   public
     //create and append an element child
     function AddChild(const aElementName: OWideString): PXMLNode;
-    //create and add an attribute (if attr does not exist, it will be appended to the end
-    //  if attr exists, its value will be replaced but the attr won't be moved to the end)
+    //create and add an attribute.
+    //  if attr does not exist, it will be appended to the end.
+    //  if attr exists, its value will be replaced but the attr won't be moved to the end.
     //  return attribute node
     function AddAttribute(const aAttrName, aAttrValue: OWideString): PXMLNode;
     //create and append an XML declaration child
@@ -357,7 +358,7 @@ type
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    function LoadFromFile(const aFileName: String; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -376,7 +377,7 @@ type
     //save document with custom writer
     procedure SaveToWriter(const aWriter: TXMLWriter);
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: String);
+    procedure SaveToFile(const aFileName: string);
     //save document to stream in encoding specified by the document
     procedure SaveToStream(const aStream: TStream);
     //returns XML as string (always in the system OWideString encoding and with system line breaks)
@@ -494,7 +495,7 @@ type
   TXMLDocument = class(TInterfacedObject, IXMLDocument, ICustomXMLDocument)
   private
     fLoading: Boolean;
-    fURL: String;
+    fURL: string;
 
     fDictionary: TOHashedStrings;
 
@@ -600,7 +601,7 @@ type
 
   public
     function LoadFromReader(const aReader: TXMLReader; var outReaderToken: PXMLReaderToken): Boolean;
-    function LoadFromFile(const aFileName: String; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
     function LoadFromStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
     function LoadFromXML(const aXML: OWideString): Boolean;
     {$IFDEF O_RAWBYTESTRING}
@@ -610,7 +611,7 @@ type
     function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
     procedure SaveToWriter(const aWriter: TXMLWriter);
-    procedure SaveToFile(const aFileName: String);
+    procedure SaveToFile(const aFileName: string);
     procedure SaveToStream(const aStream: TStream);
 
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
@@ -2195,7 +2196,7 @@ begin
   end;
 end;
 
-function TXMLNode.LoadFromFile(const aFileName: String;
+function TXMLNode.LoadFromFile(const aFileName: string;
   const aForceEncoding: TEncoding): Boolean;
 var
   xFS: TFileStream;
@@ -2577,7 +2578,7 @@ begin
 end;
 {$ENDIF}
 
-procedure TXMLNode.SaveToFile(const aFileName: String);
+procedure TXMLNode.SaveToFile(const aFileName: string);
 var
   xFS: TFileStream;
 begin
@@ -3504,7 +3505,7 @@ begin
   Result := Node.LoadFromBuffer(aBuffer, aBufferLength, aForceEncoding);
 end;
 
-function TXMLDocument.LoadFromFile(const aFileName: String;
+function TXMLDocument.LoadFromFile(const aFileName: string;
   const aForceEncoding: TEncoding): Boolean;
 begin
   Clear;
@@ -3544,7 +3545,7 @@ begin
 end;
 {$ENDIF}
 
-procedure TXMLDocument.SaveToFile(const aFileName: String);
+procedure TXMLDocument.SaveToFile(const aFileName: string);
 begin
   Node.SaveToFile(aFileName);
 end;

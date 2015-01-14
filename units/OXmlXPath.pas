@@ -102,7 +102,7 @@ type
     SelectorLevel: Integer;
   {$IFNDEF O_GENERICS}
   public
-    function FootPrint: String;
+    function FootPrint: string;
   {$ENDIF}
   end;
   {$IFDEF O_GENERICS}
@@ -1204,7 +1204,7 @@ end;
 { TXMLXPathCheckedParent }
 
 {$IFNDEF O_GENERICS}
-function TXMLXPathCheckedParent.FootPrint: String;
+function TXMLXPathCheckedParent.FootPrint: string;
 begin
   Result := Format('%d:%d', [ParentNodeId, SelectorLevel]);
 end;

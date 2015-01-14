@@ -248,7 +248,7 @@ type
     // Please note that the file/stream/... is locked until you destroy
     // TXMLWriter or call ReleaseDocument!
 
-    procedure InitFile(const aFileName: String);
+    procedure InitFile(const aFileName: string);
     procedure InitStream(const aStream: TStream);
 
     //Release the current document (that was loaded with Init*)
@@ -430,7 +430,7 @@ type
     //Load external DTD
     //  DTD validation is NOT supported! Only defined entities will be read.
 
-    function LoadDTDFromFile(const aFileName: String; const aDefaultEncoding: TEncoding = nil): Boolean;
+    function LoadDTDFromFile(const aFileName: string; const aDefaultEncoding: TEncoding = nil): Boolean;
     function LoadDTDFromStream(const aStream: TStream; const aDefaultEncoding: TEncoding = nil): Boolean;
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function LoadDTDFromString(const aString: OWideString): Boolean;
@@ -534,9 +534,9 @@ type
     function GetLinePosition: OStreamInt;
     function GetLine: OStreamInt;
     procedure RaiseException(const aErrorClass: TOTextParseErrorClass;
-      const aReason: String);
+      const aReason: string);
     procedure RaiseExceptionFmt(const aErrorClass: TOTextParseErrorClass;
-      const aReason: String; const aArgs: array of OWideString);
+      const aReason: string; const aArgs: array of OWideString);
   private
     procedure LoadDTD;
   protected
@@ -561,7 +561,7 @@ type
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: String; const aForceEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: string; const aForceEncoding: TEncoding = nil);
     //init document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -666,7 +666,7 @@ type
     //  return false if the XML document is invalid
     function LoadFromReader(const aReader: TXMLReader; var outReaderToken: PXMLReaderToken): Boolean;
     //load document from file in encoding specified by the document
-    function LoadFromFile(const aFileName: String; const aForceEncoding: TEncoding = nil): Boolean;
+    function LoadFromFile(const aFileName: string; const aForceEncoding: TEncoding = nil): Boolean;
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -685,7 +685,7 @@ type
     //save document with custom writer
     procedure SaveToWriter(const aWriter: TXMLWriter);
     //save document to file in encoding specified by the document
-    procedure SaveToFile(const aFileName: String);
+    procedure SaveToFile(const aFileName: string);
     //save document to stream in encoding specified by the document
     procedure SaveToStream(const aStream: TStream);
     //returns XML as string (always in the system OWideString encoding and with system line breaks)
@@ -1584,13 +1584,13 @@ begin
 end;
 
 procedure TXMLReader.RaiseException(const aErrorClass: TOTextParseErrorClass;
-  const aReason: String);
+  const aReason: string);
 begin
   fReader.RaiseException(aErrorClass, aReason);
 end;
 
 procedure TXMLReader.RaiseExceptionFmt(const aErrorClass: TOTextParseErrorClass;
-  const aReason: String; const aArgs: array of OWideString);
+  const aReason: string; const aArgs: array of OWideString);
 begin
   fReader.RaiseExceptionFmt(aErrorClass, aReason, aArgs);
 end;
@@ -1857,7 +1857,7 @@ begin
   DoInit(aForceEncoding);
 end;
 
-procedure TXMLReader.InitFile(const aFileName: String;
+procedure TXMLReader.InitFile(const aFileName: string;
   const aForceEncoding: TEncoding);
 begin
   fReader.InitFile(aFileName, TEncoding.UTF8);
@@ -2538,7 +2538,7 @@ begin
     RawText(fWriterSettings.fIndentString);
 end;
 
-procedure TXMLWriter.InitFile(const aFileName: String);
+procedure TXMLWriter.InitFile(const aFileName: string);
 begin
   fWriter.InitFile(aFileName);
 
@@ -3059,7 +3059,7 @@ begin
   end;
 end;
 
-function TXMLReaderSettings.LoadDTDFromFile(const aFileName: String;
+function TXMLReaderSettings.LoadDTDFromFile(const aFileName: string;
   const aDefaultEncoding: TEncoding): Boolean;
 var
   xFS: TFileStream;

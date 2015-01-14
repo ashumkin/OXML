@@ -103,9 +103,9 @@ type
     procedure DoRaiseException;
   public
     procedure RaiseException(const aErrorClass: TOTextParseErrorClass;
-      const aReason: String);
+      const aReason: string);
     procedure RaiseExceptionFmt(const aErrorClass: TOTextParseErrorClass;
-      const aReason: String; const aArgs: array of OWideString);
+      const aReason: string; const aArgs: array of OWideString);
   public
     //create
     constructor Create(const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE); overload;
@@ -125,7 +125,7 @@ type
 
     //load document from file
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
-    procedure InitFile(const aFileName: String; const aDefaultEncoding: TEncoding = nil);
+    procedure InitFile(const aFileName: string; const aDefaultEncoding: TEncoding = nil);
     //load document from file
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -227,7 +227,7 @@ type
     // Please note that the file/stream/... is locked until you destroy
     // TOTextWriter or call ReleaseDocument!
 
-    procedure InitFile(const aFileName: String;
+    procedure InitFile(const aFileName: string;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
     procedure InitStream(const aStream: TStream;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
@@ -255,7 +255,7 @@ type
 
   EOTextReaderException = class(Exception)
   private
-    fReason: String;
+    fReason: string;
     fFilePos: OStreamInt;
     fLinePos: OStreamInt;
     fLine: OStreamInt;
@@ -274,7 +274,7 @@ type
     //error code
     property ErrorCode: Integer read GetErrorCode;
     //reason
-    property Reason: String read fReason;
+    property Reason: string read fReason;
     //Character position in text (when error was detected)
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
@@ -378,7 +378,7 @@ uses
 
 var
   OTextReadWrite_CannotUndo2Times: OWideString = 'Unsupported: you tried to run the undo function two times in a row.';
-  OTextReadWrite_ReadingAt: String =
+  OTextReadWrite_ReadingAt: string =
     'Reading at:'+sLineBreak+
     'Line: %d'+sLineBreak+
     'Char: %d'+sLineBreak+
@@ -557,7 +557,7 @@ begin
   DoInit(xNewStream, True, aDefaultEncoding);
 end;
 
-procedure TOTextReader.InitFile(const aFileName: String;
+procedure TOTextReader.InitFile(const aFileName: string;
   const aDefaultEncoding: TEncoding);
 begin
   DoInit(
@@ -695,14 +695,14 @@ end;
 {$ENDIF}
 
 procedure TOTextReader.RaiseException(const aErrorClass: TOTextParseErrorClass;
-  const aReason: String);
+  const aReason: string);
 begin
   fParseError := aErrorClass.Create(Self, aReason);
   DoRaiseException;
 end;
 
 procedure TOTextReader.RaiseExceptionFmt(
-  const aErrorClass: TOTextParseErrorClass; const aReason: String;
+  const aErrorClass: TOTextParseErrorClass; const aReason: string;
   const aArgs: array of OWideString);
 var
   xArray: array of TVarRec;
@@ -999,7 +999,7 @@ begin
   end;
 end;
 
-procedure TOTextWriter.InitFile(const aFileName: String;
+procedure TOTextWriter.InitFile(const aFileName: string;
   const aEncoding: TEncoding; const aWriteBOM: Boolean);
 begin
   DoInit(TFileStream.Create(aFileName, fmCreate), True, aEncoding, aWriteBOM);

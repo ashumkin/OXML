@@ -906,7 +906,7 @@ end;
 
 {$IFNDEF O_DELPHI_XE_UP}
 {$IFDEF O_DELPHI_2009_UP}
-function TEncodingHelper.EncodingName: String;
+function TEncodingHelper.EncodingName: string;
 {$ELSE}
 function TEncoding.EncodingName: OWideString;
 {$ENDIF}
@@ -922,7 +922,7 @@ end;
 {$ENDIF}
 
 {$IFDEF O_DELPHI_2009_UP}
-function TEncodingHelper.EncodingAlias: String;
+function TEncodingHelper.EncodingAlias: string;
 {$ELSE}
 function TEncoding.EncodingAlias: OWideString;
 {$ENDIF}
