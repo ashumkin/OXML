@@ -55,6 +55,7 @@ type
   TOBufferedWriteStream = class(TStream)
   private
     fStream: TStream;
+    fOwnsStream: Boolean;
     fStreamPosition: OStreamInt;
     fStreamSize: OStreamInt;
 
@@ -64,7 +65,8 @@ type
   protected
     function GetSize: OStreamInt; {$IFNDEF O_DELPHI_6_DOWN}override;{$ENDIF}
   public
-    constructor Create(const aStream: TStream; const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
+    constructor Create(const aStream: TStream; const aOwnsStream: Boolean = False;
+      const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
     destructor Destroy; override;
 
     function Write(const Buffer; Count: LongInt): LongInt; override;
@@ -90,6 +92,7 @@ type
   TOBufferedReadStream = class(TStream)
   private
     fStream: TStream;
+    fOwnsStream: Boolean;
     fStreamPosition: OStreamInt;
     fStreamSize: OStreamInt;
     fTempBuffer: TBytes;
@@ -102,7 +105,9 @@ type
   protected
     function GetSize: OStreamInt; {$IFNDEF O_DELPHI_6_DOWN}override;{$ENDIF}
   public
-    constructor Create(const aStream: TStream; const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
+    constructor Create(const aStream: TStream; const aOwnsStream: Boolean = False;
+      const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
+    destructor Destroy; override;
 
     function Write(const {%H-}Buffer; {%H-}Count: LongInt): LongInt; override;
     {$IFDEF O_DELPHI_XE3_UP}
@@ -140,7 +145,7 @@ var
 { TOBufferedWriteStream }
 
 constructor TOBufferedWriteStream.Create(const aStream: TStream;
-  const aBufferSize: Integer);
+  const aOwnsStream: Boolean; const aBufferSize: Integer);
 begin
   inherited Create;
 
@@ -150,6 +155,7 @@ begin
   fStream := aStream;
   fStreamPosition := fStream.Position;
   fStreamSize := fStream.Size;
+  fOwnsStream := aOwnsStream;
 
   fBufferSize := aBufferSize;
   SetLength(fTempBuffer, fBufferSize);
@@ -297,7 +303,7 @@ begin
 end;
 
 constructor TOBufferedReadStream.Create(const aStream: TStream;
-  const aBufferSize: Integer);
+  const aOwnsStream: Boolean; const aBufferSize: Integer);
 begin
   inherited Create;
 
@@ -307,10 +313,19 @@ begin
   fStream := aStream;
   fStreamPosition := fStream.Position;
   fStreamSize := fStream.Size;
+  fOwnsStream := aOwnsStream;
 
   fBufferSize := aBufferSize;
 
   SetLength(fTempBuffer, fBufferSize);
+end;
+
+destructor TOBufferedReadStream.Destroy;
+begin
+  inherited Destroy;
+
+  if fOwnsStream then
+    fStream.Free;
 end;
 
 function TOBufferedReadStream.GetSize: OStreamInt;

@@ -110,6 +110,7 @@
         <DCCReference Include="rtl.dcp"/>
         <DCCReference Include="..\..\units\OBufferedStreams.pas"/>
         <DCCReference Include="..\..\units\ODictionary.pas"/>
+        <DCCReference Include="..\..\units\OJSON.pas"/>
         <DCCReference Include="..\..\units\OEncoding.pas"/>
         <DCCReference Include="..\..\units\OHashedStrings.pas"/>
         <DCCReference Include="..\..\units\OTextReadWrite.pas"/>

@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <Package Version="4">
     <PathDelim Value="\"/>
@@ -17,7 +17,7 @@
         <CompilerPath Value="$(CompPath)"/>
       </Other>
     </CompilerOptions>
-    <Files Count="15">
+    <Files Count="16">
       <Item1>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
         <UnitName Value="OBufferedStreams"/>
@@ -78,6 +78,10 @@
         <Filename Value="..\..\units\OXmlSerialize.pas"/>
         <UnitName Value="OXmlSerialize"/>
       </Item15>
+      <Item16>
+        <Filename Value="..\..\units\OJSON.pas"/>
+        <UnitName Value="OJSON"/>
+      </Item16>
     </Files>
     <Type Value="RunTimeOnly"/>
     <RequiredPkgs Count="2">

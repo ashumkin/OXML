@@ -113,9 +113,9 @@ type
   public
     //functions that convert strings to buffers and vice versa
     function BufferToString(const aBytes: TEncodingBuffer): OWideString; overload;
-    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; overload; virtual; abstract;//faster in D7 and FPC than "function BufferToString"
+    function BufferToString(const aBytes: TEncodingBuffer; var outString: OWideString): Boolean; overload; virtual; abstract;
     function StringToBuffer(const S: OWideString): TEncodingBuffer; overload;
-    procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); overload; virtual; abstract;//faster in D7 and FPC than "function StringToBuffer"
+    procedure StringToBuffer(const S: OWideString; var outBuffer: TEncodingBuffer); overload; virtual; abstract;
 
   public
     //functions that get information about current encoding object
@@ -474,12 +474,12 @@ end;
 
 function TEncoding.BufferToString(const aBytes: TEncodingBuffer): OWideString;
 begin
-  BufferToString(aBytes, {%H-}Result);
+  BufferToString(aBytes, Result{%H-});
 end;
 
 function TEncoding.StringToBuffer(const S: OWideString): TEncodingBuffer;
 begin
-  StringToBuffer(S, {%H-}Result);
+  StringToBuffer(S, Result{%H-});
 end;
 
 class function TEncoding.Unicode: TEncoding;
@@ -683,24 +683,25 @@ procedure TUnicodeEncoding.StringToBuffer(const S: OWideString; var outBuffer: T
 var
   xCharCount: Integer;
   {$IFDEF FPC}
-  xUS: UnicodeString;
+  I: Integer;
   {$ENDIF}
 begin
+  xCharCount := Length(S);
+  if xCharCount = 0 then
+  begin
+    outBuffer := '';
+    Exit;
+  end;
+
   {$IFDEF FPC}
   //FPC
-  xUS := UTF8Decode(S);
-  xCharCount := Length(xUS);
   SetLength(outBuffer, xCharCount*2);
-  if xCharCount > 0 then
-  begin
-    Move(xUS[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
-  end;
+  I := Utf8ToUnicode(@outBuffer[TEncodingBuffer_FirstElement], xCharCount+1, POWideChar(S), xCharCount);
+  SetLength(outBuffer, Max(0, (I-1)*2));
   {$ELSE}
   //DELPHI
-  xCharCount := Length(S);
   SetLength(outBuffer, xCharCount*2);
-  if xCharCount > 0 then
-    Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
+  Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
   {$ENDIF}
 end;
 
@@ -715,7 +716,7 @@ function TUnicodeEncoding.BufferToString(const aBytes: TEncodingBuffer; var outS
 var
   xByteCount: Integer;
   {$IFDEF FPC}
-  xUS: UnicodeString;
+  I: Integer;
   {$ENDIF}
 begin
   xByteCount := Length(aBytes);
@@ -727,9 +728,9 @@ begin
   end;
   {$IFDEF FPC}
   //FPC
-  SetLength(xUS, xByteCount div 2);
-  Move(aBytes[TEncodingBuffer_FirstElement], xUS[1], xByteCount);
-  outString := UTF8Encode(xUS);
+  SetLength(outString, (xByteCount div 2)*3);
+  I := UnicodeToUtf8(POWideChar(outString), Length(outString)+1, @aBytes[TEncodingBuffer_FirstElement], xByteCount div 2);
+  SetLength(outString, Max(0, I-1));
   {$ELSE}
   //DELPHI
   SetLength(outString, xByteCount div 2);

@@ -121,7 +121,7 @@ type
     // TXMLSerializer or call ReleaseDocument!
 
     procedure InitFile(const aFileName: OWideString);
-    procedure InitStream(const aStream: TStream);
+    procedure InitStream(const aStream: TStream; const aOwnsStream: Boolean = False);
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -191,9 +191,7 @@ type
     procedure InitStream(const aStream: TStream; const aForceEncoding: TEncoding = nil);
     //init XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitXML(const aXML: OWideString);
-    {$IFDEF O_RAWBYTESTRING}
-    procedure InitXML_UTF8(const aXML: ORawByteString);
-    {$ENDIF}
+    procedure InitXML_UTF8(const aXML: OUTF8Container);
     //init document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -313,9 +311,10 @@ begin
   DoInit;
 end;
 
-procedure TXMLSerializer.InitStream(const aStream: TStream);
+procedure TXMLSerializer.InitStream(const aStream: TStream;
+  const aOwnsStream: Boolean);
 begin
-  fWriter.InitStream(aStream);
+  fWriter.InitStream(aStream, aOwnsStream);
 
   DoInit;
 end;
@@ -360,7 +359,7 @@ begin
 
   ioElement.FinishOpenElement;
   if CollectionStyle = csOXml then
-    ioElement.OpenElementR('_oxmlcollection', {%H-}xColElem, stFinish);
+    ioElement.OpenElementR('_oxmlcollection', xColElem{%H-}, stFinish);
 
   for I := 0 to aCollection.Count-1 do
   begin
@@ -385,7 +384,7 @@ begin
   if GetTypeData(aObject.ClassInfo)^.PropCount = 0 then
     Exit;
 
-  fWriter.OpenElementR(aElementName, {%H-}xElement);
+  fWriter.OpenElementR(aElementName, xElement{%H-});
   if aWriteObjectType and (aElementName <> aObject.ClassName) then
     xElement.Attribute('type', aObject.ClassName);
   WriteObjectProperties(aObject, xElement);
@@ -425,7 +424,7 @@ procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
   var
     xPropElement: TXMLWriterElement;
   begin
-    ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
+    ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), xPropElement{%H-});
     xPropElement.Text(bValue, False);
     xPropElement.CloseElement(False);
   end;
@@ -439,7 +438,7 @@ procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
       if GetTypeData(aObject.ClassInfo)^.PropCount = 0 then
         Exit;
 
-      ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), {%H-}xPropElement);
+      ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), xPropElement{%H-});
       WriteObjectProperties(TPersistent(bObject), xPropElement);
       if bObject is TCollection then
         WriteCollectionItems(TCollection(bObject), xPropElement);
@@ -455,11 +454,12 @@ begin
   begin
     xPropType := aPropInfo^.PropType{$IFNDEF FPC}^{$ENDIF};
     case xPropType^.Kind of
-      tkInteger, tkChar, tkWChar, {$IFDEF FPC}tkUChar,{$ENDIF} tkEnumeration, tkSet:
+      tkInteger, tkChar, tkWChar, {$IFDEF FPC}tkUChar, tkBool,{$ENDIF} tkEnumeration, tkSet:
       begin
         xOrdValue := GetOrdProp(aObject, aPropInfo);
         if fWriteDefaultValues or (aPropInfo^.Default <> xOrdValue) then
         case xPropType^.Kind of
+          {$IFDEF FPC}tkBool: _Write(IntToStr(xOrdValue));{$ENDIF}//save boolean values as integer
           tkInteger: _Write(IntToStr(xOrdValue));
           tkChar: _Write(OWideString(Char(xOrdValue)));
           tkWChar: _Write(OWideString(WideChar(xOrdValue)));
@@ -473,7 +473,7 @@ begin
       {$IFDEF O_DELPHI_5_DOWN}, tkWString{$ENDIF}
       {$IFDEF O_DELPHI_2009_UP}, tkUString {$ENDIF}:
         _Write(GetStrProp(aObject, aPropInfo));
-      {$IFDEF O_RAWBYTESTRING}{$IFNDEF O_DELPHI_5_DOWN}
+      {$IFDEF O_HASBYTESTRINGS}{$IFNDEF O_DELPHI_5_DOWN}
       tkWString
       {$IFDEF FPC}, tkUString{$ENDIF}:
         _Write({$IFDEF FPC}UTF8Encode{$ENDIF}(GetWideStrProp(aObject, aPropInfo)));
@@ -591,13 +591,11 @@ begin
   DoInit;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLDeserializer.InitXML_UTF8(const aXML: ORawByteString);
+procedure TXMLDeserializer.InitXML_UTF8(const aXML: OUTF8Container);
 begin
   fXMLParser.InitXML_UTF8(aXML);
   DoInit;
 end;
-{$ENDIF}
 
 procedure TXMLDeserializer.ReadCollectionItems(const aCollection: TCollection;
   const aEnumerationNode: PXMLNode; const aChildName: OWideString);
@@ -649,7 +647,7 @@ begin
   if UseRoot and not Assigned(fRootNode) then
   begin
     Result :=
-      fXMLParser.ReadNextChildElementHeader({%H-}fRootNode, {%H-}xRootNodeOpen) and//no root element
+      fXMLParser.ReadNextChildElementHeader(fRootNode, xRootNodeOpen{%H-}) and//no root element
       xRootNodeOpen;//there are no elements in root
 
     if not Result then
@@ -681,7 +679,7 @@ function TXMLDeserializer.ReadObjectInfo(var outElementName: OWideString): Boole
 var
   xType: OWideString;
 begin
-  Result := ReadObjectInfo(outElementName, {%H-}xType);
+  Result := ReadObjectInfo(outElementName, xType{%H-});
 end;
 
 procedure TXMLDeserializer.ReadObjectProperties(const aObject: TPersistent;
@@ -734,7 +732,7 @@ procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
       begin
         case CollectionStyle of
           csOXml:
-            if bPropElement.SelectNode('_oxmlcollection', {%H-}xEnumerationNode) then
+            if bPropElement.SelectNode('_oxmlcollection', xEnumerationNode{%H-}) then
               ReadCollectionItems(TCollection(xPropObject), xEnumerationNode, 'i');
           csOmniXML:
             ReadCollectionItems(TCollection(xPropObject), bPropElement, TCollection(xPropObject).ItemClass.ClassName);
@@ -753,7 +751,7 @@ begin
     Exit;
 
   if not aElementNode.FindChildWithIndex(SymbolNameToString(@aPropInfo^.Name),
-    {%H-}xPropElement, ioPropNameIndex)
+    xPropElement{%H-}, ioPropNameIndex)
   then
     Exit;
 
@@ -766,10 +764,10 @@ begin
   begin
     xStrValue := xPropElement.Text;
     case xPropType^.Kind of
-      tkInteger, tkChar, tkWChar, {$IFDEF FPC}tkUChar,{$ENDIF} tkEnumeration:
+      tkInteger, tkChar, tkWChar, {$IFDEF FPC}tkUChar, tkBool,{$ENDIF} tkEnumeration:
       begin
         case xPropType^.Kind of
-          tkInteger: xOrdValue := StrToInt(xStrValue);
+          tkInteger {$IFDEF FPC}, tkBool{$ENDIF}: xOrdValue := StrToInt(xStrValue);//save boolean values as integer
           tkChar {$IFNDEF FPC}, tkWChar{$ENDIF}: xOrdValue := Integer(xStrValue[1]);
           {$IFDEF FPC}tkWChar, tkUChar: xOrdValue := Integer(UTF8Decode(xStrValue)[1]);{$ENDIF}
           tkEnumeration: xOrdValue := GetEnumValue(xPropType, xStrValue);
@@ -785,7 +783,7 @@ begin
       {$IFDEF O_DELPHI_5_DOWN}, tkWString{$ENDIF}
       {$IFDEF O_DELPHI_2009_UP}, tkUString{$ENDIF}:
         SetStrProp(aObject, aPropInfo, xStrValue);
-      {$IFDEF O_RAWBYTESTRING}{$IFNDEF O_DELPHI_5_DOWN}
+      {$IFDEF O_HASBYTESTRINGS}{$IFNDEF O_DELPHI_5_DOWN}
       tkWString
       {$IFDEF FPC}, tkUString{$ENDIF}:
         SetWideStrProp(aObject, aPropInfo, {$IFDEF FPC}UTF8Decode{$ENDIF}(xStrValue));

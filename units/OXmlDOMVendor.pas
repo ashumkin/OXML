@@ -346,7 +346,7 @@ type
   TOXmlDOMImplementationFactory = class(TDOMVendor)
   public
     function DOMImplementation: IDOMImplementation; override;
-    function Description: String; override;
+    function Description: string; override;
   end;
 
   TDOMIStreamAdapter = class(TStream)
@@ -1375,7 +1375,7 @@ end;
 
 { TOXmlDOMImplementationFactory }
 
-function TOXmlDOMImplementationFactory.Description: String;
+function TOXmlDOMImplementationFactory.Description: string;
 begin
   Result := sOXmlDOMVendor;
 end;

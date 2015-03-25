@@ -113,7 +113,7 @@ type
     function GetItem(const aIndex: OHashedStringsIndex): POHashItem;
     procedure SetObject(const aIndex: OHashedStringsIndex; const aObject: TObject);
     function GetObject(const aIndex: OHashedStringsIndex): TObject;
-    {$IFNDEF NEXTGEN}
+    {$IFNDEF O_ARC}
     procedure SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
     {$ENDIF}
@@ -136,24 +136,24 @@ type
   private
     fKeys: TOHashedStrings;
     fValues: TOWideStringList;
-    function GetCaseSensitive: Boolean;
-    function GetKey(const aIndex: OHashedStringsIndex): OWideString;
-    function GetValue(const aIndex: OHashedStringsIndex): OWideString;
-    procedure SetCaseSensitive(aCaseSensitive: Boolean);
-    procedure SetValue(const aIndex: OHashedStringsIndex; const aValue: OWideString);
-    function GetValueOfKey(const aKey: OWideString): OWideString;
-    procedure SetValueOfKey(const aKey, aValue: OWideString);
-    function GetPair(const aIndex: OHashedStringsIndex): TOHashedStringDictionaryPair;
+    function GetCaseSensitive: Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetKey(const aIndex: OHashedStringsIndex): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetValue(const aIndex: OHashedStringsIndex): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+    procedure SetCaseSensitive(aCaseSensitive: Boolean); {$IFDEF O_INLINE}inline;{$ENDIF}
+    procedure SetValue(const aIndex: OHashedStringsIndex; const aValue: OWideString); {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetValueOfKey(const aKey: OWideString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+    procedure SetValueOfKey(const aKey, aValue: OWideString); {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetPair(const aIndex: OHashedStringsIndex): TOHashedStringDictionaryPair; {$IFDEF O_INLINE}inline;{$ENDIF}
   protected
     procedure AssignTo(Dest: TPersistent); override;
   public
     constructor Create;
     destructor Destroy; override;
   public
-    function IndexOf(const aKey: OWideString): OHashedStringsIndex;
+    function IndexOf(const aKey: OWideString): OHashedStringsIndex; {$IFDEF O_INLINE}inline;{$ENDIF}
     function Add(const aKey, aValue: OWideString): OHashedStringsIndex;
     function TryGetValue(const aKey: OWideString; var outValue: OWideString): Boolean;
-    function Count: OHashedStringsIndex;
+    function Count: OHashedStringsIndex; {$IFDEF O_INLINE}inline;{$ENDIF}
     procedure Clear;
     property CaseSensitive: Boolean read GetCaseSensitive write SetCaseSensitive;
 
@@ -340,7 +340,8 @@ end;
 function TOHashedStringDictionary.GetValueOfKey(
   const aKey: OWideString): OWideString;
 begin
-  Result := fValues[fKeys.IndexOf(aKey)];
+  if not TryGetValue(aKey, Result{%H-}) then
+    Result := '';
 end;
 
 function TOHashedStringDictionary.IndexOf(
@@ -363,7 +364,7 @@ end;
 procedure TOHashedStringDictionary.SetValueOfKey(const aKey,
   aValue: OWideString);
 begin
-  fValues[fKeys.IndexOf(aKey)] := aValue;
+  Add(aKey, aValue);
 end;
 
 constructor TOHashedStringDictionary.Create;
@@ -679,7 +680,7 @@ begin
   fObjects[aIndex] := aObject;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 function TOHashedStrings.GetPObject(
   const aIndex: OHashedStringsIndex): Pointer;
 begin

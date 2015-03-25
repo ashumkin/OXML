@@ -32,6 +32,7 @@ requires
 contains
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   ODictionary in '..\..\units\ODictionary.pas',
+  OJSON in '..\..\units\OJSON.pas',
   OEncoding in '..\..\units\OEncoding.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',

@@ -34,7 +34,7 @@ uses
 
   OWideSupp, OXmlUtils, OEncoding,
   OTextReadWrite, OXmlReadWrite,
-  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq,
+  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq, OJSON,
   OXmlSerialize
   {$IFDEF USE_RTTI}, OXmlRTTISerialize, Generics.Collections{$ENDIF}
 
@@ -42,7 +42,7 @@ uses
   ;
 
 const
-  cTestCount = 60;
+  cTestCount = 64;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -64,10 +64,15 @@ type
     function Test_TXMLReader_InvalidDocument1: Boolean;
   private
     //OXmlPDOM.pas
+    function Test_OXmlPDOM_TXMLNode_SelectNodeCreate: Boolean;
     function Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
     function Test_OXmlPDOM_TXMLNode_Clone: Boolean;
     function Test_OXmlPDOM_TXMLNode_Normalize: Boolean;
     function Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS: Boolean;
+    function Test_OXmlPDOM_TXMLNode_ChildCount: Boolean;
+    function Test_OXmlPDOM_TXMLNode_Id: Boolean;
+    function Test_OXmlPDOM_TXMLNode_NextNodeInTree: Boolean;
+    function Test_OXmlPDOM_TXMLNode_Sort: Boolean;
     function Test_OXmlPDOM_TXMLDocument_InvalidDocument1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
     function Test_OXmlPDOM_TXMLDocument_TabCRLF: Boolean;
@@ -77,23 +82,23 @@ type
     function Test_OXmlPDOM_TXMLDocument_WrongDocument3: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces2: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_NameSpaces3: Boolean;
     function Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces: Boolean;
     function Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlPDOM_EntityTest1: Boolean;
     function Test_OXmlPDOM_ExternalDTD: Boolean;
     function Test_OXmlPDOM_RussianANSI: Boolean;
-    function Test_OXmlPDOM_ChildCount: Boolean;
-    function Test_OXmlPDOM_Id: Boolean;
-    function Test_OXmlPDOM_NextNodeInTree: Boolean;
-    function Test_OXmlPDOM_Sort: Boolean;
-    function Test_OXmlPDOM_SelectNodeCreate: Boolean;
     function Test_OXmlPDOM_LastCR: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
+    function Test_OXmlCDOM_TXMLNode_SelectNodeCreate: Boolean;
     function Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute: Boolean;
     function Test_OXmlCDOM_TXMLNode_Clone: Boolean;
     function Test_OXmlCDOM_TXMLNode_Normalize: Boolean;
+    function Test_OXmlCDOM_TXMLNode_ChildCount: Boolean;
+    function Test_OXmlCDOM_TXMLNode_NextNodeInTree: Boolean;
+    function Test_OXmlCDOM_TXMLNode_Sort: Boolean;
     function Test_OXmlCDOM_TXMLDocument_InvalidDocument1: Boolean;
     function Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
     function Test_OXmlCDOM_TXMLDocument_AttributeIndex: Boolean;
@@ -102,17 +107,14 @@ type
     function Test_OXmlCDOM_TXMLDocument_WrongDocument3: Boolean;
     function Test_OXmlCDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlCDOM_TXMLDocument_NameSpaces2: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_NameSpaces3: Boolean;
     function Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlCDOM_EntityTest1: Boolean;
     function Test_OXmlCDOM_ExternalDTD: Boolean;
-    function Test_OXmlCDOM_ChildCount: Boolean;
-    function Test_OXmlCDOM_NextNodeInTree: Boolean;
-    function Test_OXmlCDOM_Sort: Boolean;
-    function Test_OXmlCDOM_SelectNodeCreate: Boolean;
     function Test_OXmlCDOM_OASIS: Boolean;
   private
     //OWideSupp.pas
-    function Test_TOTextBuffer: Boolean;
+    function Test_TOByteBuffer: Boolean;
   private
     //OHashedStrings.pas
     fTest_TOVirtualHashIndex_StrL: TStringList;
@@ -136,16 +138,20 @@ type
     function Test_OASIS(const aIsPDOM: Boolean): Boolean;
   private
     //OXmlSerialize.pas
-    function Text_OXmlSerializer_Test1(const aUseRoot: Boolean): Boolean;
-    function Text_OXmlSerializer_Test1True: Boolean;
-    function Text_OXmlSerializer_Test1False: Boolean;
-    function Text_OXmlSerializer_Test2: Boolean;
+    function Test_OXmlSerializer_Test1(const aUseRoot: Boolean): Boolean;
+    function Test_OXmlSerializer_Test1True: Boolean;
+    function Test_OXmlSerializer_Test1False: Boolean;
+    function Test_OXmlSerializer_Test2: Boolean;
 
     //OXmlRTTISerialize.pas
-    function Text_OXmlRTTISerializer_Test1(const {%H-}aUseRoot: Boolean): Boolean;
-    function Text_OXmlRTTISerializer_Test1True: Boolean;
-    function Text_OXmlRTTISerializer_Test1False: Boolean;
-    function Text_OXmlRTTISerializer_Test2: Boolean;
+    function Test_OXmlRTTISerializer_Test1(const {%H-}aUseRoot: Boolean): Boolean;
+    function Test_OXmlRTTISerializer_Test1True: Boolean;
+    function Test_OXmlRTTISerializer_Test1False: Boolean;
+    function Test_OXmlRTTISerializer_Test2: Boolean;
+  private
+    //OJSON.pas
+    function Test_OJSON_TJSONWriter_Test1: Boolean;
+    function Test_OJSON_TJSONReader_Test1: Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
@@ -154,36 +160,36 @@ type
   end;
 
   //custom classes for serializer tests
-  TText_OXmlSerializer_Test1_Enum = (enOne, enTwo, enThree);
-  TText_OXmlSerializer_Test1_Set = set of TText_OXmlSerializer_Test1_Enum;
+  TTest_OXmlSerializer_Test1_Enum = (enOne, enTwo, enThree);
+  TTest_OXmlSerializer_Test1_Set = set of TTest_OXmlSerializer_Test1_Enum;
 
-  TText_OXmlSerializer_Test1_Class2 = class(TPersistent)
+  TTest_OXmlSerializer_Test1_Class2 = class(TPersistent)
   private
     fMyInt: Integer;
   public
     constructor Create; overload;
     constructor Create(const aMyInt: Integer); overload;
 
-    function SameAs(const aComp: TText_OXmlSerializer_Test1_Class2): Boolean; virtual;
+    function SameAs(const aComp: TTest_OXmlSerializer_Test1_Class2): Boolean; virtual;
   published
     property MyInt: Integer read fMyInt write fMyInt;
   end;
-  TText_OXmlSerializer_Test1_Class2A = class(TText_OXmlSerializer_Test1_Class2)
+  TTest_OXmlSerializer_Test1_Class2A = class(TTest_OXmlSerializer_Test1_Class2)
   public
     MyIntVar: Integer;
   public
     constructor Create(const aMyInt, aMyIntVar: Integer); overload;
 
-    function SameAs(const aComp: TText_OXmlSerializer_Test1_Class2): Boolean; override;
+    function SameAs(const aComp: TTest_OXmlSerializer_Test1_Class2): Boolean; override;
   end;
 
   MyWideString = {$IFNDEF NEXTGEN}WideString{$ELSE}string{$ENDIF};
 
-  TText_OXmlSerializer_Test1_Class = class(TPersistent)
+  TTest_OXmlSerializer_Test1_Class = class(TPersistent)
   private
     fMyInt: Integer;
-    fMyEnum: TText_OXmlSerializer_Test1_Enum;
-    fMySet: TText_OXmlSerializer_Test1_Set;
+    fMyEnum: TTest_OXmlSerializer_Test1_Enum;
+    fMySet: TTest_OXmlSerializer_Test1_Set;
     fMyDate: TDate;
     fMyDateTime: TDateTime;
     fMyTime: TTime;
@@ -192,17 +198,17 @@ type
     {$IFDEF O_DELPHI_XE2_UP}
     fMyWideString: MyWideString;//WideString ist not supported in Delphi XE -> Delphi BUG
     {$ENDIF}
-    fMyClass: TText_OXmlSerializer_Test1_Class2;
+    fMyClass: TTest_OXmlSerializer_Test1_Class2;
     fMyCollection: TCollection;
   public
     constructor Create;
     destructor Destroy; override;
 
-    function SameAs(aCompare: TText_OXmlSerializer_Test1_Class): Boolean;
+    function SameAs(aCompare: TTest_OXmlSerializer_Test1_Class): Boolean;
   published
     property MyInt: Integer read fMyInt write fMyInt;
-    property MyEnum: TText_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum;
-    property MySet: TText_OXmlSerializer_Test1_Set read fMySet write fMySet;
+    property MyEnum: TTest_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum;
+    property MySet: TTest_OXmlSerializer_Test1_Set read fMySet write fMySet;
     property MyDate: TDate read fMyDate write fMyDate;
     property MyDateTime: TDateTime read fMyDateTime write fMyDateTime;
     property MyTime: TTime read fMyTime write fMyTime;
@@ -211,25 +217,25 @@ type
     {$IFDEF O_DELPHI_XE2_UP}
     property MyWideString: MyWideString read fMyWideString write fMyWideString;
     {$ENDIF}
-    property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
+    property MyClass: TTest_OXmlSerializer_Test1_Class2 read fMyClass;
     property MyCollection: TCollection read fMyCollection;
   end;
 
   {$IFDEF USE_RTTI}
-  TText_OXmlRTTISerializer_Test1_Record = record
+  TTest_OXmlRTTISerializer_Test1_Record = record
     MyInt: Integer;
     MyString: string;
     MyArray: array[1..2] of String;
     MyDynArray: array of String;
     MyDynArrayDate: array of TDateTime;
   end;
-  PText_OXmlRTTISerializer_Test1_Record = ^TText_OXmlRTTISerializer_Test1_Record;
+  PTest_OXmlRTTISerializer_Test1_Record = ^TTest_OXmlRTTISerializer_Test1_Record;
 
-  TText_OXmlRTTISerializer_Test1_Class = class(TPersistent)
+  TTest_OXmlRTTISerializer_Test1_Class = class(TPersistent)
   private
     fMyInt: Integer;
-    fMyEnum: TText_OXmlSerializer_Test1_Enum;
-    fMySet: TText_OXmlSerializer_Test1_Set;
+    fMyEnum: TTest_OXmlSerializer_Test1_Enum;
+    fMySet: TTest_OXmlSerializer_Test1_Set;
     fMyDate: TDate;
     fMyDateTime: TDateTime;
     fMyTime: TTime;
@@ -238,19 +244,19 @@ type
     {$IFDEF O_DELPHI_XE2_UP}
     fMyWideString: MyWideString;
     {$ENDIF}
-    fMyClass: TText_OXmlSerializer_Test1_Class2;
-    fMyRecord: TText_OXmlRTTISerializer_Test1_Record;
+    fMyClass: TTest_OXmlSerializer_Test1_Class2;
+    fMyRecord: TTest_OXmlRTTISerializer_Test1_Record;
     fMyStrList: TList<string>;
-    fMyObjList: TObjectList<TText_OXmlSerializer_Test1_Class2>;
+    fMyObjList: TObjectList<TTest_OXmlSerializer_Test1_Class2>;
   public
     constructor Create;
     destructor Destroy; override;
 
-    function SameAs(aCompare: TText_OXmlRTTISerializer_Test1_Class): Boolean;
+    function SameAs(aCompare: TTest_OXmlRTTISerializer_Test1_Class): Boolean;
   public
     property MyInt: Integer read fMyInt write fMyInt default 0;
-    property MyEnum: TText_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum default enOne;
-    property MySet: TText_OXmlSerializer_Test1_Set read fMySet write fMySet;
+    property MyEnum: TTest_OXmlSerializer_Test1_Enum read fMyEnum write fMyEnum default enOne;
+    property MySet: TTest_OXmlSerializer_Test1_Set read fMySet write fMySet;
     property MyDate: TDate read fMyDate write fMyDate;
     property MyDateTime: TDateTime read fMyDateTime write fMyDateTime;
     property MyTime: TTime read fMyTime write fMyTime;
@@ -259,14 +265,14 @@ type
     {$IFDEF O_DELPHI_XE2_UP}
     property MyWideString: MyWideString read fMyWideString write fMyWideString;
     {$ENDIF}
-    property MyClass: TText_OXmlSerializer_Test1_Class2 read fMyClass;
-    property MyRecord: TText_OXmlRTTISerializer_Test1_Record read fMyRecord write fMyRecord;
+    property MyClass: TTest_OXmlSerializer_Test1_Class2 read fMyClass;
+    property MyRecord: TTest_OXmlRTTISerializer_Test1_Record read fMyRecord write fMyRecord;
     property MyStrList: TList<string> read fMyStrList;
-    property MyObjList: TObjectList<TText_OXmlSerializer_Test1_Class2> read fMyObjList;
+    property MyObjList: TObjectList<TTest_OXmlSerializer_Test1_Class2> read fMyObjList;
   end;
   {$ENDIF}
 
-  TText_OXmlSerializer_Test1_CollectionItem = class(TCollectionItem)
+  TTest_OXmlSerializer_Test1_CollectionItem = class(TCollectionItem)
   private
     fValue: Integer;
   published
@@ -275,10 +281,18 @@ type
 
 implementation
 
+uses
+  Math;
+
 {$IFDEF VER130}
 //Delphi 5 compatibility
 type
   PByte = ^Byte;
+
+function SameValue(const A, B: Extended): Boolean;
+begin
+  Result := Abs(A - B) < 1e-12;
+end;
 {$ENDIF}
 
 { TOXmlUnitTest }
@@ -327,10 +341,15 @@ begin
   ExecuteFunction(Test_TOTextReader_InitBuffer, 'Test_TOTextReader_InitBuffer');
   ExecuteFunction(Test_TXMLReader_FinishOpenElementClose_NodeName_Empty, 'Test_TXMLReader_FinishOpenElementClose_NodeName_Empty');
   ExecuteFunction(Test_TXMLReader_InvalidDocument1, 'Test_TXMLReader_InvalidDocument1');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_SelectNodeCreate, 'Test_OXmlPDOM_TXMLNode_SelectNodeCreate');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlPDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_Clone, 'Test_OXmlPDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_Normalize, 'Test_OXmlPDOM_TXMLNode_Normalize');
   ExecuteFunction(Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS, 'Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_ChildCount, 'Test_OXmlPDOM_TXMLNode_ChildCount');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_Id, 'Test_OXmlPDOM_TXMLNode_Id');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_NextNodeInTree, 'Test_OXmlPDOM_TXMLNode_NextNodeInTree');
+  ExecuteFunction(Test_OXmlPDOM_TXMLNode_Sort, 'Test_OXmlPDOM_TXMLNode_Sort');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_InvalidDocument1, 'Test_OXmlPDOM_TXMLDocument_InvalidDocument1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling, 'Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_TabCRLF, 'Test_OXmlPDOM_TXMLDocument_TabCRLF');
@@ -340,20 +359,21 @@ begin
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_WrongDocument3, 'Test_OXmlPDOM_TXMLDocument_WrongDocument3');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces1, 'Test_OXmlPDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces2, 'Test_OXmlPDOM_TXMLDocument_NameSpaces2');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces3, 'Test_OXmlPDOM_TXMLDocument_NameSpaces3');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces, 'Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces');
   ExecuteFunction(Test_OXmlPDOM_DoctypeEntityTest1, 'Test_OXmlPDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlPDOM_EntityTest1, 'Test_OXmlPDOM_EntityTest1');
   ExecuteFunction(Test_OXmlPDOM_ExternalDTD, 'Test_OXmlPDOM_ExternalDTD');
   ExecuteFunction(Test_OXmlPDOM_RussianANSI, 'Test_OXmlPDOM_RussianANSI');
-  ExecuteFunction(Test_OXmlPDOM_ChildCount, 'Test_OXmlPDOM_ChildCount');
-  ExecuteFunction(Test_OXmlPDOM_Id, 'Test_OXmlPDOM_Id');
-  ExecuteFunction(Test_OXmlPDOM_NextNodeInTree, 'Test_OXmlPDOM_NextNodeInTree');
-  ExecuteFunction(Test_OXmlPDOM_Sort, 'Test_OXmlPDOM_Sort');
-  ExecuteFunction(Test_OXmlPDOM_SelectNodeCreate, 'Test_OXmlPDOM_SelectNodeCreate');
   ExecuteFunction(Test_OXmlPDOM_LastCR, 'Test_OXmlPDOM_LastCR');
+
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Clone, 'Test_OXmlCDOM_TXMLNode_Clone');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_Normalize, 'Test_OXmlCDOM_TXMLNode_Normalize');
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_ChildCount, 'Test_OXmlCDOM_TXMLNode_ChildCount');
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_NextNodeInTree, 'Test_OXmlCDOM_TXMLNode_NextNodeInTree');
+  ExecuteFunction(Test_OXmlCDOM_TXMLNode_Sort, 'Test_OXmlCDOM_TXMLNode_Sort');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_InvalidDocument1, 'Test_OXmlCDOM_TXMLDocument_InvalidDocument1');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling, 'Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_AttributeIndex, 'Test_OXmlCDOM_TXMLDocument_AttributeIndex');
@@ -362,26 +382,26 @@ begin
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_WrongDocument3, 'Test_OXmlCDOM_TXMLDocument_WrongDocument3');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces1, 'Test_OXmlCDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces2, 'Test_OXmlCDOM_TXMLDocument_NameSpaces2');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces3, 'Test_OXmlCDOM_TXMLDocument_NameSpaces3');
   ExecuteFunction(Test_OXmlCDOM_DoctypeEntityTest1, 'Test_OXmlCDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlCDOM_EntityTest1, 'Test_OXmlCDOM_EntityTest1');
   ExecuteFunction(Test_OXmlCDOM_ExternalDTD, 'Test_OXmlCDOM_ExternalDTD');
-  ExecuteFunction(Test_OXmlCDOM_ChildCount, 'Test_OXmlCDOM_ChildCount');
-  ExecuteFunction(Test_OXmlCDOM_NextNodeInTree, 'Test_OXmlCDOM_NextNodeInTree');
-  ExecuteFunction(Test_OXmlCDOM_Sort, 'Test_OXmlCDOM_Sort');
-  ExecuteFunction(Test_OXmlCDOM_SelectNodeCreate, 'Test_OXmlCDOM_SelectNodeCreate');
-  ExecuteFunction(Test_TOTextBuffer, 'Test_TOTextBuffer');
+
+  ExecuteFunction(Test_TOByteBuffer, 'Test_TOByteBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TOVirtualHashIndex, 'Test_TOVirtualHashIndex');
   ExecuteFunction(Test_TOHashedStrings_NotCaseSensitive, 'Test_TOHashedStrings_NotCaseSensitive');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
   ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
-  ExecuteFunction(Text_OXmlSerializer_Test1True, 'Text_OXmlSerializer_Test1True');
-  ExecuteFunction(Text_OXmlSerializer_Test1False, 'Text_OXmlSerializer_Test1False');
-  ExecuteFunction(Text_OXmlSerializer_Test2, 'Text_OXmlSerializer_Test2');
-  ExecuteFunction(Text_OXmlRTTISerializer_Test1True, 'Text_OXmlRTTISerializer_Test1True');
-  ExecuteFunction(Text_OXmlRTTISerializer_Test1False, 'Text_OXmlRTTISerializer_Test1False');
-  ExecuteFunction(Text_OXmlRTTISerializer_Test2, 'Text_OXmlRTTISerializer_Test2');
+  ExecuteFunction(Test_OXmlSerializer_Test1True, 'Test_OXmlSerializer_Test1True');
+  ExecuteFunction(Test_OXmlSerializer_Test1False, 'Test_OXmlSerializer_Test1False');
+  ExecuteFunction(Test_OXmlSerializer_Test2, 'Test_OXmlSerializer_Test2');
+  ExecuteFunction(Test_OXmlRTTISerializer_Test1True, 'Test_OXmlRTTISerializer_Test1True');
+  ExecuteFunction(Test_OXmlRTTISerializer_Test1False, 'Test_OXmlRTTISerializer_Test1False');
+  ExecuteFunction(Test_OXmlRTTISerializer_Test2, 'Test_OXmlRTTISerializer_Test2');
+  ExecuteFunction(Test_OJSON_TJSONWriter_Test1, 'Test_OJSON_TJSONWriter_Test1');
+  ExecuteFunction(Test_OJSON_TJSONReader_Test1, 'Test_OJSON_TJSONReader_Test1');
 
   if fPassNameIfFalse.Count = 0 then
     aStrList.Add(Format('OXml: all tests from %d passed.', [GetAllTestCount]))
@@ -539,24 +559,27 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TOTextBuffer: Boolean;
+function TOXmlUnitTest.Test_TOByteBuffer: Boolean;
 var
   xC: OWideString;
-  xBuf: TOTextBuffer;
+  xBuf: TOByteBuffer;
   I, L: Integer;
 begin
-  xBuf := TOTextBuffer.Create;
+  xBuf := TOByteBuffer.Create;
   try
-    for L := 1 to 2 do begin
+    for L := 1 to 2 do
+    begin
       for I := 0 to 10*1000 - 1 do
-        xBuf.WriteChar(OWideChar(IntToStr(I mod 10)[1]));
+        xBuf.WriteOWideChar(OWideChar(IntToStr(I mod 10)[1]));
 
-      Result := xBuf.UsedLength = (10*1000);
-      if not Result then Exit;
+      Result := xBuf.UsedLength = (10*1000) * SizeOf(OWideChar);
+      if not Result then
+        Exit;
 
-      for I := 0 to xBuf.UsedLength-1 do begin
-        xBuf.GetBuffer({%H-}xC, I+1, 1);
-        Result := xC = IntToStr(I mod 10);
+      xC := xBuf.GetOWideString;
+      for I := 0 to Length(xC)-1 do
+      begin
+        Result := xC[I+1] = OWideChar(IntToStr(I mod 10)[1]);
         if not Result then
           Exit;
       end;
@@ -672,7 +695,7 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_OXmlPDOM_ChildCount: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_ChildCount: Boolean;
 const
   inXML: OWideString =
     '<?xml version="1.0" encoding="windows-1250"?>'+
@@ -864,7 +887,7 @@ begin
   if not Result then Exit;
 end;
 
-function TOXmlUnitTest.Test_OXmlPDOM_Id: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Id: Boolean;
 var
   I: Integer;
   xXML: OXmlPDOM.IXMLDocument;
@@ -900,7 +923,7 @@ begin
   Result := (xXML.XML = outXML);
 end;
 
-function TOXmlUnitTest.Test_OXmlPDOM_NextNodeInTree: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_NextNodeInTree: Boolean;
 var
   I: Integer;
 
@@ -1038,7 +1061,7 @@ begin
     CompareMem(@xOutBuffer1[0], @xOutBuffer2[0], Length(xOutBuffer1));
 end;
 
-function TOXmlUnitTest.Test_OXmlPDOM_SelectNodeCreate: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_SelectNodeCreate: Boolean;
 var
   xXML: OXmlPDOM.IXMLDocument;
 const
@@ -1053,7 +1076,7 @@ begin
   Result := xXML.XML = outXML;
 end;
 
-function TOXmlUnitTest.Test_OXmlPDOM_Sort: Boolean;
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Sort: Boolean;
 var
   xXML: OXmlPDOM.IXMLDocument;
   xRoot, xNodeA, xCurNode: OXmlPDOM.PXMLNode;
@@ -1217,7 +1240,7 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1(
+function TOXmlUnitTest.Test_OXmlRTTISerializer_Test1(
   const aUseRoot: Boolean): Boolean;
 {$IFDEF USE_RTTI}
 var
@@ -1225,9 +1248,9 @@ var
   xSerializer: TXMLRTTISerializer;
   xDeserializer: TXMLRTTIDeserializer;
   I: Integer;
-  xObjectIn, xObjectOut: array[0..1] of TText_OXmlRTTISerializer_Test1_Class;
+  xObjectIn, xObjectOut: array[0..1] of TTest_OXmlRTTISerializer_Test1_Class;
   xClassName: String;
-  xRec: TText_OXmlRTTISerializer_Test1_Record;
+  xRec: TTest_OXmlRTTISerializer_Test1_Record;
 begin
   Result := False;
 
@@ -1236,7 +1259,7 @@ begin
   xDeserializer := TXMLRTTIDeserializer.Create;
   for I := Low(xObjectIn) to High(xObjectIn) do
   begin
-    xObjectIn[I] := TText_OXmlRTTISerializer_Test1_Class.Create;
+    xObjectIn[I] := TTest_OXmlRTTISerializer_Test1_Class.Create;
     xObjectOut[I] := nil;
   end;
   try
@@ -1272,9 +1295,9 @@ begin
       xObjectIn[I].MyRecord := xRec;
       xObjectIn[I].MyStrList.Add('first');
       xObjectIn[I].MyStrList.Add('second');
-      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2A.Create(1, 5));
-      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2.Create(2));
-      xObjectIn[I].MyObjList.Add(TText_OXmlSerializer_Test1_Class2.Create(3));
+      xObjectIn[I].MyObjList.Add(TTest_OXmlSerializer_Test1_Class2A.Create(1, 5));
+      xObjectIn[I].MyObjList.Add(TTest_OXmlSerializer_Test1_Class2.Create(2));
+      xObjectIn[I].MyObjList.Add(TTest_OXmlSerializer_Test1_Class2.Create(3));
 
       xSerializer.WriteObject(xObjectIn[I]);
     end;
@@ -1285,21 +1308,21 @@ begin
 
     xDeserializer.UseRoot := xSerializer.UseRoot;
     xDeserializer.InitStream(xStream);
-    xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2);
-    xDeserializer.RegisterClass(TText_OXmlSerializer_Test1_Class2A);
+    xDeserializer.RegisterClass(TTest_OXmlSerializer_Test1_Class2);
+    xDeserializer.RegisterClass(TTest_OXmlSerializer_Test1_Class2A);
 
     I := 0;
     while xDeserializer.ReadObjectInfo({%H-}xClassName) do
     begin
-      if xClassName = TText_OXmlRTTISerializer_Test1_Class.ClassName then
+      if xClassName = TTest_OXmlRTTISerializer_Test1_Class.ClassName then
       begin
-        xObjectOut[I] := TText_OXmlRTTISerializer_Test1_Class.Create;
+        xObjectOut[I] := TTest_OXmlRTTISerializer_Test1_Class.Create;
 
         xDeserializer.ReadObject(xObjectOut[I]);
 
         Inc(I);
       end else
-        raise Exception.Create('Text_OXmlRTTISerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
+        raise Exception.Create('Test_OXmlRTTISerializer_Test1_CreateObject: class "'+xClassName+'" is unknown.');
     end;
 
     for I := Low(xObjectIn) to High(xObjectIn) do
@@ -1328,23 +1351,23 @@ begin
 {$ENDIF}
 end;
 
-function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1False: Boolean;
+function TOXmlUnitTest.Test_OXmlRTTISerializer_Test1False: Boolean;
 begin
-  Result := Text_OXmlRTTISerializer_Test1(False);
+  Result := Test_OXmlRTTISerializer_Test1(False);
 end;
 
-function TOXmlUnitTest.Text_OXmlRTTISerializer_Test1True: Boolean;
+function TOXmlUnitTest.Test_OXmlRTTISerializer_Test1True: Boolean;
 begin
-  Result := Text_OXmlRTTISerializer_Test1(True);
+  Result := Test_OXmlRTTISerializer_Test1(True);
 end;
 
-function TOXmlUnitTest.Text_OXmlRTTISerializer_Test2: Boolean;
+function TOXmlUnitTest.Test_OXmlRTTISerializer_Test2: Boolean;
 {$IFDEF USE_RTTI}
 var
   xStream: TStream;
   xSerializer: TXMLRTTISerializer;
   xDeserializer: TXMLRTTIDeserializer;
-  xObjectIn, xObjectOut: TText_OXmlSerializer_Test1_Class;
+  xObjectIn, xObjectOut: TTest_OXmlSerializer_Test1_Class;
   xElementName, xObjectType: OWideString;
 begin
   Result := False;
@@ -1352,7 +1375,7 @@ begin
   xStream := TMemoryStream.Create;
   xSerializer := TXMLRTTISerializer.Create;
   xDeserializer := TXMLRTTIDeserializer.Create;
-  xObjectIn := TText_OXmlSerializer_Test1_Class.Create;
+  xObjectIn := TTest_OXmlSerializer_Test1_Class.Create;
   xObjectOut := nil;
   try
     xSerializer.WriterSettings.IndentType := itIndent;
@@ -1375,8 +1398,8 @@ begin
     xObjectIn.MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
     {$ENDIF}
     xObjectIn.MyClass.MyInt := 10;
-    TText_OXmlSerializer_Test1_CollectionItem(xObjectIn.MyCollection.Add).Value := 5;
-    TText_OXmlSerializer_Test1_CollectionItem(xObjectIn.MyCollection.Add).Value := -8;
+    TTest_OXmlSerializer_Test1_CollectionItem(xObjectIn.MyCollection.Add).Value := 5;
+    TTest_OXmlSerializer_Test1_CollectionItem(xObjectIn.MyCollection.Add).Value := -8;
 
     xSerializer.WriteObject(xObjectIn, 'customobject', True);
 
@@ -1390,13 +1413,13 @@ begin
     while xDeserializer.ReadObjectInfo({%H-}xElementName, xObjectType) do
     begin
       if (xElementName = 'customobject') and
-        (xObjectType = TText_OXmlSerializer_Test1_Class.ClassName)
+        (xObjectType = TTest_OXmlSerializer_Test1_Class.ClassName)
       then begin
-        xObjectOut := TText_OXmlSerializer_Test1_Class.Create;
+        xObjectOut := TTest_OXmlSerializer_Test1_Class.Create;
 
         xDeserializer.ReadObject(xObjectOut);
       end else
-        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: object "'+xElementName+'" is unknown.');
+        raise Exception.Create('Test_OXmlSerializer_Test1_CreateObject: object "'+xElementName+'" is unknown.');
     end;
 
     Result :=
@@ -1418,14 +1441,14 @@ begin
 {$ENDIF}
 end;
 
-function TOXmlUnitTest.Text_OXmlSerializer_Test1(
+function TOXmlUnitTest.Test_OXmlSerializer_Test1(
   const aUseRoot: Boolean): Boolean;
 var
   xStream: TStream;
   xSerializer: TXMLSerializer;
   xDeserializer: TXMLDeserializer;
   I: Integer;
-  xObjectIn, xObjectOut: array[0..1] of TText_OXmlSerializer_Test1_Class;
+  xObjectIn, xObjectOut: array[0..1] of TTest_OXmlSerializer_Test1_Class;
   xElementName: OWideString;
 begin
   Result := False;
@@ -1435,7 +1458,7 @@ begin
   xDeserializer := TXMLDeserializer.Create;
   for I := Low(xObjectIn) to High(xObjectIn) do
   begin
-    xObjectIn[I] := TText_OXmlSerializer_Test1_Class.Create;
+    xObjectIn[I] := TTest_OXmlSerializer_Test1_Class.Create;
     xObjectOut[I] := nil;
   end;
   try
@@ -1461,8 +1484,8 @@ begin
       xObjectIn[I].MyWideString := 'Ond'#$0159'ej';//utf-16: Ondrej
       {$ENDIF}
       xObjectIn[I].MyClass.MyInt := I + 10;
-      TText_OXmlSerializer_Test1_CollectionItem(xObjectIn[I].MyCollection.Add).Value := 5 + I;
-      TText_OXmlSerializer_Test1_CollectionItem(xObjectIn[I].MyCollection.Add).Value := -8 - I;
+      TTest_OXmlSerializer_Test1_CollectionItem(xObjectIn[I].MyCollection.Add).Value := 5 + I;
+      TTest_OXmlSerializer_Test1_CollectionItem(xObjectIn[I].MyCollection.Add).Value := -8 - I;
 
       xSerializer.WriteObject(xObjectIn[I]);
     end;
@@ -1478,15 +1501,15 @@ begin
     I := 0;
     while xDeserializer.ReadObjectInfo({%H-}xElementName) do
     begin
-      if xElementName = TText_OXmlSerializer_Test1_Class.ClassName then
+      if xElementName = TTest_OXmlSerializer_Test1_Class.ClassName then
       begin
-        xObjectOut[I] := TText_OXmlSerializer_Test1_Class.Create;
+        xObjectOut[I] := TTest_OXmlSerializer_Test1_Class.Create;
 
         xDeserializer.ReadObject(xObjectOut[I]);
 
         Inc(I);
       end else
-        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: class "'+xElementName+'" is unknown.');
+        raise Exception.Create('Test_OXmlSerializer_Test1_CreateObject: class "'+xElementName+'" is unknown.');
     end;
 
     for I := Low(xObjectIn) to High(xObjectIn) do
@@ -1510,22 +1533,22 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Text_OXmlSerializer_Test1False: Boolean;
+function TOXmlUnitTest.Test_OXmlSerializer_Test1False: Boolean;
 begin
-  Result := Text_OXmlSerializer_Test1(False);
+  Result := Test_OXmlSerializer_Test1(False);
 end;
 
-function TOXmlUnitTest.Text_OXmlSerializer_Test1True: Boolean;
+function TOXmlUnitTest.Test_OXmlSerializer_Test1True: Boolean;
 begin
-  Result := Text_OXmlSerializer_Test1(True);
+  Result := Test_OXmlSerializer_Test1(True);
 end;
 
-function TOXmlUnitTest.Text_OXmlSerializer_Test2: Boolean;
+function TOXmlUnitTest.Test_OXmlSerializer_Test2: Boolean;
 var
   xStream: TStream;
   xSerializer: TXMLSerializer;
   xDeserializer: TXMLDeserializer;
-  xObjectIn, xObjectOut: TText_OXmlSerializer_Test1_Class;
+  xObjectIn, xObjectOut: TTest_OXmlSerializer_Test1_Class;
   xElementName, xObjectType: OWideString;
 begin
   Result := False;
@@ -1533,7 +1556,7 @@ begin
   xStream := TMemoryStream.Create;
   xSerializer := TXMLSerializer.Create;
   xDeserializer := TXMLDeserializer.Create;
-  xObjectIn := TText_OXmlSerializer_Test1_Class.Create;
+  xObjectIn := TTest_OXmlSerializer_Test1_Class.Create;
   xObjectOut := nil;
   try
     xSerializer.WriterSettings.IndentType := itIndent;
@@ -1569,13 +1592,13 @@ begin
     while xDeserializer.ReadObjectInfo({%H-}xElementName, {%H-}xObjectType) do
     begin
       if (xElementName = 'customobject') and
-        (xObjectType = TText_OXmlSerializer_Test1_Class.ClassName)
+        (xObjectType = TTest_OXmlSerializer_Test1_Class.ClassName)
       then begin
-        xObjectOut := TText_OXmlSerializer_Test1_Class.Create;
+        xObjectOut := TTest_OXmlSerializer_Test1_Class.Create;
 
         xDeserializer.ReadObject(xObjectOut);
       end else
-        raise Exception.Create('Text_OXmlSerializer_Test1_CreateObject: object "'+xElementName+'" is unknown.');
+        raise Exception.Create('Test_OXmlSerializer_Test1_CreateObject: object "'+xElementName+'" is unknown.');
     end;
 
     Result :=
@@ -1812,6 +1835,28 @@ begin
   Result := xNode2.namespaceURI = 'extra-ns';
   if not Result then Exit;
 
+  Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_NameSpaces3: Boolean;
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xNode1, xNode2: OXmlPDOM.PXMLNode;
+const
+  cNS = 'url://namespace';
+  outXML = '<root xmlns="'+cNS+'"><child/></root>';
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xNode1 := xXML.CreateElementNS(cNS, 'root');
+  xNode2 := xXML.CreateElement('child');
+  xNode1.AppendChild(xNode2);
+  Result := (xNode1.NameSpaceURI = cNS);
+  if not Result then
+    Exit;
+  Result := (xNode2.NameSpaceURI = cNS);
+  if not Result then
+    Exit;
+  xXML.Node.AppendChild(xNode1);
   Result := xXML.XML = outXML;
 end;
 
@@ -2312,7 +2357,112 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_OXmlCDOM_ChildCount: Boolean;
+function TOXmlUnitTest.Test_OJSON_TJSONReader_Test1: Boolean;
+var
+  xJSONReader: TJSONReader;
+  xToken: TJSONReaderToken;
+const
+  inJSON: OWideString = '[{"double": 3.14, "integer": 777, "boolean": true, "null": null, "object": {"name": "value"}}, "value \"my\"\\\n"]';
+begin
+  Result := False;
+
+  xJSONReader := TJSONReader.Create;
+  try
+    xJSONReader.InitString(inJSON);
+
+    if not xJSONReader.ReadNextToken({%H-}xToken) then Exit;
+    if not (xToken.TokenType = ttOpenArray) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttOpenObject) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttPairName) and (xToken.PairName = 'double')) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttValue) and SameValue(xToken.DoubleValue, 3.14)) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttSeparator) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttPairName) and (xToken.PairName = 'integer')) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttValue) and SameValue(xToken.IntegerValue, 777)) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttSeparator) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttPairName) and (xToken.PairName = 'boolean')) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttValue) and xToken.BooleanValue) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttSeparator) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttPairName) and (xToken.PairName = 'null')) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttValue) and (xToken.ValueType = vtNull)) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttSeparator) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttPairName) and (xToken.PairName = 'object')) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttOpenObject) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttPairName) and (xToken.PairName = 'name')) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttValue) and (xToken.StringValue = 'value')) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttCloseObject) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttCloseObject) then Exit;
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttSeparator) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not ((xToken.TokenType = ttValue) and (xToken.StringValue = 'value "my"\'#10)) then Exit;
+
+    if not xJSONReader.ReadNextToken(xToken) then Exit;
+    if not (xToken.TokenType = ttCloseArray) then Exit;
+
+    if xJSONReader.ReadNextToken(xToken) then Exit;//last should be False
+
+    Result := True;
+  finally
+    xJSONReader.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OJSON_TJSONWriter_Test1: Boolean;
+var
+  xJSONWriter: TJSONWriter;
+const
+  outJSON: OWideString = '[{"double": 3.14, "integer": 777, "boolean": true, "null": null, "object": {"name": "value"}}, "value \"my\"\\\n"]';
+begin
+  xJSONWriter := TJSONWriter.Create;
+  try
+    xJSONWriter.
+      OpenArray.
+        OpenObject.
+          Number('double', 3.14).
+          Number('integer', 777).
+          Boolean('boolean', True).
+          Null('null').
+          OpenObject('object').
+            Text('name', 'value').
+          CloseObject.
+        CloseObject.
+        Text('value "my"\'#10).
+      CloseArray;
+
+    Result := (xJSONWriter.AsString = outJSON);
+  finally
+    xJSONWriter.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_ChildCount: Boolean;
 const
   inXML: OWideString =
     '<?xml version="1.0" encoding="windows-1250"?>'+
@@ -2493,7 +2643,7 @@ begin
   if not Result then Exit;
 end;
 
-function TOXmlUnitTest.Test_OXmlCDOM_NextNodeInTree: Boolean;
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_NextNodeInTree: Boolean;
 var
   I: Integer;
 
@@ -2569,7 +2719,7 @@ begin
   Result := Test_OASIS(False);
 end;
 
-function TOXmlUnitTest.Test_OXmlCDOM_SelectNodeCreate: Boolean;
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_SelectNodeCreate: Boolean;
 var
   xXML: OXmlCDOM.IXMLDocument;
 const
@@ -2584,7 +2734,7 @@ begin
   Result := xXML.XML = outXML;
 end;
 
-function TOXmlUnitTest.Test_OXmlCDOM_Sort: Boolean;
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_Sort: Boolean;
 var
   xXML: OXmlCDOM.IXMLDocument;
   xRoot, xNodeA, xCurNode: OXmlCDOM.TXMLNode;
@@ -2777,6 +2927,28 @@ begin
   Result := xXML.XML = outXML;
 end;
 
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_NameSpaces3: Boolean;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xNode1, xNode2: OXmlCDOM.TXMLNode;
+const
+  cNS = 'url://namespace';
+  outXML = '<root xmlns="'+cNS+'"><child/></root>';
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xNode1 := xXML.CreateElementNS(cNS, 'root');
+  xNode2 := xXML.CreateElement('child');
+  xNode1.AppendChild(xNode2);
+  Result := (xNode1.NameSpaceURI = cNS);
+  if not Result then
+    Exit;
+  Result := (xNode2.NameSpaceURI = cNS);
+  if not Result then
+    Exit;
+  xXML.Node.AppendChild(xNode1);
+  Result := xXML.XML = outXML;
+end;
+
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling: Boolean;
 const
   inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
@@ -2944,16 +3116,16 @@ begin
 end;
 
 {$IFDEF USE_RTTI}
-{ TText_OXmlRTTISerializer_Test1_Class }
+{ TTest_OXmlRTTISerializer_Test1_Class }
 
-constructor TText_OXmlRTTISerializer_Test1_Class.Create;
+constructor TTest_OXmlRTTISerializer_Test1_Class.Create;
 begin
-  fMyClass := TText_OXmlSerializer_Test1_Class2.Create;
+  fMyClass := TTest_OXmlSerializer_Test1_Class2.Create;
   fMyStrList := TList<string>.Create;
-  fMyObjList := TObjectList<TText_OXmlSerializer_Test1_Class2>.Create;
+  fMyObjList := TObjectList<TTest_OXmlSerializer_Test1_Class2>.Create;
 end;
 
-destructor TText_OXmlRTTISerializer_Test1_Class.Destroy;
+destructor TTest_OXmlRTTISerializer_Test1_Class.Destroy;
 begin
   fMyClass.Free;
   fMyStrList.Free;
@@ -2962,8 +3134,8 @@ begin
   inherited;
 end;
 
-function TText_OXmlRTTISerializer_Test1_Class.SameAs(
-  aCompare: TText_OXmlRTTISerializer_Test1_Class): Boolean;
+function TTest_OXmlRTTISerializer_Test1_Class.SameAs(
+  aCompare: TTest_OXmlRTTISerializer_Test1_Class): Boolean;
 var
   I: Integer;
 begin
@@ -3024,37 +3196,37 @@ begin
 end;
 {$ENDIF}
 
-{ TText_OXmlSerializer_Test1_Class2 }
+{ TTest_OXmlSerializer_Test1_Class2 }
 
-constructor TText_OXmlSerializer_Test1_Class2.Create;
+constructor TTest_OXmlSerializer_Test1_Class2.Create;
 begin
   inherited Create;
 end;
 
-constructor TText_OXmlSerializer_Test1_Class2.Create(const aMyInt: Integer);
+constructor TTest_OXmlSerializer_Test1_Class2.Create(const aMyInt: Integer);
 begin
   inherited Create;
 
   fMyInt := aMyInt;
 end;
 
-function TText_OXmlSerializer_Test1_Class2.SameAs(
-  const aComp: TText_OXmlSerializer_Test1_Class2): Boolean;
+function TTest_OXmlSerializer_Test1_Class2.SameAs(
+  const aComp: TTest_OXmlSerializer_Test1_Class2): Boolean;
 begin
   Result := fMyInt = aComp.fMyInt;
 end;
 
-{ TText_OXmlSerializer_Test1_Class }
+{ TTest_OXmlSerializer_Test1_Class }
 
-constructor TText_OXmlSerializer_Test1_Class.Create;
+constructor TTest_OXmlSerializer_Test1_Class.Create;
 begin
-  fMyClass := TText_OXmlSerializer_Test1_Class2.Create;
-  fMyCollection := TCollection.Create(TText_OXmlSerializer_Test1_CollectionItem);
+  fMyClass := TTest_OXmlSerializer_Test1_Class2.Create;
+  fMyCollection := TCollection.Create(TTest_OXmlSerializer_Test1_CollectionItem);
 
   inherited Create;
 end;
 
-destructor TText_OXmlSerializer_Test1_Class.Destroy;
+destructor TTest_OXmlSerializer_Test1_Class.Destroy;
 begin
   fMyClass.Free;
   fMyCollection.Free;
@@ -3062,8 +3234,8 @@ begin
   inherited;
 end;
 
-function TText_OXmlSerializer_Test1_Class.SameAs(
-  aCompare: TText_OXmlSerializer_Test1_Class): Boolean;
+function TTest_OXmlSerializer_Test1_Class.SameAs(
+  aCompare: TTest_OXmlSerializer_Test1_Class): Boolean;
 var
   I: Integer;
 begin
@@ -3088,17 +3260,17 @@ begin
   for I := 0 to MyCollection.Count-1 do
   begin
     Result :=
-      TText_OXmlSerializer_Test1_CollectionItem(MyCollection.Items[I]).Value =
-      TText_OXmlSerializer_Test1_CollectionItem(aCompare.MyCollection.Items[I]).Value;
+      TTest_OXmlSerializer_Test1_CollectionItem(MyCollection.Items[I]).Value =
+      TTest_OXmlSerializer_Test1_CollectionItem(aCompare.MyCollection.Items[I]).Value;
 
     if not Result then
       Break;
   end;
 end;
 
-{ TText_OXmlSerializer_Test1_Class2A }
+{ TTest_OXmlSerializer_Test1_Class2A }
 
-constructor TText_OXmlSerializer_Test1_Class2A.Create(const aMyInt,
+constructor TTest_OXmlSerializer_Test1_Class2A.Create(const aMyInt,
   aMyIntVar: Integer);
 begin
   inherited Create(aMyInt);
@@ -3106,15 +3278,15 @@ begin
   MyIntVar := aMyIntVar;
 end;
 
-function TText_OXmlSerializer_Test1_Class2A.SameAs(
-  const aComp: TText_OXmlSerializer_Test1_Class2): Boolean;
+function TTest_OXmlSerializer_Test1_Class2A.SameAs(
+  const aComp: TTest_OXmlSerializer_Test1_Class2): Boolean;
 var
-  xComp: TText_OXmlSerializer_Test1_Class2A;
+  xComp: TTest_OXmlSerializer_Test1_Class2A;
 begin
-  Result := aComp is TText_OXmlSerializer_Test1_Class2A;
+  Result := aComp is TTest_OXmlSerializer_Test1_Class2A;
   if Result then
   begin
-    xComp := TText_OXmlSerializer_Test1_Class2A(aComp);
+    xComp := TTest_OXmlSerializer_Test1_Class2A(aComp);
     Result :=
       inherited SameAs(aComp) and
       (MyIntVar = xComp.MyIntVar);

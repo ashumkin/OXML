@@ -447,12 +447,12 @@ begin
 end;
 
 procedure TXMLXPathList.ClearList;
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 var
   I: Integer;
 {$ENDIF}
 begin
-  {$IFNDEF NEXTGEN}//no need to call free in NextGen
+  {$IFNDEF O_ARC}//no need to call free in NextGen
   for I := 0 to fList.Count-1 do
     TXMLXPath(fList[I]).Free;
   {$ENDIF}
@@ -616,7 +616,7 @@ begin
     begin
       //we need complete tree information
 
-      GetNodeToBuildIdTreeFrom(aParentNode, {%H-}xBuildIdTreeNode, {%H-}xBuildIdTreeLevelsDeep);
+      GetNodeToBuildIdTreeFrom(aParentNode, xBuildIdTreeNode{%H-}, xBuildIdTreeLevelsDeep{%H-});
       fAdapter.BuildIdTree(xBuildIdTreeNode, xBuildIdTreeLevelsDeep, AttributesUsed, xIdTree);
 
       for I := 0 to Count-1 do
@@ -852,7 +852,7 @@ var
 begin
   Result := False;
 
-  aAdapter.GetNodeInfo(aNode, {%H-}xNodeInfo);
+  aAdapter.GetNodeInfo(aNode, xNodeInfo{%H-});
 
   if
     ((NodeType = xntAllLevelsElement) and (xNodeInfo.NodeType = ntElement)) or

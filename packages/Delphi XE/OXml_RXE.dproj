@@ -66,6 +66,7 @@
 			<DCCReference Include="..\..\units\OXmlLng.pas"/>
 			<DCCReference Include="..\..\units\OHashedStrings.pas"/>
 			<DCCReference Include="..\..\units\OBufferedStreams.pas"/>
+			<DCCReference Include="..\..\units\OJSON.pas"/>
 			<DCCReference Include="..\..\units\OEncoding.pas"/>
 			<DCCReference Include="..\..\units\OXmlPDOM.pas"/>
 			<DCCReference Include="..\..\units\OXmlCDOM.pas"/>

@@ -1,6 +1,12 @@
 OXml Change Log
 ---------------
 
+Version 1.6 2015-03-25 [SVN commit: 60, https://sourceforge.net/p/oxml/code/63/]
+  - Added JSON reader/writer (beta).
+  - Compatibility with FPC trunk (3.1.1).
+  - Generics disabled in Delphi 2009 due to Delphi bugs.
+
+
 Version 1.5 2015-01-07 [SVN commit: 60, https://sourceforge.net/p/oxml/code/60/]
   - TEncoding.GetSupportedEncodings modified to a function.
   - Fixed bug in TEncoding in Delphi 2009 and 2010.

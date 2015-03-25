@@ -25,6 +25,14 @@ unit OTextReadWrite;
   TOTextWriter -> write text to a destination stream with buffer.
     - very fast thanks to internal string buffer
     - write to streams with every supported encoding
+
+
+  TOCustomUTF8Reader -> read text from UTF-8 char-by char.
+    TOUTF8StringReader
+      - source is UTF-8 container (string)
+
+    TOUTF8StreamReader
+      - source is a stream
 }
 
 {$I OXml.inc}
@@ -134,9 +142,7 @@ type
     procedure InitStream(const aStream: TStream; const aDefaultEncoding: TEncoding = nil);
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitString(const aString: OWideString);
-    {$IFDEF O_RAWBYTESTRING}
-    procedure InitString_UTF8(const aString: ORawByteString);
-    {$ENDIF}
+    procedure InitString_UTF8(const aString: OUTF8Container);
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -147,7 +153,7 @@ type
     procedure ReleaseDocument;
   public
     //read char-by-char, returns false if EOF is reached
-    function ReadNextChar(var outChar: OWideChar): Boolean;
+    function ReadNextChar(var outChar: OWideChar): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
     //read text, if aMaxChars not defined, read until end
     //  aBreakAtNewLine - break at #10, #13, #13#10
     //  aMoveCaretAfterNewLine - if true and aBreakAtNewLine: move read caret behind the new line string (#10, #13, #13#10)
@@ -197,6 +203,142 @@ type
     property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;
   end;
 
+
+
+  TOCustomUTF8Reader = class(TObject)
+  protected
+    fURL: OWideString;
+
+    fCurrentChar: PByte;
+    fCurrentCharBegin: PByte;
+    fCurrentCharEnd: PByte;
+    fEOF: Boolean;
+
+    fErrorHandling: TOTextReaderErrorHandling;
+    fParseError: IOTextParseError;
+    fFilePosition: OStreamInt;//current character in file, 1-based
+
+    function LoadStringFromStream: Boolean; virtual;
+  protected
+    procedure DoRaiseException;
+  public
+    procedure RaiseException(const aErrorClass: TOTextParseErrorClass;
+      const aReason: string);
+    procedure RaiseExceptionFmt(const aErrorClass: TOTextParseErrorClass;
+      const aReason: string; const aArgs: array of OWideString);
+
+    //read text, if aMaxChars not defined, read until end
+    //  aBreakAtNewLine - break at #10, #13, #13#10
+    //  aMoveCaretAfterNewLine - if true and aBreakAtNewLine: move read caret behind the new line string (#10, #13, #13#10)
+    function ReadString(const aBreakAtNewLine: Boolean = False;
+      const aMoveCaretAfterNewLine: Boolean = False): TBytes; overload;
+    function ReadString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False;
+      const aMoveCaretAfterNewLine: Boolean = False): TBytes; overload;
+    //get text from temp buffer that has been already read
+    //  -> it's not assured that some text can be read, use only as extra information
+    //     e.g. for errors etc.
+    function ReadPreviousString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): TBytes;
+  public
+    //(optional) URL parameter that will be shown if an error occurs
+    property URL: OWideString read fURL write fURL;
+
+    property CurrentChar: PByte read fCurrentChar;
+    //increment current char by 1, returns false if cannot incremet (EOF)
+    function IncCurrentChar: Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+
+    //Character position in text
+    property FilePosition: OStreamInt read fFilePosition;//absolute character position in file, 1-based
+    //Returns true if end-of-file is reached
+    property EOF: Boolean read fEOF;
+
+    property ParseError: IOTextParseError read fParseError;
+    property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;
+  public
+    procedure ReleaseDocument; virtual;
+  end;
+
+  TOUTF8StringReader = class(TOCustomUTF8Reader)
+  private
+    fString: OUTF8Container;
+  public
+    constructor Create(const aString: OUTF8Container);
+  end;
+
+  TOUTF8StreamReader = class(TOCustomUTF8Reader)
+  private
+    fTempBuffer: TBytes;
+    fBufferSize: Integer;
+
+    fStream: TStream;
+    fStreamSize: OStreamInt;
+    fStreamPosition: OStreamInt;
+    fStreamStartPosition: OStreamInt;
+    fOwnsStream: Boolean;
+
+    fBOMFound: Boolean;
+
+    function GetApproxStreamPosition: OStreamInt;
+
+    function GetTempStringPosition: Integer;
+
+  protected
+    procedure DoCreate(const aBufferSize: Integer); virtual;
+    procedure DoInit(const aNewStream: TStream; const aNewOwnsStream: Boolean); virtual;
+
+    function LoadStringFromStream: Boolean; override;
+  public
+    //create
+    constructor Create(const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE); overload;
+    //create and init
+    constructor Create(const aStream: TStream;
+      const aOwnsStream: Boolean = False;
+      const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE); overload;
+
+    destructor Destroy; override;
+  public
+    //The Init* procedures initialize a document for reading.
+    // Please note that the file/stream/... is locked until the end of the
+    // document is reached or you call ReleaseDocument!
+
+    //aDefaultEncoding - if no BOM is found, use this encoding,
+    //  if BOM is found, always the correct encoding from the BOM is used
+
+    //load document from file
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    procedure InitFile(const aFileName: OWideString);
+    //load document from file
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    procedure InitStream(const aStream: TStream; const aOwnsStream: Boolean = False);
+    //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
+    procedure InitString(const aString: OWideString);
+    procedure InitString_UTF8(const aString: OUTF8Container);
+    //load document from TBytes buffer
+    // if aForceEncoding = nil: in encoding specified by the document
+    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
+    procedure InitBuffer(const aBuffer: TBytes); overload;
+    procedure InitBuffer(const aBuffer; const aBufferLength: Integer); overload;
+
+    //Release the current document (that was loaded with Init*)
+    procedure ReleaseDocument; override;
+  public
+    //if your original stream does not allow seeking and you want to change encoding at some point
+    //  (e.g. the encoding is read from the text itself) you have to block the temporary buffer
+    procedure BlockFlushTempBuffer;
+    procedure UnblockFlushTempBuffer;
+  public
+    //Returns true if BOM was found in the document
+    property BOMFound: Boolean read fBOMFound;
+
+    //Approximate byte position in original read stream
+    //  exact position cannot be determined because of variable UTF-8 character lengths
+    property ApproxStreamPosition: OStreamInt read GetApproxStreamPosition;
+    property TempStringPosition: Integer read GetTempStringPosition;//Position in current TempStream, 1-based
+    //size of original stream
+    property StreamSize: OStreamInt read fStreamSize;
+  end;
+
+
   TOTextWriter = class(TObject)
   private
     fTempString: OWideString;
@@ -222,7 +364,7 @@ type
     //create
     constructor Create(const aCharBufferSize: Integer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE); overload;
     //create and init
-    constructor Create(const aStream: TStream;
+    constructor Create(const aStream: TStream; const aOwnsStream: Boolean = False;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True;
       const aCharBufferSize: Integer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE); overload;
 
@@ -234,7 +376,7 @@ type
 
     procedure InitFile(const aFileName: OWideString;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
-    procedure InitStream(const aStream: TStream;
+    procedure InitStream(const aStream: TStream; const aOwnsStream: Boolean = False;
       const aEncoding: TEncoding = nil; const aWriteBOM: Boolean = True);
 
     //Release the current document (that was loaded with Init*)
@@ -346,12 +488,14 @@ type
     function GetLine: OStreamInt;
     function GetLinePos: OStreamInt;
     function GetFilePos: OStreamInt;
-
-    procedure DoCreate(const aReader: TOTextReader; const aReason: string);
   public
-    constructor Create(const aReader: TOTextReader; const aReason: string);
+    constructor Create(const aReader: TOTextReader; const aReason: string); overload;
     constructor CreateFmt(const aReader: TOTextReader; const aReason: string;
-      const aArgs: array of const);
+      const aArgs: array of const); overload;
+
+    constructor Create(const aReader: TOCustomUTF8Reader; const aReason: string); overload;
+    constructor CreateFmt(const aReader: TOCustomUTF8Reader; const aReason: string;
+      const aArgs: array of const); overload;
   public
     procedure RaiseException;
     procedure RaiseAndEatException;
@@ -424,6 +568,183 @@ begin
   end;
 
   aStream.Position := ioTempStringPosition;
+end;
+
+{ TOUTF8StringReader }
+
+constructor TOUTF8StringReader.Create(const aString: OUTF8Container);
+begin
+  fString := aString;
+  fCurrentChar := @fString[OUTF8Container_FirstElement];
+  fCurrentCharBegin := fCurrentChar;
+  fCurrentCharEnd := @fString[Length(fString)-1+OUTF8Container_FirstElement];
+  fFilePosition := 1;
+end;
+
+{ TOCustomUTF8Reader }
+
+procedure TOCustomUTF8Reader.DoRaiseException;
+begin
+  case fErrorHandling of
+    ehRaiseAndEat: fParseError.RaiseAndEatException;
+    ehRaise: fParseError.RaiseException;
+  end;
+end;
+
+function TOCustomUTF8Reader.IncCurrentChar: Boolean;
+begin
+  Result := not fEOF and(({%H-}ONativeUInt(fCurrentChar) < {%H-}ONativeUInt(fCurrentCharEnd)) or LoadStringFromStream);
+  if Result then
+  begin
+    Inc(fCurrentChar);
+    Inc(fFilePosition);
+  end else
+    fEOF := True;
+end;
+
+function TOCustomUTF8Reader.LoadStringFromStream: Boolean;
+begin
+  Result := False;
+end;
+
+procedure TOCustomUTF8Reader.RaiseException(
+  const aErrorClass: TOTextParseErrorClass; const aReason: string);
+begin
+  fParseError := aErrorClass.Create(Self, aReason);
+  DoRaiseException;
+end;
+
+procedure TOCustomUTF8Reader.RaiseExceptionFmt(
+  const aErrorClass: TOTextParseErrorClass; const aReason: string;
+  const aArgs: array of OWideString);
+var
+  xArray: array of TVarRec;
+  I: Integer;
+begin
+  SetLength(xArray, Length(aArgs));
+  for I := Low(xArray) to High(xArray) do
+  begin
+    {$IFDEF O_DELPHI_2009_UP}
+    xArray[I].VPWideChar := PWideChar(aArgs[I]);
+    xArray[I].VType := vtPWideChar;
+    {$ELSE}
+    //we need to convert OWideString to (Ansi)String because non-unicode delphi does not support WideString as Format argument
+    xArray[I].VPChar := PChar(String(aArgs[I]));
+    xArray[I].VType := vtPChar;
+    {$ENDIF}
+  end;
+
+  fParseError := aErrorClass.CreateFmt(Self, aReason, xArray);
+  DoRaiseException;
+end;
+
+function TOCustomUTF8Reader.ReadPreviousString(const aMaxChars: Integer;
+  const aBreakAtNewLine: Boolean): TBytes;
+var
+  xStartRead: PByte;
+  xReadChars: Integer;
+  I: Integer;
+  xCR: TBytes;
+begin
+  if Int64({%H-}ONativeUInt(fCurrentChar) - {%H-}ONativeUInt(fCurrentCharBegin)) < Int64(aMaxChars) then
+  begin
+    xStartRead := fCurrentCharBegin;
+    xReadChars := {%H-}ONativeUInt(fCurrentChar) - {%H-}ONativeUInt(fCurrentCharBegin);
+  end else
+  begin
+    xStartRead := {%H-}PByte({%H-}ONativeUInt(fCurrentChar) - ONativeUInt(aMaxChars));
+    xReadChars := aMaxChars;
+  end;
+
+  if xReadChars > 0 then
+  begin
+    SetLength(Result, xReadChars);
+    Move(xStartRead^, Result[0], xReadChars);
+
+    if aBreakAtNewLine then
+    for I := Length(Result)-1 downto 0 do
+    case Result[I] of
+      13, 10: begin
+        //break at last new line
+        if I = Length(Result) then
+          SetLength(Result, 0)
+        else
+        begin
+          SetLength(xCR, Length(Result)-I);
+          Move(Result[I], xCR[0], Length(xCR));
+          Result := xCR;
+        end;
+
+        Exit;
+      end;
+    end;
+  end else
+    SetLength(Result, 0);
+end;
+
+function TOCustomUTF8Reader.ReadString(const aBreakAtNewLine: Boolean;
+  const aMoveCaretAfterNewLine: Boolean): TBytes;
+begin
+  Result := ReadString(High(Integer), aBreakAtNewLine, aMoveCaretAfterNewLine);
+end;
+
+function TOCustomUTF8Reader.ReadString(const aMaxChars: Integer;
+  const aBreakAtNewLine: Boolean; const aMoveCaretAfterNewLine: Boolean
+  ): TBytes;
+var
+  I, R: Integer;
+const
+  cMaxStartBuffer = OBUFFEREDSTREAMS_DEFCHARBUFFERSIZE;
+begin
+  if aMaxChars <= 0 then
+  begin
+    SetLength(Result, 0);
+    Exit;
+  end;
+
+  R := aMaxChars;
+  if aMaxChars > cMaxStartBuffer then
+    R := cMaxStartBuffer;
+  SetLength(Result, R);
+  I := 0;
+  repeat
+    if aBreakAtNewLine then
+    case CurrentChar^ of
+      10, 13: Break;
+    end;
+
+    Dec(R);
+    if R = 0 then
+    begin
+      R := Length(Result);
+      SetLength(Result, Length(Result) + R);
+    end;
+
+    Result[I] := CurrentChar^;
+    Inc(I);
+  until
+    (I < aMaxChars) and IncCurrentChar;
+
+  if aBreakAtNewLine and aMoveCaretAfterNewLine then
+  begin
+    case CurrentChar^ of
+      13: //search for #13#10
+        begin
+          IncCurrentChar;
+          if CurrentChar^ = 10 then
+            IncCurrentChar;
+        end;
+      10: IncCurrentChar;
+    end;
+  end;
+
+  if I < Length(Result) then
+    SetLength(Result, I);
+end;
+
+procedure TOCustomUTF8Reader.ReleaseDocument;
+begin
+
 end;
 
 { TOTextReader }
@@ -579,7 +900,7 @@ begin
   begin
     //we need to buffer streams that do not support seeking (zip etc.)
     DoInit(
-      TOBufferedReadStream.Create(aStream, fBufferSize),
+      TOBufferedReadStream.Create(aStream, False, fBufferSize),
       True,
       aDefaultEncoding);
   end;
@@ -676,8 +997,7 @@ begin
   fTempStringPosition := 1;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TOTextReader.InitString_UTF8(const aString: ORawByteString);
+procedure TOTextReader.InitString_UTF8(const aString: OUTF8Container);
 var
   xLength: Integer;
   xNewStream: TStream;
@@ -692,7 +1012,6 @@ begin
   DoInit(xNewStream, True, nil);
   Encoding := TEncoding.UTF8;
 end;
-{$ENDIF}
 
 procedure TOTextReader.RaiseException(const aErrorClass: TOTextParseErrorClass;
   const aReason: string);
@@ -772,7 +1091,8 @@ begin
   end;
 end;
 
-function TOTextReader.ReadString(const aBreakAtNewLine, aMoveCaretAfterNewLine: Boolean): OWideString;
+function TOTextReader.ReadString(const aBreakAtNewLine: Boolean;
+  const aMoveCaretAfterNewLine: Boolean): OWideString;
 begin
   Result := ReadString(High(Integer), aBreakAtNewLine, aMoveCaretAfterNewLine);
 end;
@@ -812,7 +1132,7 @@ begin
 end;
 
 function TOTextReader.ReadString(const aMaxChars: Integer;
-  const aBreakAtNewLine, aMoveCaretAfterNewLine: Boolean): OWideString;
+  const aBreakAtNewLine: Boolean; const aMoveCaretAfterNewLine: Boolean): OWideString;
 var
   I, R: Integer;
   xC: OWideChar;
@@ -866,7 +1186,7 @@ begin
     end;
   end;
 
-  if I < aMaxChars then
+  if I < Length(Result) then
     SetLength(Result, I);
 end;
 
@@ -926,14 +1246,14 @@ begin
 end;
 
 constructor TOTextWriter.Create(const aStream: TStream;
-  const aEncoding: TEncoding; const aWriteBOM: Boolean;
-  const aCharBufferSize: Integer);
+  const aOwnsStream: Boolean; const aEncoding: TEncoding;
+  const aWriteBOM: Boolean; const aCharBufferSize: Integer);
 begin
   inherited Create;
 
   DoCreate(aCharBufferSize);
 
-  InitStream(aStream, aEncoding, aWriteBOM);
+  InitStream(aStream, aOwnsStream, aEncoding, aWriteBOM);
 end;
 
 destructor TOTextWriter.Destroy;
@@ -1006,9 +1326,10 @@ begin
 end;
 
 procedure TOTextWriter.InitStream(const aStream: TStream;
-  const aEncoding: TEncoding; const aWriteBOM: Boolean);
+  const aOwnsStream: Boolean; const aEncoding: TEncoding;
+  const aWriteBOM: Boolean);
 begin
-  DoInit(aStream, False, aEncoding, aWriteBOM);
+  DoInit(aStream, aOwnsStream, aEncoding, aWriteBOM);
 end;
 
 procedure TOTextWriter.ReleaseDocument;
@@ -1155,28 +1476,25 @@ end;
 
 { TOTextParseError }
 
+constructor TOTextParseError.Create(const aReader: TOCustomUTF8Reader;
+  const aReason: string);
+begin
+  inherited Create;
+
+  fURL := aReader.URL;
+  fReason := aReason;
+  //fLinePos := aReader.LinePosition;
+  //fLine := aReader.Line;
+  //fSrcText := aReader.ReadPreviousString(30, True);
+  fSrcTextPos := Length(fSrcText);
+  //fSrcText := fSrcText + aReader.ReadString(10, True);
+end;
+
 constructor TOTextParseError.Create(const aReader: TOTextReader;
   const aReason: string);
 begin
   inherited Create;
 
-  DoCreate(aReader, aReason);
-end;
-
-constructor TOTextParseError.CreateFmt(const aReader: TOTextReader;
-  const aReason: string; const aArgs: array of const);
-var
-  xReason: string;
-begin
-  inherited Create;
-
-  xReason := Format(aReason, aArgs);
-  DoCreate(aReader, xReason);
-end;
-
-procedure TOTextParseError.DoCreate(const aReader: TOTextReader;
-  const aReason: string);
-begin
   fURL := aReader.URL;
   fReason := aReason;
   fLinePos := aReader.LinePosition;
@@ -1184,6 +1502,18 @@ begin
   fSrcText := aReader.ReadPreviousString(30, True);
   fSrcTextPos := Length(fSrcText);
   fSrcText := fSrcText + aReader.ReadString(10, True);
+end;
+
+constructor TOTextParseError.CreateFmt(const aReader: TOCustomUTF8Reader;
+  const aReason: string; const aArgs: array of const);
+begin
+  Create(aReader, Format(aReason, aArgs));
+end;
+
+constructor TOTextParseError.CreateFmt(const aReader: TOTextReader;
+  const aReason: string; const aArgs: array of const);
+begin
+  Create(aReader, Format(aReason, aArgs));
 end;
 
 function TOTextParseError.GetErrorCode: Integer;
@@ -1255,6 +1585,198 @@ end;
 class function EOTextReaderInvalidCharacter.GetErrorCode: Integer;
 begin
   Result := 0;
+end;
+
+{ TOUTF8StreamReader }
+
+procedure TOUTF8StreamReader.BlockFlushTempBuffer;
+begin
+  if fStream is TOBufferedReadStream then
+    TOBufferedReadStream(fStream).BlockFlushTempBuffer;
+end;
+
+constructor TOUTF8StreamReader.Create(const aStream: TStream;
+  const aOwnsStream: Boolean; const aBufferSize: Integer);
+begin
+  inherited Create;
+
+  DoCreate(aBufferSize);
+
+  InitStream(aStream, aOwnsStream);
+end;
+
+constructor TOUTF8StreamReader.Create(const aBufferSize: Integer);
+begin
+  inherited Create;
+
+  DoCreate(aBufferSize);
+end;
+
+destructor TOUTF8StreamReader.Destroy;
+begin
+  ReleaseDocument;
+
+  inherited;
+end;
+
+procedure TOUTF8StreamReader.DoCreate(const aBufferSize: Integer);
+begin
+  fBufferSize := aBufferSize;
+  SetLength(fTempBuffer, fBufferSize);
+end;
+
+procedure TOUTF8StreamReader.DoInit(const aNewStream: TStream;
+  const aNewOwnsStream: Boolean);
+begin
+  fEOF := False;
+  ReleaseDocument;
+
+  fStream := aNewStream;
+  fOwnsStream := aNewOwnsStream;
+  fStreamPosition := fStream.Position;
+  fStreamStartPosition := fStreamPosition;
+  fStreamSize := fStream.Size;
+  fParseError := nil;
+
+  Assert(fBufferSize > 3);
+  IncCurrentChar;
+  fBOMFound := (fCurrentChar^ = $EF) and
+    ({%H-}PByte({%H-}ONativeUInt(fCurrentChar)+1)^ = $EF) and
+    ({%H-}PByte({%H-}ONativeUInt(fCurrentChar)+2)^ = $EF);//UTF-8 BOM
+  if fBOMFound then
+    Inc(fCurrentChar, 3);
+
+  fFilePosition := 0;
+  fURL := '';
+end;
+
+function TOUTF8StreamReader.GetApproxStreamPosition: OStreamInt;
+begin
+  //YOU CAN'T KNOW IT EXACTLY!!! (due to Lazarus Unicode->UTF8 or Delphi UTF8->Unicode conversion etc.)
+  //the char lengths may differ from one character to another
+  Result := fStreamPosition - fStreamStartPosition + TempStringPosition;
+end;
+
+function TOUTF8StreamReader.GetTempStringPosition: Integer;
+begin
+  Result := {%H-}ONativeUInt(fCurrentChar)-{%H-}ONativeUInt(fCurrentCharBegin);
+end;
+
+procedure TOUTF8StreamReader.InitBuffer(const aBuffer: TBytes);
+var
+  xLength: Integer;
+  xNewStream: TStream;
+begin
+  xNewStream := TMemoryStream.Create;
+
+  xLength := Length(aBuffer);
+  if xLength > 0 then
+    xNewStream.WriteBuffer(aBuffer[0], xLength);
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True);
+end;
+
+procedure TOUTF8StreamReader.InitBuffer(const aBuffer;
+  const aBufferLength: Integer);
+var
+  xNewStream: TStream;
+begin
+  xNewStream := TMemoryStream.Create;
+
+  if aBufferLength > 0 then
+    xNewStream.WriteBuffer(aBuffer, aBufferLength);
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True);
+end;
+
+procedure TOUTF8StreamReader.InitFile(const aFileName: OWideString);
+begin
+  DoInit(
+    TOFileStream.Create(aFileName, fmOpenRead or fmShareDenyNone),
+    True);
+
+  fURL := aFileName;
+end;
+
+procedure TOUTF8StreamReader.InitStream(const aStream: TStream;
+  const aOwnsStream: Boolean);
+begin
+  if (aStream is TCustomMemoryStream) or (aStream is THandleStream)
+  then begin
+    //no need for buffering on memory stream or file stream (= THandleStream)
+    //  buffering is here just because some (custom) streams may not support seeking
+    //  which is needed when reading encoding from xml header
+    DoInit(aStream, aOwnsStream);
+  end else
+  begin
+    //we need to buffer streams that do not support seeking (zip etc.)
+    DoInit(
+      TOBufferedReadStream.Create(aStream, aOwnsStream, fBufferSize),
+      True);
+  end;
+end;
+
+procedure TOUTF8StreamReader.InitString(const aString: OWideString);
+begin
+  InitString_UTF8(OWideToUTF8Container(aString));
+end;
+
+function TOUTF8StreamReader.LoadStringFromStream: Boolean;
+var
+  xReadBytes: OStreamInt;
+begin
+  xReadBytes := fStreamSize-fStreamPosition;
+  if xReadBytes > fBufferSize then
+    xReadBytes := fBufferSize;
+  Result := xReadBytes > 0;
+  if xReadBytes = 0 then
+  begin
+    ReleaseDocument;
+  end else
+  begin
+    fStream.ReadBuffer(fTempBuffer[0], xReadBytes);
+    Inc(fStreamPosition, xReadBytes);
+    fCurrentCharBegin := @fTempBuffer[0];
+    fCurrentChar := {%H-}PByte({%H-}ONativeUInt(@fTempBuffer[0]) -1);
+    fCurrentCharEnd := {%H-}PByte({%H-}ONativeUInt(@fTempBuffer[0]) + ONativeUInt(xReadBytes){%H-}-1);
+  end;
+end;
+
+procedure TOUTF8StreamReader.InitString_UTF8(const aString: OUTF8Container);
+var
+  xLength: Integer;
+  xNewStream: TStream;
+begin
+  xNewStream := TMemoryStream.Create;
+
+  xLength := Length(aString);
+  if xLength > 0 then
+    xNewStream.WriteBuffer(aString[1], xLength);
+  xNewStream.Position := 0;
+
+  DoInit(xNewStream, True);
+end;
+
+procedure TOUTF8StreamReader.ReleaseDocument;
+const
+  cNullByte: Byte = 0;
+begin
+  if fOwnsStream then
+    fStream.Free;
+
+  fStream := nil;
+
+  fCurrentChar := @cNullByte;
+  fCurrentCharBegin := fCurrentChar;
+  fCurrentCharEnd := fCurrentChar;
+end;
+
+procedure TOUTF8StreamReader.UnblockFlushTempBuffer;
+begin
+  if fStream is TOBufferedReadStream then
+    TOBufferedReadStream(fStream).UnblockFlushTempBuffer;
 end;
 
 end.

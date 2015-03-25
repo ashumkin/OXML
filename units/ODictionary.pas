@@ -91,7 +91,7 @@ type
     procedure SetObject(aIndex: Integer; aObject: TObject);
     function GetObjectOfKey(aKey: ONativeInt): TObject;
     procedure SetObjectOfKey(aKey: ONativeInt; aObject: TObject);
-    {$IFNDEF NEXTGEN}
+    {$IFNDEF O_ARC}
     function GetPointer(aIndex: Integer): Pointer;
     procedure SetPointer(aIndex: Integer; aPointer: Pointer);
     function GetPointerOfKey(aKey: ONativeInt): Pointer;
@@ -127,7 +127,7 @@ type
 
     function Add(aKey: ONativeInt): Integer; overload;
     function Add(aKey: ONativeInt; aObject: TObject): Integer; overload;
-    {$IFNDEF NEXTGEN}
+    {$IFNDEF O_ARC}
     function Add(aKey: ONativeInt; aPointer: Pointer): Integer; overload;
     function Add(aKey: ONativeInt; aInteger: ONativeInt): Integer; overload;
     function Add(aKey: Pointer): Integer; overload;
@@ -146,13 +146,13 @@ type
     procedure Insert(aIndex: Integer; aKey: ONativeInt);
     function Last: ONativeInt;
     function Remove(aKey: ONativeInt): Integer; overload;
-    {$IFNDEF NEXTGEN}
+    {$IFNDEF O_ARC}
     function Remove(aKey: Pointer): Integer; overload;
     {$ENDIF}
     property Keys[aIndex: Integer]: ONativeInt read GetKey write SetKey; default;
     property Objects[aIndex: Integer]: TObject read GetObject write SetObject;
     property ObjectOfKey[aKey: ONativeInt]: TObject read GetObjectOfKey write SetObjectOfKey;
-    {$IFNDEF NEXTGEN}
+    {$IFNDEF O_ARC}
     property Pointers[aIndex: Integer]: Pointer read GetPointer write SetPointer;
     property PointerOfKey[aKey: ONativeInt]: Pointer read GetPointerOfKey write SetPointerOfKey;
     property Integers[aIndex: Integer]: ONativeInt read GetInteger write SetInteger;
@@ -166,7 +166,7 @@ type
     {$ENDIF}
 
     function TryGetValue(const aKey: ONativeInt; var outValue: TObject): Boolean; overload;
-    {$IFNDEF NEXTGEN}
+    {$IFNDEF O_ARC}
     function TryGetValue(const aKey: ONativeInt; var outValue: Integer): Boolean; overload;
     function TryGetValue(const aKey: ONativeInt; var outValue: Int64): Boolean; overload;
     function TryGetValue(const aKey: ONativeInt; var outValue: Pointer): Boolean; overload;
@@ -216,7 +216,7 @@ begin
   Objects[Result] := aObject;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 function TODictionary.Add(aKey: ONativeInt; aPointer: Pointer): Integer;
 begin
   Result := Add(aKey);
@@ -470,7 +470,7 @@ begin
   Result := Objects[IndexOf(aKey)];
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 function TODictionary.GetPointer(aIndex: Integer): Pointer;
 begin
   Result := Pointer(TODictionaryItem(inherited Items[aIndex]^).Value);
@@ -593,7 +593,7 @@ begin
     Delete(Result);
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 function TODictionary.Remove(aKey: Pointer): Integer;
 begin
   Result := Remove({%H-}ONativeInt(aKey));
@@ -615,7 +615,7 @@ begin
   Objects[IndexOf(aKey)] := aObject;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 procedure TODictionary.SetPointer(aIndex: Integer; aPointer: Pointer);
 begin
   TODictionaryItem(inherited Items[aIndex]^).Value := TObject(aPointer);
@@ -652,20 +652,20 @@ function TODictionary.TryGetValue(const aKey: ONativeInt;
 var
   xIndex: Integer;
 begin
-  Result := Find(aKey, {%H-}xIndex);
+  Result := Find(aKey, xIndex{%H-});
   if Result then
     outValue := Objects[xIndex]
   else
     outValue := nil;
 end;
 
-{$IFNDEF NEXTGEN}
+{$IFNDEF O_ARC}
 function TODictionary.TryGetValue(const aKey: ONativeInt;
   var outValue: Integer): Boolean;
 var
   xIndex: Integer;
 begin
-  Result := Find(aKey, {%H-}xIndex);
+  Result := Find(aKey, xIndex{%H-});
   if Result then
     outValue := Integers[xIndex]
   else
@@ -677,7 +677,7 @@ function TODictionary.TryGetValue(const aKey: ONativeInt;
 var
   xIndex: Integer;
 begin
-  Result := Find(aKey, {%H-}xIndex);
+  Result := Find(aKey, xIndex{%H-});
   if Result then
     outValue := Integers[xIndex]
   else
@@ -689,7 +689,7 @@ function TODictionary.TryGetValue(const aKey: ONativeInt;
 var
   xIndex: Integer;
 begin
-  Result := Find(aKey, {%H-}xIndex);
+  Result := Find(aKey, xIndex{%H-});
   if Result then
     outValue := Pointers[xIndex]
   else

@@ -10,7 +10,7 @@ unit uXmlTest;
 {.$DEFINE USE_SIMPLEXML}      //compare OXml with SimpleXML        http://www.audio-data.de/simplexml.html
 {.$DEFINE USE_DIXML}          //compare OXml with DIXml            http://www.yunqa.de/delphi/doku.php/products/xml/index?DokuWiki=kg5ade2rod3o49f5v1anmf7ol1
 {.$DEFINE USE_ALCINOE}        //compare OXml with Alcinoe          https://sourceforge.net/projects/alcinoe/
-{$DEFINE USE_LAZARUSDOMXML}  //compare OXml with Lazarus DOM XML
+{.$DEFINE USE_LAZARUSDOMXML}  //compare OXml with Lazarus DOM XML
 
 {$IFDEF FPC}
   {$DEFINE USE_FORIN}
@@ -1035,13 +1035,13 @@ begin
   TestLazarusSAX;
   {$ENDIF}
 
-  TestOXmlCDOM;
+  {TestOXmlCDOM;
 
   TestOXmlPDOM;
 
   TestOXmlSeq;
 
-  TestOXmlSAX;
+  TestOXmlSAX;}
 
   TestOXmlDirect;
 end;
@@ -1093,9 +1093,9 @@ procedure TForm1.BtnResaveTestClick(Sender: TObject);
       xXmlWriter.WriterSettings.WriteBOM := False;
 
       //simulate reading
-      while xXmlReader.ReadNextToken({%H-}xE) do begin
+      while xXmlReader.ReadNextToken({%H-}xE) do
         DoNothing(xE.TokenName, xE.TokenValue);
-      end;
+
       xT2 := GetTickCount;
 
       //read+write
@@ -1161,10 +1161,10 @@ begin
   Memo1.Lines.Clear;
   Memo2.Lines.Clear;
 
-  TestOXmlPDOM;
+  {TestOXmlPDOM;
   _MatchTestFiles;
 
-  TestSAX;
+  TestSAX;}
 
   TestDirect;
   _MatchTestFiles;
@@ -2363,68 +2363,52 @@ end;
 procedure TForm1.MatchTestFiles(const aFileSource, aFileTarget: OWideString);
 var
   xReader1, xReader2: TOTextReader;
-  xBuffer1, xBuffer2: TOTextBuffer;
-  xC1, xC2: OWideChar;
   I: Integer;
 begin
-  xC1 := #0;
-  xC2 := #0;
   xReader1 := TOTextReader.Create;
   xReader2 := TOTextReader.Create;
-  xBuffer1 := TOTextBuffer.Create;
-  xBuffer2 := TOTextBuffer.Create;
   try
     xReader1.InitFile(aFileSource);
     xReader2.InitFile(aFileTarget);
 
     //start comparing after PI
-    while (xC1 <> '>') do
-      if not xReader1.ReadNextChar(xC1) then
+    repeat
+      if not xReader1.ReadNextChar then
         Break;
-    while xC2 <> '>' do
-      if not xReader2.ReadNextChar(xC2) then
+    until xReader1.CurrentChar^ = '>';
+
+    repeat
+      if not xReader2.ReadNextChar then
         Break;
-    xReader1.ReadNextChar(xC1);
-    xReader2.ReadNextChar(xC2);
-    while OXmlIsWhiteSpaceChar(xC1) do
-      if not xReader1.ReadNextChar(xC1) then
+    until xReader2.CurrentChar^ = '>';
+
+    xReader1.ReadNextChar;
+    xReader2.ReadNextChar;
+    while OXmlIsWhiteSpaceChar(xReader1.CurrentChar^) do
+      if not xReader1.ReadNextChar then
         Break;
-    while OXmlIsWhiteSpaceChar(xC2) do
-      if not xReader2.ReadNextChar(xC2) then
+    while OXmlIsWhiteSpaceChar(xReader2.CurrentChar^) do
+      if not xReader2.ReadNextChar then
         Break;
 
-    while True do begin
-      if not xReader1.ReadNextChar(xC1) then
+    while True do
+    begin
+      if not xReader1.ReadNextChar then
         break;
-      xReader2.ReadNextChar(xC2);
-      if xC1 <> xC2 then begin
-        //get some information
-        xBuffer1.Clear;
-        xBuffer2.Clear;
-        xBuffer1.WriteChar(xC1);
-        xBuffer2.WriteChar(xC2);
-        for I := 0 to 19 do begin
-          if not xReader1.ReadNextChar(xC1) then
-            Break;
-          if not xReader2.ReadNextChar(xC2) then
-            Break;
-          xBuffer1.WriteChar(xC1);
-          xBuffer2.WriteChar(xC2);
-        end;
-
+      xReader2.ReadNextChar;
+      if xReader1.CurrentChar^ <> xReader2.CurrentChar^ then
+      begin
         raise Exception.Create('Files do not match:'+sLineBreak+
-          'Reader1 = '+xBuffer1.GetBuffer+sLineBreak+
-          'Reader2 = '+xBuffer2.GetBuffer+sLineBreak);
+          'Reader1 = '+xReader1.ReadPreviousString(16)+sLineBreak+
+          'Reader2 = '+xReader2.ReadPreviousString(16)+sLineBreak);
       end;
 
-      if xC2 = #0 then
+      if xReader2.CurrentChar^ = #0 then
         Break;
     end;
   finally
     xReader1.Free;
     xReader2.Free;
-    xBuffer1.Free;
-    xBuffer2.Free;
   end;
 end;
 

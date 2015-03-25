@@ -163,8 +163,6 @@ type
       const aNameSpacePrefix: OWideString): Boolean;
     procedure FindNameSpacePrefixes(const aNameSpaceURIId: OHashedStringsIndex;
       const aNameSpacePrefixes: TOWideStringList);
-    function FindNameSpaceURI(const aAttrNameId: OHashedStringsIndex;
-      var outNameSpaceURI: OWideString): Boolean;
     //find all possible (and existing) qualified names for a localname with URI
     procedure FindQualifiedNames(const aNameSpaceURIId: OHashedStringsIndex;
       const aLocalName: OWideString;
@@ -364,9 +362,7 @@ type
     function LoadFromStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function LoadFromXML(const aXML: OWideString): Boolean;
-    {$IFDEF O_RAWBYTESTRING}
-    function LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
-    {$ENDIF}
+    function LoadFromXML_UTF8(const aXML: OUTF8Container): Boolean;
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -382,24 +378,18 @@ type
     //returns XML as string (always in the system OWideString encoding and with system line breaks)
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SaveToXML_UTF8(var outXML: ORawByteString); overload;
-    procedure SaveToXML_UTF8(var outXML: ORawByteString; const aIndentType: TXMLIndentType); overload;
-    {$ENDIF}
+    procedure SaveToXML_UTF8(var outXML: OUTF8Container); overload;
+    procedure SaveToXML_UTF8(var outXML: OUTF8Container; const aIndentType: TXMLIndentType); overload;
 
     //returns XML as a buffer in encoding specified by the document
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SaveToBuffer(var outBuffer: ORawByteString); overload;
-    {$ENDIF}
+    procedure SaveToBuffer(var outBuffer: OUTF8Container); overload;
   public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function XML: OWideString; overload;
     function XML(const aIndentType: TXMLIndentType): OWideString; overload;
-    {$IFDEF O_RAWBYTESTRING}
-    function XML_UTF8: ORawByteString; overload;
-    function XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString; overload;
-    {$ENDIF}
+    function XML_UTF8: OUTF8Container; overload;
+    function XML_UTF8(const aIndentType: TXMLIndentType): OUTF8Container; overload;
   public
     property NodeType: TXMLNodeType read fNodeType;
     property NodeName: OWideString read GetNodeName;
@@ -613,9 +603,7 @@ type
     function LoadFromFile(const aFileName: OWideString; const aForceEncoding: TEncoding = nil): Boolean;
     function LoadFromStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
     function LoadFromXML(const aXML: OWideString): Boolean;
-    {$IFDEF O_RAWBYTESTRING}
-    function LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
-    {$ENDIF}
+    function LoadFromXML_UTF8(const aXML: OUTF8Container): Boolean;
     function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
     function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
@@ -624,22 +612,16 @@ type
     procedure SaveToStream(const aStream: TStream);
 
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SaveToBuffer(var outBuffer: ORawByteString); overload;
-    {$ENDIF}
+    procedure SaveToBuffer(var outBuffer: OUTF8Container); overload;
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SaveToXML_UTF8(var outXML: ORawByteString); overload;
-    procedure SaveToXML_UTF8(var outXML: ORawByteString; const aIndentType: TXMLIndentType); overload;
-    {$ENDIF}
+    procedure SaveToXML_UTF8(var outXML: OUTF8Container); overload;
+    procedure SaveToXML_UTF8(var outXML: OUTF8Container; const aIndentType: TXMLIndentType); overload;
   public
     function XML: OWideString; overload;
     function XML(const aIndentType: TXMLIndentType): OWideString; overload;
-    {$IFDEF O_RAWBYTESTRING}
-    function XML_UTF8: ORawByteString; overload;
-    function XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString; overload;
-    {$ENDIF}
+    function XML_UTF8: OUTF8Container; overload;
+    function XML_UTF8(const aIndentType: TXMLIndentType): OUTF8Container; overload;
   public
     property URL: OWideString read GetURL write SetURL;
 
@@ -1034,7 +1016,7 @@ end;
 
 procedure TXMLNode.DeleteSelf;
 begin
-  {$IFDEF NEXTGEN}
+  {$IFDEF O_ARC}
   DoDestroy;
   {$ELSE}
   Free;
@@ -1086,7 +1068,7 @@ procedure TXMLNode.DeleteAttribute(const aName: OWideString);
 var
   xAttr: TXMLNode;
 begin
-  if not FindAttribute(aName, {%H-}xAttr) then
+  if not FindAttribute(aName, xAttr{%H-}) then
     Exit;
 
   DeleteAttribute(xAttr);
@@ -1102,7 +1084,7 @@ procedure TXMLNode.DeleteAttributeNS(const aNameSpaceURI,
 var
   xAttr: TXMLNode;
 begin
-  if not FindAttributeNS(aNameSpaceURI, aLocalName, {%H-}xAttr) then
+  if not FindAttributeNS(aNameSpaceURI, aLocalName, xAttr{%H-}) then
     Exit;
 
   DeleteAttribute(xAttr);
@@ -1147,7 +1129,7 @@ function TXMLNode.FindAttribute(const aName: OWideString;
 var
   xAttr: TXMLNode;
 begin
-  Result := FindAttribute(aName, {%H-}xAttr);
+  Result := FindAttribute(aName, xAttr{%H-});
   if Result then
     outValue := xAttr.NodeValue
   else
@@ -1172,7 +1154,7 @@ function TXMLNode.FindAttributeByValue(const aValue: OWideString;
 var
   xAttr: TXMLNode;
 begin
-  Result := FindAttributeByValue(aValue, {%H-}xAttr);
+  Result := FindAttributeByValue(aValue, xAttr{%H-});
   if Result then
     outName := xAttr.NodeName
   else
@@ -1231,7 +1213,7 @@ function TXMLNode.FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString;
 var
   xAttr: TXMLNode;
 begin
-  Result := FindAttributeNS(aNameSpaceURI, aLocalName, {%H-}xAttr);
+  Result := FindAttributeNS(aNameSpaceURI, aLocalName, xAttr{%H-});
   if Result then
     outValue := xAttr.NodeValue
   else
@@ -1326,7 +1308,7 @@ begin
           Exit;
         end else
         begin
-          if OXmlCheckNameSpace(xNodeName, XML_XMLNS, {%H-}xLocalName) and
+          if OXmlCheckNameSpace(xNodeName, XML_XMLNS, xLocalName{%H-}) and
              (aNameSpacePrefix = xLocalName)
           then
           begin
@@ -1363,7 +1345,7 @@ begin
         if (xNodeName = XML_XMLNS) then
           aNameSpacePrefixes.Add('')
         else
-        if OXmlCheckNameSpace(xNodeName, XML_XMLNS, {%H-}xLocalName) then
+        if OXmlCheckNameSpace(xNodeName, XML_XMLNS, xLocalName{%H-}) then
           aNameSpacePrefixes.Add(xLocalName);
       end;
       xAttr := xAttr.NextSibling;
@@ -1389,34 +1371,41 @@ begin
   Result := aNameSpacePrefixes.Count > 0;
 end;
 
-function TXMLNode.FindNameSpaceURI(const aAttrNameId: OHashedStringsIndex;
-  var outNameSpaceURI: OWideString): Boolean;
-var
-  xAttr: TXMLNode;
-begin
-  if NodeType = ntElement then
-  begin
-    if FindAttributeById(aAttrNameId, {%H-}xAttr) then
-    begin
-      outNameSpaceURI := xAttr.NodeValue;
-      Result := True;
-      Exit;
-    end;
-  end;
-
-  if Assigned(ParentNode) then
-    Result := ParentNode.FindNameSpaceURI(aAttrNameId, outNameSpaceURI)
-  else
-    Result := False;
-end;
-
 function TXMLNode.FindNameSpaceURIByPrefix(const aNameSpacePrefix: OWideString;
   var outNameSpaceURI: OWideString): Boolean;
 var
   xAttrNameId: OHashedStringsIndex;
+  xNode, xAttr: TXMLNode;
 begin
   xAttrNameId := fOwnerDocument.IndexOfString(OXmlApplyNameSpace(XML_XMLNS, aNameSpacePrefix));
-  Result := (xAttrNameId >= 0) and FindNameSpaceURI(xAttrNameId, outNameSpaceURI);
+
+  xNode := Self;
+  while Assigned(xNode) do
+  begin
+    if xNode.NodeType = ntElement then
+    begin
+      //search for fNameSpaceURIId
+      if (xNode.fNameSpaceURIId >= 0) and (xNode.NameSpacePrefix = aNameSpacePrefix) then
+      begin
+        outNameSpaceURI := fOwnerDocument.GetString(xNode.fNameSpaceURIId);
+        Result := True;
+        Exit;
+      end;
+
+      //search for xmlns attribute
+      if (xAttrNameId >= 0) and
+         xNode.FindAttributeById(xAttrNameId, xAttr{%H-})
+      then
+      begin
+        outNameSpaceURI := xAttr.NodeValue;
+        Result := True;
+        Exit;
+      end;
+    end;
+
+    xNode := xNode.ParentNode;
+  end;
+  Result := False;
 end;
 
 procedure TXMLNode.FindQualifiedNames(
@@ -1449,7 +1438,7 @@ begin
         if (xNodeName = XML_XMLNS) then
           _Add(aLocalName)
         else
-        if OXmlCheckNameSpace(xNodeName, XML_XMLNS, {%H-}xNSPrefix) then
+        if OXmlCheckNameSpace(xNodeName, XML_XMLNS, xNSPrefix{%H-}) then
           _Add(OXmlApplyNameSpace(xNSPrefix, aLocalName));
       end;
       xAttr := xAttr.NextSibling;
@@ -1488,13 +1477,13 @@ end;
 function TXMLNode.GetAttributeDef(const aName,
   aDefaultValue: OWideString): OWideString;
 begin
-  if not FindAttribute(aName, {%H-}Result) then
+  if not FindAttribute(aName, Result{%H-}) then
     Result := aDefaultValue;
 end;
 
 function TXMLNode.GetAttributeNode(const aAttrName: OWideString): TXMLNode;
 begin
-  if not FindAttribute(aAttrName, {%H-}Result) then
+  if not FindAttribute(aAttrName, Result{%H-}) then
     Result := nil;
 end;
 
@@ -1512,7 +1501,7 @@ end;
 function TXMLNode.GetAttributeNSDef(const aNameSpaceURI, aLocalName,
   aDefaultValue: OWideString): OWideString;
 begin
-  if not FindAttributeNS(aNameSpaceURI, aLocalName, {%H-}Result) then
+  if not FindAttributeNS(aNameSpaceURI, aLocalName, Result{%H-}) then
     Result := aDefaultValue;
 end;
 
@@ -1653,7 +1642,7 @@ function TXMLNode.GetLocalName: OWideString;
 var
   xPrefix: OWideString;
 begin
-  OXmlResolveNameSpace(NodeName, {%H-}xPrefix, {%H-}Result);
+  OXmlResolveNameSpace(NodeName, xPrefix{%H-}, Result{%H-});
 end;
 
 function TXMLNode.GetNodeLevel: Integer;
@@ -1678,7 +1667,7 @@ function TXMLNode.GetNameSpacePrefix: OWideString;
 var
   xLocalName: OWideString;
 begin
-  OXmlResolveNameSpace(NodeName, {%H-}Result, {%H-}xLocalName);
+  OXmlResolveNameSpace(NodeName, Result{%H-}, xLocalName{%H-});
 end;
 
 function TXMLNode.GetNameSpaceURI: OWideString;
@@ -1767,25 +1756,23 @@ end;
 
 function TXMLNode.XML: OWideString;
 begin
-  SaveToXML({%H-}Result);
+  SaveToXML(Result{%H-});
 end;
 
 function TXMLNode.XML(const aIndentType: TXMLIndentType): OWideString;
 begin
-  SaveToXML({%H-}Result, aIndentType);
+  SaveToXML(Result{%H-}, aIndentType);
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-function TXMLNode.XML_UTF8: ORawByteString;
+function TXMLNode.XML_UTF8: OUTF8Container;
 begin
-  SaveToXML_UTF8({%H-}Result);
+  SaveToXML_UTF8(Result{%H-});
 end;
 
-function TXMLNode.XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString;
+function TXMLNode.XML_UTF8(const aIndentType: TXMLIndentType): OUTF8Container;
 begin
-  SaveToXML_UTF8({%H-}Result, aIndentType);
+  SaveToXML_UTF8(Result{%H-}, aIndentType);
 end;
-{$ENDIF}
 
 function TXMLNode._AddAttribute(const aAttrName,
   aAttrValue: OWideString): TXMLNode;
@@ -1817,7 +1804,7 @@ function TXMLNode.HasAttribute(const aName: OWideString): Boolean;
 var
   x: TXMLNode;
 begin
-  Result := FindAttribute(aName, {%H-}x);
+  Result := FindAttribute(aName, x{%H-});
 end;
 
 function TXMLNode.HasAttributeNS(const aNameSpaceURI,
@@ -1825,7 +1812,7 @@ function TXMLNode.HasAttributeNS(const aNameSpaceURI,
 var
   x: TXMLNode;
 begin
-  Result := FindAttributeNS(aNameSpaceURI, aLocalName, {%H-}x);
+  Result := FindAttributeNS(aNameSpaceURI, aLocalName, x{%H-});
 end;
 
 function TXMLNode.HasAttributes: Boolean;
@@ -1870,7 +1857,7 @@ function TXMLNode.InsertAttribute(const aAttrName, aAttrValue: OWideString;
 var
   xBeforeAttr: TXMLNode;
 begin
-  if FindAttribute(aBeforeAttributeName, {%H-}xBeforeAttr) then
+  if FindAttribute(aBeforeAttributeName, xBeforeAttr{%H-}) then
     Result := InsertAttribute(aAttrName, aAttrValue, xBeforeAttr)
   else
     Result := AddAttribute(aAttrName, aAttrValue);
@@ -2050,7 +2037,7 @@ begin
     xReader.InitStream(aStream, aForceEncoding);
     xReader.URL := fOwnerDocument.URL;
 
-    Result := LoadFromReader(xReader, {%H-}xReaderToken);
+    Result := LoadFromReader(xReader, xReaderToken{%H-});
 
     if Result then
       OwnerDocument.fReaderSettings.EntityList.Assign(xReader.ReaderSettings.EntityList);
@@ -2167,8 +2154,7 @@ begin
   until xLow >= aHigh;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-function TXMLNode.LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
+function TXMLNode.LoadFromXML_UTF8(const aXML: OUTF8Container): Boolean;
 var
   xStream: TVirtualMemoryStream;
 begin
@@ -2181,7 +2167,6 @@ begin
     xStream.Free;
   end;
 end;
-{$ENDIF}
 
 procedure TXMLNode.Remove(const aOld: TXMLNode; const aChildType: TXMLChildType);
 begin
@@ -2260,7 +2245,7 @@ begin
   if aXPath = '' then
     raise EXmlDOMException.Create(OXmlLng_XPathCannotBeEmpty);
 
-  if XPathIsSimpleNode(aXPath, {%H-}xNodeName, {%H-}xChildType) then
+  if XPathIsSimpleNode(aXPath, xNodeName{%H-}, xChildType{%H-}) then
   begin
     //speed optimization without true XPath support
     case xChildType of
@@ -2281,8 +2266,7 @@ begin
   end;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLNode.SaveToBuffer(var outBuffer: ORawByteString);
+procedure TXMLNode.SaveToBuffer(var outBuffer: OUTF8Container);
 var
   xStream: TMemoryStream;
 begin
@@ -2300,7 +2284,6 @@ begin
     xStream.Free;
   end;
 end;
-{$ENDIF}
 
 procedure TXMLNode.SaveToFile(const aFileName: OWideString);
 var
@@ -2374,8 +2357,7 @@ begin
   end;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLNode.SaveToXML_UTF8(var outXML: ORawByteString);
+procedure TXMLNode.SaveToXML_UTF8(var outXML: OUTF8Container);
 var
   xStream: TMemoryStream;
   xWriter: TXMLWriter;
@@ -2406,7 +2388,7 @@ begin
   end;
 end;
 
-procedure TXMLNode.SaveToXML_UTF8(var outXML: ORawByteString; const aIndentType: TXMLIndentType);
+procedure TXMLNode.SaveToXML_UTF8(var outXML: OUTF8Container; const aIndentType: TXMLIndentType);
 var
   xIndentType: TXMLIndentType;
 begin
@@ -2418,11 +2400,10 @@ begin
     fOwnerDocument.fWriterSettings.IndentType := xIndentType;
   end;
 end;
-{$ENDIF}
 
 function TXMLNode.SelectNode(const aXPath: OWideString): TXMLNode;
 begin
-  SelectNode(aXPath, {%H-}Result);
+  SelectNode(aXPath, Result{%H-});
 end;
 
 function TXMLNode.SelectNodeCreate(const aNodePath: OWideString): TXMLNode;
@@ -2465,14 +2446,14 @@ end;
 
 function TXMLNode.SelectNodeDummy(const aXPath: OWideString): TXMLNode;
 begin
-  if not SelectNode(aXPath, {%H-}Result) then
+  if not SelectNode(aXPath, Result{%H-}) then
     Result := OwnerDocument.DummyNode;
 end;
 
 function TXMLNode.SelectNodes(const aXPath: OWideString;
   const aMaxNodeCount: Integer): IXMLNodeList;
 begin
-  SelectNodes(aXPath, {%H-}Result, aMaxNodeCount);
+  SelectNodes(aXPath, Result{%H-}, aMaxNodeCount);
 end;
 
 function TXMLNode.SelectNodes(const aXPath: OWideString;
@@ -2510,7 +2491,7 @@ begin
   if Assigned(aAttr.fParentNode) then
     raise EXmlDOMException.Create(OXmlLng_ParentNodeMustBeNil);
 
-  if FindAttribute(aAttr.NodeName, {%H-}Result) then
+  if FindAttribute(aAttr.NodeName, Result{%H-}) then
     Remove(Result, ctAttribute)
   else
     Result := nil;
@@ -2525,7 +2506,7 @@ var
 begin
   Result := SetAttribute(aQualifiedName, aValue);
 
-  OXmlResolveNameSpace(aQualifiedName, {%H-}xNSPrefix, {%H-}xLocalName);
+  OXmlResolveNameSpace(aQualifiedName, xNSPrefix{%H-}, xLocalName{%H-});
   if not NameSpaceExists(aNameSpaceURI, xNSPrefix) then
   begin
     //namespace not found, add namespace URI attribute
@@ -2773,7 +2754,7 @@ function TXMLDocument.CreateEntityReference(const aName: OWideString): TXMLNode;
 var
   xEntityValue: OWideString;
 begin
-  if fReaderSettings.EntityList.Find(aName, {%H-}xEntityValue) then
+  if fReaderSettings.EntityList.Find(aName, xEntityValue{%H-}) then
     Result := CreateNode(ntEntityReference, aName, xEntityValue)
   else
     raise EXmlDOMException.Create(OXmlLng_EntityNameNotFound);
@@ -2915,7 +2896,7 @@ function TXMLDocument.GetXMLDeclarationAttribute(
 var
   xDecNode: TXMLNode;
 begin
-  if FindXMLDeclarationNode({%H-}xDecNode) then
+  if FindXMLDeclarationNode(xDecNode{%H-}) then
     Result := xDecNode.GetAttribute(aAttributeName)
   else
     Result := '';
@@ -3023,17 +3004,15 @@ begin
   Result := Node.XML(aIndentType);
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-function TXMLDocument.XML_UTF8: ORawByteString;
+function TXMLDocument.XML_UTF8: OUTF8Container;
 begin
   Result := Node.XML_UTF8;
 end;
 
-function TXMLDocument.XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString;
+function TXMLDocument.XML_UTF8(const aIndentType: TXMLIndentType): OUTF8Container;
 begin
   Result := Node.XML_UTF8(aIndentType);
 end;
-{$ENDIF}
 
 procedure TXMLDocument.SaveToBuffer(var outBuffer: TBytes);
 begin
@@ -3085,20 +3064,16 @@ begin
   Result := Node.LoadFromXML(aXML);
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-function TXMLDocument.LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
+function TXMLDocument.LoadFromXML_UTF8(const aXML: OUTF8Container): Boolean;
 begin
   Clear;
   Result := Node.LoadFromXML_UTF8(aXML);
 end;
-{$ENDIF}
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLDocument.SaveToBuffer(var outBuffer: ORawByteString);
+procedure TXMLDocument.SaveToBuffer(var outBuffer: OUTF8Container);
 begin
   Node.SaveToBuffer(outBuffer);
 end;
-{$ENDIF}
 
 procedure TXMLDocument.SaveToFile(const aFileName: OWideString);
 begin
@@ -3115,17 +3090,15 @@ begin
   Node.SaveToXML(outXML, aIndentType);
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLDocument.SaveToXML_UTF8(var outXML: ORawByteString);
+procedure TXMLDocument.SaveToXML_UTF8(var outXML: OUTF8Container);
 begin
   Node.SaveToXML_UTF8(outXML);
 end;
 
-procedure TXMLDocument.SaveToXML_UTF8(var outXML: ORawByteString; const aIndentType: TXMLIndentType);
+procedure TXMLDocument.SaveToXML_UTF8(var outXML: OUTF8Container; const aIndentType: TXMLIndentType);
 begin
   Node.SaveToXML_UTF8(outXML, aIndentType);
 end;
-{$ENDIF}
 
 procedure TXMLDocument.SaveToStream(const aStream: TStream);
 begin
@@ -3165,7 +3138,7 @@ procedure TXMLDocument.SetXMLDeclarationAttribute(const aAttributeName,
 var
   xDecNode: TXMLNode;
 begin
-  if not FindXMLDeclarationNode({%H-}xDecNode) then
+  if not FindXMLDeclarationNode(xDecNode{%H-}) then
   begin
     if fBlankDocumentNode.HasChildNodes then
       xDecNode := fBlankDocumentNode.InsertXMLDeclaration(fBlankDocumentNode.FirstChild)
@@ -3304,7 +3277,7 @@ end;
 
 function TXMLResNodeList.FindNode(const aName: OWideString): TXMLNode;
 begin
-  if IndexOf(aName, {%H-}Result) < 0 then
+  if IndexOf(aName, Result{%H-}) < 0 then
     Result := nil;
 end;
 
@@ -3403,7 +3376,7 @@ end;
 function TXMLResNodeList.IndexOf(const aName: OWideString): Integer;
 var x: TXMLNode;
 begin
-  Result := IndexOf(aName, {%H-}x);
+  Result := IndexOf(aName, x{%H-});
 end;
 
 function TXMLResNodeList.IndexOf(const aName: OWideString;
@@ -3593,7 +3566,7 @@ function TXMLXPathDOMAdapter.NodeFindAttribute(const aNode: TXMLXPathNode;
 var
   xAttr: TXMLNode;
 begin
-  if TXMLNode(aNode).FindAttributeById(aAttrNameId, {%H-}xAttr) then
+  if TXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-}) then
     Result := xAttr
   else
     Result := nil;
@@ -3669,7 +3642,7 @@ end;
 
 function TXMLChildNodeList.FindNode(const aName: OWideString): TXMLNode;
 begin
-  if not FindNode(aName, {%H-}Result) then
+  if not FindNode(aName, Result{%H-}) then
     Result := nil;
 end;
 
@@ -4053,7 +4026,7 @@ begin
       Exit;
     end;
 
-    OXmlResolveNameSpace(aNew.NodeName, {%H-}xNSPrefix, {%H-}xLocalName);
+    OXmlResolveNameSpace(aNew.NodeName, xNSPrefix{%H-}, xLocalName{%H-});
     if not xNSParent.NameSpaceExists(xNSURI, xNSPrefix) then
     begin
       //namespace not found

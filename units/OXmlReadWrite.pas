@@ -27,8 +27,6 @@ unit OXmlReadWrite;
       -> default value for LineBreak is your OS line break (sLineBreak)
       -> if you don't want to process them, set LineBreak to lbDoNotProcess
     - supports automatic indentation of XML
-    - don't use it directly. If performance is crucial for you, use SAX
-      which has the same performance.
 
 
   TXMLReader
@@ -40,6 +38,8 @@ unit OXmlReadWrite;
     - only line breaks (#10, #13, #13#10) are automatically changed to LineBreak
       -> default value for LineBreak is your OS line break (sLineBreak)
       -> if you don't want to process them, set LineBreak to lbDoNotProcess
+    - don't use it directly. If performance is crucial for you, use SAX
+      which has the same performance.
 
 }
 
@@ -84,7 +84,6 @@ type
     stFinish,       //"<node>"
     stFinishClose); //"<node/>"
 
-  PXMLWriterElement = ^TXMLWriterElement;
   TXMLWriterElement = {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fOwner: TXMLWriter;
@@ -249,7 +248,7 @@ type
     // TXMLWriter or call ReleaseDocument!
 
     procedure InitFile(const aFileName: OWideString);
-    procedure InitStream(const aStream: TStream);
+    procedure InitStream(const aStream: TStream; const aOwnsStream: Boolean = False);
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -418,9 +417,9 @@ type
   protected
     procedure LoadDTD(const aDTDReader: TOTextReader; const aIsInnerDTD: Boolean);
     procedure LoadDTDEntity(const aDTDReader: TOTextReader;
-      const aBuffer1, aBuffer2: TOTextBuffer);
+      const aBuffer1, aBuffer2: TOByteBuffer);
     procedure LoadDTDEntityReference(const aDTDReader: TOTextReader;
-      const aWriteToBuffer, aTempBuffer: TOTextBuffer);
+      const aWriteToBuffer, aTempBuffer: TOByteBuffer);
   protected
     procedure AssignTo(Dest: TPersistent); override;
   public
@@ -434,9 +433,7 @@ type
     function LoadDTDFromStream(const aStream: TStream; const aDefaultEncoding: TEncoding = nil): Boolean;
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function LoadDTDFromString(const aString: OWideString): Boolean;
-    {$IFDEF O_RAWBYTESTRING}
-    function LoadDTDFromString_UTF8(const aString: ORawByteString): Boolean;
-    {$ENDIF}
+    function LoadDTDFromString_UTF8(const aString: OUTF8Container): Boolean;
     function LoadFromBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil): Boolean; overload;
     function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aDefaultEncoding: TEncoding = nil): Boolean; overload;
   public
@@ -499,8 +496,8 @@ type
     fReaderToken: PXMLReaderToken;//current reader
     fOwnsReaderToken: Boolean;
 
-    fMainBuffer: TOTextBuffer;
-    fEntityBuffer: TOTextBuffer;
+    fMainBuffer: TOByteBuffer;
+    fEntityBuffer: TOByteBuffer;
 
     function GetEncoding: TEncoding;
     procedure SetEncoding(const aEncoding: TEncoding);
@@ -570,9 +567,7 @@ type
     procedure InitStream(const aStream: TStream; const aForceEncoding: TEncoding = nil);
     //init XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitXML(const aXML: OWideString);
-    {$IFDEF O_RAWBYTESTRING}
-    procedure InitXML_UTF8(const aXML: ORawByteString);
-    {$ENDIF}
+    procedure InitXML_UTF8(const aXML: OUTF8Container);
     //init document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -680,9 +675,7 @@ type
     function LoadFromStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function LoadFromXML(const aXML: OWideString): Boolean;
-    {$IFDEF O_RAWBYTESTRING}
-    function LoadFromXML_UTF8(const aXML: ORawByteString): Boolean;
-    {$ENDIF}
+    function LoadFromXML_UTF8(const aXML: OUTF8Container): Boolean;
     //load document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -698,25 +691,19 @@ type
     //returns XML as string (always in the system OWideString encoding and with system line breaks)
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SaveToXML_UTF8(var outXML: ORawByteString); overload;
-    procedure SaveToXML_UTF8(var outXML: ORawByteString; const aIndentType: TXMLIndentType); overload;
-    {$ENDIF}
+    procedure SaveToXML_UTF8(var outXML: OUTF8Container); overload;
+    procedure SaveToXML_UTF8(var outXML: OUTF8Container; const aIndentType: TXMLIndentType); overload;
 
     //returns XML as a buffer in encoding specified by the document
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SaveToBuffer(var outBuffer: ORawByteString); overload;
-    {$ENDIF}
+    procedure SaveToBuffer(var outBuffer: OUTF8Container); overload;
 
   //public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function XML: OWideString; overload;
     function XML(const aIndentType: TXMLIndentType): OWideString; overload;
-    {$IFDEF O_RAWBYTESTRING}
-    function XML_UTF8: ORawByteString; overload;
-    function XML_UTF8(const aIndentType: TXMLIndentType): ORawByteString; overload;
-    {$ENDIF}
+    function XML_UTF8: OUTF8Container; overload;
+    function XML_UTF8(const aIndentType: TXMLIndentType): OUTF8Container; overload;
 
   //public
     // aURL: this URL is shown in an error message when reading (optional) - set it before you call LoadFrom*
@@ -772,7 +759,7 @@ uses OXmlLng;
 procedure ProcessNewLineChar(
   const aLastChar: OWideChar;
   const aReaderSettings: TXMLReaderSettings;
-  const aCustomReader: TOTextReader; const aCustomBuffer: TOTextBuffer);
+  const aCustomReader: TOTextReader; const aCustomBuffer: TOByteBuffer);
 var
   xC: OWideChar;
 begin
@@ -781,13 +768,13 @@ begin
     if aLastChar = #13 then
     begin
       //search for #13#10 sequence
-      if (aCustomReader.ReadNextChar({%H-}xC)) and (xC <> #10) then
+      if (aCustomReader.ReadNextChar(xC{%H-})) and (xC <> #10) then
         aCustomReader.UndoRead;
     end;
 
-    aCustomBuffer.WriteString(XmlLineBreak[aReaderSettings.fLineBreak]);
+    aCustomBuffer.WriteOWideString(XmlLineBreak[aReaderSettings.fLineBreak]);
   end else
-    aCustomBuffer.WriteChar(aLastChar);
+    aCustomBuffer.WriteOWideChar(aLastChar);
 end;
 
 {$IFDEF O_DELPHI_5_DOWN}
@@ -803,7 +790,7 @@ end;
 function ProcessEntity(
   const aReaderSettings: TXMLReaderSettings;
   const aCustomReader: TOTextReader;
-  const aCustomBuffer: TOTextBuffer;
+  const aCustomBuffer: TOByteBuffer;
   var outReadString, outEntityName, outEntityValue: OWideString): Boolean;
 const
   cEntityPrefix: array[0..2] of OWideString = ('', '#', '#x');
@@ -839,7 +826,7 @@ begin
   outEntityName := '';
   outEntityValue := '';
 
-  aCustomReader.ReadNextChar({%H-}xC);
+  aCustomReader.ReadNextChar(xC{%H-});
   if xC = '#' then
   begin
     //integer decimal/hexadecimal entity
@@ -853,11 +840,11 @@ begin
       aCustomReader.ReadNextChar(xC);
       while OXmlIsHexadecimalChar(xC) do
       begin
-        aCustomBuffer.WriteChar(xC);
+        aCustomBuffer.WriteOWideChar(xC);
         aCustomReader.ReadNextChar(xC);
       end;
 
-      aCustomBuffer.GetBuffer(outEntityName);
+      aCustomBuffer.GetOWideString(outEntityName);
 
       if (xC <> ';') or not TryStrToInt('$'+outEntityName, xOutputChar) then
       begin
@@ -872,11 +859,11 @@ begin
 
       while OXmlIsDecimalChar(xC) do
       begin
-        aCustomBuffer.WriteChar(xC);
+        aCustomBuffer.WriteOWideChar(xC);
         aCustomReader.ReadNextChar(xC);
       end;
 
-      aCustomBuffer.GetBuffer(outEntityName);
+      aCustomBuffer.GetOWideString(outEntityName);
 
       if (xC <> ';') or not TryStrToInt(outEntityName, xOutputChar) then
       begin
@@ -901,11 +888,11 @@ begin
 
     while OXmlIsNameChar(xC) do
     begin
-      aCustomBuffer.WriteChar(xC);
+      aCustomBuffer.WriteOWideChar(xC);
       aCustomReader.ReadNextChar(xC);
     end;
 
-    aCustomBuffer.GetBuffer(outEntityName);
+    aCustomBuffer.GetOWideString(outEntityName);
     if (xC <> ';') or not aReaderSettings.fEntityList.Find(outEntityName, outEntityValue) then
     begin
         if (xC <> ';') then
@@ -954,7 +941,7 @@ var
 begin
   //opened after a '?' for PI or '/' for an element.
 
-  fReader.ReadNextChar({%H-}xC);//must be '>'
+  fReader.ReadNextChar(xC{%H-});//must be '>'
   if xC <> '>' then
   begin
     if fReaderSettings.fStrictXML then
@@ -974,7 +961,7 @@ begin
     begin
       //let's be generous and go over this invalid character
       fReader.UndoRead;
-      ReadNextToken({%H-}x);
+      ReadNextToken(x{%H-});
       Exit;
     end;
   end;
@@ -998,7 +985,7 @@ begin
   if aClearCustomBuffer then
     fMainBuffer.Clear(False);
 
-  fReader.ReadNextChar({%H-}xC);
+  fReader.ReadNextChar(xC{%H-});
   xSquareBracketCloseCount := 0;
   while
     not Assigned(fReader.ParseError) and
@@ -1017,7 +1004,7 @@ begin
       end;
       ckLowerThan: Break;
       ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote,
-        ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteChar(xC);
+        ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteOWideChar(xC);
       ckGreaterThan:
       begin
         if fReaderSettings.fStrictXML and (xSquareBracketCloseCount >= 2) then
@@ -1026,11 +1013,11 @@ begin
             OXmlLng_InvalidCharacterInText, [xC]);
           Exit;
         end;
-        fMainBuffer.WriteChar(xC);
+        fMainBuffer.WriteOWideChar(xC);
       end;
     else
       if not fReaderSettings.fStrictXML then
-        fMainBuffer.WriteChar(xC)
+        fMainBuffer.WriteOWideChar(xC)
       else
         RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
           OXmlLng_InvalidCharacterInText, ['0x'+IntToHex(Ord(xC), 4)]);
@@ -1051,7 +1038,7 @@ begin
     fReader.UndoRead;
   fReaderToken.TokenType := rtText;
   fReaderToken.TokenName := '';
-  fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+  fMainBuffer.GetOWideString(fReaderToken.TokenValue);
 end;
 
 procedure TXMLReader.Attribute;
@@ -1066,7 +1053,7 @@ begin
   end;
 
   fMainBuffer.Clear(False);
-  fReader.ReadNextChar({%H-}xC);
+  fReader.ReadNextChar(xC{%H-});
 
   if fReaderSettings.fStrictXML and not OXmlIsNameStartChar(xC) then
   begin
@@ -1080,7 +1067,7 @@ begin
     //not StrictXML
 
     repeat//read attribute name
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       fReader.ReadNextChar(xC);
     until OXmlIsBreakChar(xC);
   end else
@@ -1088,11 +1075,11 @@ begin
     //StrictXML
     while OXmlIsNameChar(xC) do
     begin//read attribute name
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       fReader.ReadNextChar(xC);
     end;
   end;
-  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  fMainBuffer.GetOWideString(fReaderToken.TokenName);
 
   while OXmlIsWhiteSpaceChar(xC) do//jump over spaces "attr ="
     fReader.ReadNextChar(xC);
@@ -1128,10 +1115,10 @@ begin
           ckNewLine10, ckNewLine13: ProcessNewLineChar(xC, fReaderSettings, fReader, fMainBuffer);
           ckAmpersand: EntityReferenceInText;
           ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote, ckGreaterThan,
-            ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteChar(xC);
+            ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteOWideChar(xC);
         else
           if not fReaderSettings.fStrictXML then
-            fMainBuffer.WriteChar(xC)
+            fMainBuffer.WriteOWideChar(xC)
           else
             RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
               OXmlLng_InvalidCharacterInAttribute, [IntToHex(Ord(xC), 4)]);
@@ -1155,10 +1142,10 @@ begin
             ckNewLine10, ckNewLine13: ProcessNewLineChar(xC, fReaderSettings, fReader, fMainBuffer);
             ckAmpersand: EntityReferenceInText;
             ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote,
-              ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteChar(xC);
+              ckSquareBracketOpen, ckSquareBracketClose: fMainBuffer.WriteOWideChar(xC);
           else
             if not fReaderSettings.fStrictXML then
-              fMainBuffer.WriteChar(xC)
+              fMainBuffer.WriteOWideChar(xC)
             else
               RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
                 OXmlLng_InvalidCharacterInText, [IntToHex(Ord(xC), 4)]);
@@ -1168,7 +1155,7 @@ begin
       end;
     end;
 
-    fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+    fMainBuffer.GetOWideString(fReaderToken.TokenValue);
   end;
 
   if fLastTokenType in [rtOpenXMLDeclaration, rtXMLDeclarationAttribute] then
@@ -1196,7 +1183,7 @@ var
   xReaderToken: PXMLReaderToken;
 begin
   if
-    TEncoding.EncodingFromAlias(aEncodingAlias, {%H-}xEncoding) and
+    TEncoding.EncodingFromAlias(aEncodingAlias, xEncoding{%H-}) and
     (fReader.Encoding <> xEncoding)
   then begin
     //reload document with new encoding
@@ -1212,7 +1199,7 @@ begin
     fLastTokenType := rtDocumentStart;
     fOpenElementTokens.Clear;
     //parse from beginning back to the encoding attribute
-    while ReadNextToken({%H-}xReaderToken) do
+    while ReadNextToken(xReaderToken{%H-}) do
     begin
       case xReaderToken.TokenType of
         rtOpenXMLDeclaration: xInXMLDeclaration := True;
@@ -1283,8 +1270,8 @@ begin
   fOpenElementTokens := TXMLReaderTokenList.Create;
   fReaderToken := fOpenElementTokens.CreateNew;
 
-  fMainBuffer := TOTextBuffer.Create;
-  fEntityBuffer := TOTextBuffer.Create(16);
+  fMainBuffer := TOByteBuffer.Create;
+  fEntityBuffer := TOByteBuffer.Create(16);
 end;
 
 procedure TXMLReader.DocType;
@@ -1330,8 +1317,8 @@ procedure TXMLReader.EntityReferenceInText;
 var
   xReadString, xEntityName, xEntityValue: OWideString;
 begin
-  if ProcessEntity(fReaderSettings, fReader, fEntityBuffer, {%H-}xReadString, {%H-}xEntityName, {%H-}xEntityValue) then
-    fMainBuffer.WriteString(xEntityValue)
+  if ProcessEntity(fReaderSettings, fReader, fEntityBuffer, xReadString{%H-}, xEntityName{%H-}, xEntityValue{%H-}) then
+    fMainBuffer.WriteOWideString(xEntityValue)
   else
   begin
     if fReaderSettings.fStrictXML then
@@ -1341,7 +1328,7 @@ begin
       Exit;
     end else
     begin
-      fMainBuffer.WriteString(xReadString);
+      fMainBuffer.WriteOWideString(xReadString);
     end;
   end;
 end;
@@ -1350,7 +1337,7 @@ procedure TXMLReader.EntityReferenceStandalone;
 var
   xReadString, xEntityName, xEntityValue: OWideString;
 begin
-  if ProcessEntity(fReaderSettings, fReader, fEntityBuffer, {%H-}xReadString, {%H-}xEntityName, {%H-}xEntityValue) then
+  if ProcessEntity(fReaderSettings, fReader, fEntityBuffer, xReadString{%H-}, xEntityName{%H-}, xEntityValue{%H-}) then
   begin
     fReaderToken.TokenType := rtEntityReference;
     fReaderToken.TokenName := xEntityName;
@@ -1382,26 +1369,26 @@ var
   xResult: Boolean;
 begin
   fMainBuffer.Clear(False);
-  fMainBuffer.WriteChar('<');
-  fMainBuffer.WriteChar('!');
+  fMainBuffer.WriteOWideChar('<');
+  fMainBuffer.WriteOWideChar('!');
   xResult := True;
   for I := 3 to Length(aBeginTag) do
   begin
-    fReader.ReadNextChar({%H-}xC);
+    fReader.ReadNextChar(xC{%H-});
     if aBeginTag[I] <> UpperCase(xC) then
     begin
       xResult := False;
       fReader.UndoRead;
       Break;
     end;
-    fMainBuffer.WriteChar(xC);
+    fMainBuffer.WriteOWideChar(xC);
   end;
 
   if aWhiteSpaceAfterBeginTag and xResult then
   begin
     //must be followed by a whitespace character
     fReader.ReadNextChar(xC);
-    fMainBuffer.WriteChar(xC);
+    fMainBuffer.WriteOWideChar(xC);
     xResult := OXmlIsWhiteSpaceChar(xC);
   end;
 
@@ -1422,7 +1409,7 @@ begin
       end else
       begin
         fReaderToken.TokenType := rtText;
-        fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+        fMainBuffer.GetOWideString(fReaderToken.TokenValue);
         fReaderToken.TokenName := '';
       end;
       Exit;
@@ -1451,7 +1438,7 @@ begin
         ckSquareBracketOpen:
           if aIsDoctype then
           begin
-            fMainBuffer.WriteChar(xC);
+            fMainBuffer.WriteOWideChar(xC);
             LoadDTD;
             for I := 1 to Length(xPreviousC) do
               xPreviousC[I] := #0;
@@ -1460,7 +1447,7 @@ begin
       end;
 
       xPreviousC[Length(xPreviousC)] := xC;
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
     until (
       (xPreviousC = aEndTag) or
       Assigned(fReader.ParseError) or
@@ -1471,7 +1458,7 @@ begin
 
     fReaderToken.TokenType := aTokenType;
     fReaderToken.TokenName := '';
-    fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+    fMainBuffer.GetOWideString(fReaderToken.TokenValue);
   end;
 end;
 
@@ -1480,7 +1467,7 @@ var
   xC: OWideChar;
 begin
   fMainBuffer.Clear(False);
-  fReader.ReadNextChar({%H-}xC);
+  fReader.ReadNextChar(xC{%H-});
 
   case xC of
     '!':
@@ -1500,15 +1487,15 @@ begin
           Exit;
         end else
         begin
-          fMainBuffer.WriteChar('<');
-          fMainBuffer.WriteChar('!');
+          fMainBuffer.WriteOWideChar('<');
+          fMainBuffer.WriteOWideChar('!');
           if xC <> '<' then
           begin
             Text(False);
           end else
           begin
             fReaderToken.TokenType := rtText;
-            fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+            fMainBuffer.GetOWideString(fReaderToken.TokenValue);
             fReaderToken.TokenName := '';
           end;
           Exit;
@@ -1541,7 +1528,7 @@ begin
 
     while OXmlIsNameChar(xC) do
     begin
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       fReader.ReadNextChar(xC);
     end;
 
@@ -1550,14 +1537,14 @@ begin
     else if not OXmlIsWhiteSpaceChar(xC) then
     begin
       RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
-        OXmlLng_InvalidElementName, [fMainBuffer.GetBuffer+xC]);
+        OXmlLng_InvalidElementName, [fMainBuffer.GetOWideString+xC]);
       Exit;
     end;
   end else
   begin
     if not OXmlIsNameChar(xC) then
     begin
-      fMainBuffer.WriteChar('<');
+      fMainBuffer.WriteOWideChar('<');
       fReader.UndoRead;
       if xC <> '<' then
       begin
@@ -1565,7 +1552,7 @@ begin
       end else
       begin
         fReaderToken.TokenType := rtText;
-        fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+        fMainBuffer.GetOWideString(fReaderToken.TokenValue);
         fReaderToken.TokenName := '';
       end;
       Exit;
@@ -1573,7 +1560,7 @@ begin
     begin
       while not OXmlIsBreakChar(xC) do
       begin
-        fMainBuffer.WriteChar(xC);
+        fMainBuffer.WriteOWideChar(xC);
         fReader.ReadNextChar(xC);
       end;
 
@@ -1589,7 +1576,7 @@ begin
   end;
 
   fDocumentElementFound := True;
-  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  fMainBuffer.GetOWideString(fReaderToken.TokenName);
   fReaderToken.TokenValue := '';
   fReaderToken.TokenType := rtOpenElement;
   fOpenElementTokens.AddLast;
@@ -1640,7 +1627,7 @@ begin
 
   fReaderToken := fOpenElementTokens.CreateNew;//must be here and not in the beggining of the function -> due to attributes and open elements and sequential parser
 
-  if not fReader.ReadNextChar({%H-}xC) then
+  if not fReader.ReadNextChar(xC{%H-}) then
   begin
     //end of document
     Result := False;
@@ -1751,7 +1738,7 @@ var
   xC: OWideChar;
 begin
   fMainBuffer.Clear(False);
-  fReader.ReadNextChar({%H-}xC);
+  fReader.ReadNextChar(xC{%H-});
 
   if fReaderSettings.fStrictXML then
   begin
@@ -1765,7 +1752,7 @@ begin
 
     while OXmlIsNameChar(xC) do
     begin
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       fReader.ReadNextChar(xC);
     end;
     while OXmlIsWhiteSpaceChar(xC) do
@@ -1775,7 +1762,7 @@ begin
     if xC <> '>' then
     begin
       RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
-        OXmlLng_InvalidStringInText, ['</'+fMainBuffer.GetBuffer]);
+        OXmlLng_InvalidStringInText, ['</'+fMainBuffer.GetOWideString]);
       Exit;
     end;
   end else
@@ -1783,8 +1770,8 @@ begin
     //not strict
     if not OXmlIsNameChar(xC) then
     begin
-      fMainBuffer.WriteChar('<');
-      fMainBuffer.WriteChar('/');
+      fMainBuffer.WriteOWideChar('<');
+      fMainBuffer.WriteOWideChar('/');
       fReader.UndoRead;
       if xC <> '<' then
       begin
@@ -1792,7 +1779,7 @@ begin
       end else
       begin
         fReaderToken.TokenType := rtText;
-        fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+        fMainBuffer.GetOWideString(fReaderToken.TokenValue);
         fReaderToken.TokenName := '';
       end;
       Exit;
@@ -1800,7 +1787,7 @@ begin
     begin
       while not OXmlIsBreakChar(xC) do
       begin
-        fMainBuffer.WriteChar(xC);
+        fMainBuffer.WriteOWideChar(xC);
         fReader.ReadNextChar(xC);
       end;
       while not((xC = '>') or fReader.EOF) do
@@ -1810,7 +1797,7 @@ begin
     end;
   end;
 
-  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  fMainBuffer.GetOWideString(fReaderToken.TokenName);
   fReaderToken.TokenValue := '';
   fReaderToken.TokenType := rtCloseElement;
 
@@ -1908,7 +1895,7 @@ begin
     fReaderSettings.LoadDTD(fReader, True);
 
   finally
-    fMainBuffer.WriteString(fReader.ReadPreviousString(fReader.TempStringPosition - xReaderStartPos));
+    fMainBuffer.WriteOWideString(fReader.ReadPreviousString(fReader.TempStringPosition - xReaderStartPos));
     fReader.UnblockFlushTempBuffer;
   end;
 end;
@@ -1918,13 +1905,11 @@ begin
   Result := fOpenElementTokens.Count = 0;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLReader.InitXML_UTF8(const aXML: ORawByteString);
+procedure TXMLReader.InitXML_UTF8(const aXML: OUTF8Container);
 begin
   fReader.InitString_UTF8(aXML);
   DoInit(TEncoding.UTF8);
 end;
-{$ENDIF}
 
 procedure TXMLReader.ProcessingInstruction;
 var
@@ -1932,7 +1917,7 @@ var
   xPreviousC: OWideChar;
 begin
   fMainBuffer.Clear(False);
-  fReader.ReadNextChar({%H-}xC);
+  fReader.ReadNextChar(xC{%H-});
 
   if fReaderSettings.fStrictXML then
   begin
@@ -1945,28 +1930,28 @@ begin
 
     while OXmlIsNameChar(xC) do
     begin
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       fReader.ReadNextChar(xC);
     end;
 
     if not OXmlIsWhiteSpaceChar(xC) and (xC <> '?') then
     begin
       //must be followed by a whitespace character
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
-        OXmlLng_InvalidStringInText, ['<?'+fMainBuffer.GetBuffer]);
+        OXmlLng_InvalidStringInText, ['<?'+fMainBuffer.GetOWideString]);
       Exit;
     end;
   end else
   begin
     while not OXmlIsBreakChar(xC) do
     begin
-      fMainBuffer.WriteChar(xC);
+      fMainBuffer.WriteOWideChar(xC);
       fReader.ReadNextChar(xC);
     end;
   end;
 
-  fMainBuffer.GetBuffer(fReaderToken.TokenName);
+  fMainBuffer.GetOWideString(fReaderToken.TokenName);
   if
     not fDocumentElementFound and
     fReaderSettings.fRecognizeXMLDeclaration and
@@ -1991,13 +1976,13 @@ begin
     not((xPreviousC = '?') and (xC = '>')) and
     not fReader.EOF
   do begin
-    fMainBuffer.WriteChar(xC);
+    fMainBuffer.WriteOWideChar(xC);
     xPreviousC := xC;
     fReader.ReadNextChar(xC);
   end;
   fMainBuffer.RemoveLastChar;
 
-  fMainBuffer.GetBuffer(fReaderToken.TokenValue);
+  fMainBuffer.GetOWideString(fReaderToken.TokenValue);
 end;
 
 procedure TXMLReader.ReleaseDocument;
@@ -2564,9 +2549,10 @@ begin
   DoInit;
 end;
 
-procedure TXMLWriter.InitStream(const aStream: TStream);
+procedure TXMLWriter.InitStream(const aStream: TStream;
+  const aOwnsStream: Boolean);
 begin
-  fWriter.InitStream(aStream);
+  fWriter.InitStream(aStream, aOwnsStream);
 
   DoInit;
 end;
@@ -2745,11 +2731,11 @@ end;
 function TXMLWriter.OpenElementR(const aElementName: OWideString;
   const aMode: TXMLWriterElementMode): TXMLWriterElement;
 begin
-  OpenElementR(aElementName, {%H-}Result, aMode);
+  OpenElementR(aElementName, Result{%H-}, aMode);
 end;
 
 procedure TXMLWriter.XMLDeclaration(const aEncoding: Boolean;
-  const aVersion, aStandAlone: OWideString);
+  const aVersion: OWideString; const aStandAlone: OWideString);
 begin
   OpenXMLDeclaration;
 
@@ -2823,7 +2809,7 @@ end;
 function TXMLWriterElement.OpenElementR(const aElementName: OWideString;
   const aMode: TXMLWriterElementMode): TXMLWriterElement;
 begin
-  OpenElementR(aElementName, {%H-}Result, aMode);
+  OpenElementR(aElementName, Result{%H-}, aMode);
 end;
 
 procedure TXMLWriterElement.Text(const aText: OWideString; const aIndent: Boolean);
@@ -2914,20 +2900,20 @@ var
   xC: OWideChar;
   xPreviousC: OWideString;//holds '<!ENTITY'
   xInQuotes: OWideChar;
-  xDTDBuffer, xTempBuffer: TOTextBuffer;
+  xDTDBuffer, xTempBuffer: TOByteBuffer;
 const
   cEntityStr: OWideString = '<!ENTITY';
 begin
   fEntityList.Clear;
 
-  xDTDBuffer := TOTextBuffer.Create;
-  xTempBuffer := TOTextBuffer.Create;
+  xDTDBuffer := TOByteBuffer.Create;
+  xTempBuffer := TOByteBuffer.Create;
   try
     SetLength(xPreviousC, Length(cEntityStr));
     for I := 1 to Length(xPreviousC) do
       xPreviousC[I] := #0;
 
-    aDTDReader.ReadNextChar({%H-}xC);
+    aDTDReader.ReadNextChar(xC{%H-});
 
     xInQuotes := #0;//not in quotes
 
@@ -2973,13 +2959,13 @@ begin
 end;
 
 procedure TXMLReaderSettings.LoadDTDEntity(const aDTDReader: TOTextReader;
-  const aBuffer1, aBuffer2: TOTextBuffer);
+  const aBuffer1, aBuffer2: TOByteBuffer);
 var
   xC, xQuotationMark: OWideChar;
   xEntityName, xEntityValue: OWideString;
   xIsParameterEntity: Boolean;//used only in DTD -> IGNORE!!!
 begin
-  if not aDTDReader.ReadNextChar({%H-}xC) then
+  if not aDTDReader.ReadNextChar(xC{%H-}) then
     Exit;
 
   //go over spaces
@@ -3006,11 +2992,11 @@ begin
   aBuffer1.Clear(False);
   while OXmlIsNameChar(xC) and not aDTDReader.EOF do
   begin
-    aBuffer1.WriteChar(xC);
+    aBuffer1.WriteOWideChar(xC);
     aDTDReader.ReadNextChar(xC);
   end;
 
-  aBuffer1.GetBuffer({%H-}xEntityName);
+  aBuffer1.GetOWideString(xEntityName{%H-});
   aBuffer1.Clear(False);
 
   //go over spaces
@@ -3034,17 +3020,17 @@ begin
       ckAmpersand: LoadDTDEntityReference(aDTDReader, aBuffer1, aBuffer2);
       ckTab, ckCharacter, ckSingleQuote, ckDoubleQuote, ckGreaterThan, ckLowerThan,
         ckSquareBracketOpen, ckSquareBracketClose:
-          aBuffer1.WriteChar(xC);
+          aBuffer1.WriteOWideChar(xC);
     else
       if not fStrictXML then
-        aBuffer1.WriteChar(xC)
+        aBuffer1.WriteOWideChar(xC)
       else
         aDTDReader.RaiseExceptionFmt(TXMLParseErrorInvalidCharacter,
           OXmlLng_InvalidCharacterInAttribute, ['0x'+IntToHex(Ord(xC), 4)]);
     end;
     aDTDReader.ReadNextChar(xC);
   end;
-  aBuffer1.GetBuffer({%H-}xEntityValue);
+  aBuffer1.GetOWideString(xEntityValue{%H-});
 
   //add entity to entity list
   if not xIsParameterEntity then
@@ -3058,12 +3044,12 @@ begin
 end;
 
 procedure TXMLReaderSettings.LoadDTDEntityReference(
-  const aDTDReader: TOTextReader; const aWriteToBuffer, aTempBuffer: TOTextBuffer);
+  const aDTDReader: TOTextReader; const aWriteToBuffer, aTempBuffer: TOByteBuffer);
 var
   xReadString, xEntityName, xEntityValue: OWideString;
 begin
-  if ProcessEntity(Self, aDTDReader, aTempBuffer, {%H-}xReadString, {%H-}xEntityName, {%H-}xEntityValue) then
-    aWriteToBuffer.WriteString(xEntityValue)
+  if ProcessEntity(Self, aDTDReader, aTempBuffer, xReadString{%H-}, xEntityName{%H-}, xEntityValue{%H-}) then
+    aWriteToBuffer.WriteOWideString(xEntityValue)
   else
   begin
     if fStrictXML then
@@ -3073,7 +3059,7 @@ begin
       Exit;
     end else
     begin
-      aWriteToBuffer.WriteString(xReadString);
+      aWriteToBuffer.WriteOWideString(xReadString);
     end;
   end;
 end;
@@ -3123,9 +3109,8 @@ begin
   end;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
 function TXMLReaderSettings.LoadDTDFromString_UTF8(
-  const aString: ORawByteString): Boolean;
+  const aString: OUTF8Container): Boolean;
 var
   xStream: TVirtualMemoryStream;
 begin
@@ -3138,7 +3123,6 @@ begin
     xStream.Free;
   end;
 end;
-{$ENDIF}
 
 function TXMLReaderSettings.LoadFromBuffer(const aBuffer;
   const aBufferLength: Integer; const aDefaultEncoding: TEncoding): Boolean;
@@ -3436,6 +3420,9 @@ end;
 constructor TOCharTable.Create(const aEncoding: TEncoding);
 var
   I: OUnicodeChar;
+  {$IFDEF FPC}
+  I_UTF8: string;
+  {$ENDIF}
   xBytes: TEncodingBuffer;
   xString: OWideString;
 begin
@@ -3443,9 +3430,12 @@ begin
 
   for I := Low(I) to High(I) do
   begin
-    aEncoding.StringToBuffer(I, {%H-}xBytes);
-    aEncoding.BufferToString(xBytes, {%H-}xString);
-    fIsSupported[I] := (xString = I);
+    {$IFDEF FPC}
+    I_UTF8 := UTF8Encode(WideString(I));
+    {$ENDIF}
+    aEncoding.StringToBuffer({$ifdef FPC}I_UTF8{$else}I{$endif}, xBytes{%H-});
+    aEncoding.BufferToString(xBytes, xString{%H-});
+    fIsSupported[I] := (xString = {$ifdef FPC}I_UTF8{$else}I{$endif});
   end;
 end;
 

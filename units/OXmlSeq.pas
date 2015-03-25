@@ -92,9 +92,7 @@ type
     procedure InitStream(const aStream: TStream; const aForceEncoding: TEncoding = nil);
     //init XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitXML(const aXML: OWideString);
-    {$IFDEF O_RAWBYTESTRING}
-    procedure InitXML_UTF8(const aXML: ORawByteString);
-    {$ENDIF}
+    procedure InitXML_UTF8(const aXML: OUTF8Container);
     //init document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -315,20 +313,18 @@ begin
   DoInit;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLSeqParser.InitXML_UTF8(const aXML: ORawByteString);
+procedure TXMLSeqParser.InitXML_UTF8(const aXML: OUTF8Container);
 begin
   fReader.InitXML_UTF8(aXML);
   DoInit;
 end;
-{$ENDIF}
 
 function TXMLSeqParser.SkipNextChildElementHeader(
   var outElementIsOpen: Boolean): Boolean;
 var
   x: PXMLNode;
 begin
-  Result := ReadNextChildElementHeader({%H-}x, outElementIsOpen);
+  Result := ReadNextChildElementHeader(x{%H-}, outElementIsOpen);
 end;
 
 function TXMLSeqParser.SkipNextChildNode: Boolean;
@@ -338,7 +334,7 @@ begin
   //use ReadNextChildElementHeaderClose instead of ReadNextChildNode
   //  -> the same result/functionality, but better performance because
   //  the inner nodes are not created
-  Result := ReadNextChildElementHeaderClose({%H-}x);
+  Result := ReadNextChildElementHeaderClose(x{%H-});
 end;
 
 function TXMLSeqParser.ReadNextChildElementHeader(
@@ -354,7 +350,7 @@ function TXMLSeqParser.ReadNextChildElementHeaderClose(
 var
   xElementIsOpen: Boolean;
 begin
-  Result := ReadNextChildElementHeader(outNode, {%H-}xElementIsOpen);
+  Result := ReadNextChildElementHeader(outNode, xElementIsOpen{%H-});
   if Result and xElementIsOpen then
     GoToPath('..');//go back to parent
 end;
@@ -363,7 +359,7 @@ function TXMLSeqParser.ReadNextChildNode(var outNode: PXMLNode): Boolean;
 var
   x: Boolean;
 begin
-  Result := ReadNextChildNodeCustom(False, {%H-}x) and fXmlDoc.Node.HasChildNodes;
+  Result := ReadNextChildNodeCustom(False, x{%H-}) and fXmlDoc.Node.HasChildNodes;
 
   if Result then
     outNode := fXmlDoc.Node.FirstChild;

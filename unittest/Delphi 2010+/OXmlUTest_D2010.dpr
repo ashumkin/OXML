@@ -23,7 +23,8 @@ uses
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
   OXmlSerialize in '..\..\units\OXmlSerialize.pas',
-  OWideSupp in '..\..\units\OWideSupp.pas';
+  OWideSupp in '..\..\units\OWideSupp.pas',
+  OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas';
 
 var
   xTest: TOXmlUnitTest;

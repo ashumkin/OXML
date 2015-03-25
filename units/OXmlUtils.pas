@@ -131,9 +131,7 @@ type
     function Write(const {%H-}Buffer; {%H-}Count: Longint): Longint; override;
   public
     procedure SetString(const aString: OWideString);
-    {$IFDEF O_RAWBYTESTRING}
-    procedure SetString_UTF8(const aString: ORawByteString);
-    {$ENDIF}
+    procedure SetString_UTF8(const aString: OUTF8Container);
     procedure SetBuffer(const aBuffer: TBytes);
   end;
 
@@ -396,37 +394,37 @@ end;
 
 function ISOStrToBoolDef(const aString: string; const aDefValue: Boolean): Boolean;
 begin
-  if not ISOTryStrToBool(aString, {%H-}Result) then
+  if not ISOTryStrToBool(aString, Result{%H-}) then
     Result := aDefValue;
 end;
 
 function ISOStrToIntDef(const aString: string; const aDefValue: Integer): Integer;
 begin
-  if not ISOTryStrToInt(aString, {%H-}Result) then
+  if not ISOTryStrToInt(aString, Result{%H-}) then
     Result := aDefValue;
 end;
 
 function ISOStrToFloatDef(const aString: string; const aDefValue: Extended): Extended;
 begin
-  if not ISOTryStrToFloat(aString, {%H-}Result) then
+  if not ISOTryStrToFloat(aString, Result{%H-}) then
     Result := aDefValue;
 end;
 
 function ISOStrToDateDef(const aString: string; const aDefDate: TDateTime): TDateTime;
 begin
-  if not ISOTryStrToDate(aString, {%H-}Result) then
+  if not ISOTryStrToDate(aString, Result{%H-}) then
     Result := aDefDate;
 end;
 
 function ISOStrToDateTimeDef(const aString: string; const aDefDateTime: TDateTime): TDateTime;
 begin
-  if not ISOTryStrToDateTime(aString, {%H-}Result) then
+  if not ISOTryStrToDateTime(aString, Result{%H-}) then
     Result := aDefDateTime;
 end;
 
 function ISOStrToTimeDef(const aString: string; const aDefTime: TDateTime): TDateTime;
 begin
-  if not ISOTryStrToTime(aString, {%H-}Result) then
+  if not ISOTryStrToTime(aString, Result{%H-}) then
     Result := aDefTime;
 end;
 
@@ -580,6 +578,8 @@ begin
     Result := aNameSpacePrefix+':'+aLocalName
   else if aLocalName <> '' then
     Result := aLocalName
+  else if aNameSpacePrefix <> '' then//must be here for OXmlApplyNameSpace('xmlns', '') -> must return "xmlns"
+    Result := aNameSpacePrefix
   else
     Result := '';
 end;
@@ -1097,18 +1097,16 @@ begin
     SetPointer(nil, 0);
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TVirtualMemoryStream.SetString_UTF8(const aString: ORawByteString);
+procedure TVirtualMemoryStream.SetString_UTF8(const aString: OUTF8Container);
 var
   xLength: Integer;
 begin
   xLength := Length(aString);
   if xLength > 0 then
-    SetPointer(@aString[1], xLength)
+    SetPointer(@aString[OUTF8Container_FirstElement], xLength)
   else
     SetPointer(nil, 0);
 end;
-{$ENDIF}
 
 function TVirtualMemoryStream.{%H-}Write(const Buffer; Count: Integer): Longint;
 begin

@@ -104,6 +104,14 @@ var
 
   OXmlLng_FileNotFound: string = 'The file "%s" was not found.';
 
+  OXmlLng_JSON_CloseTooMany: string = 'You try to close too many objects or arrays.';
+  OXmlLng_JSON_CannotOpenObject: string = 'You cannot open object in this state.';
+  OXmlLng_JSON_CannotCloseObject: string = 'You cannot close object in this state.';
+  OXmlLng_JSON_CannotOpenArray: string = 'You cannot open array in this state.';
+  OXmlLng_JSON_CannotCloseArray: string = 'You cannot close array in this state.';
+  OXmlLng_JSON_CannotWriteValue: string = 'You cannot write a value in this state.';
+  OXmlLng_JSON_CannotWritePair: string = 'You cannot write a name-value pair in this state.';
+
 implementation
 
 end.

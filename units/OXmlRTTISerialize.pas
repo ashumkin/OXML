@@ -135,7 +135,7 @@ type
     // TXMLRTTISerializer or call ReleaseDocument!
 
     procedure InitFile(const aFileName: OWideString);
-    procedure InitStream(const aStream: TStream);
+    procedure InitStream(const aStream: TStream; const aOwnsStream: Boolean = False);
 
     //Release the current document (that was loaded with Init*)
     procedure ReleaseDocument;
@@ -233,9 +233,7 @@ type
     procedure InitStream(const aStream: TStream; const aForceEncoding: TEncoding = nil);
     //init XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitXML(const aXML: OWideString);
-    {$IFDEF O_RAWBYTESTRING}
-    procedure InitXML_UTF8(const aXML: ORawByteString);
-    {$ENDIF}
+    procedure InitXML_UTF8(const aXML: OUTF8Container);
     //init document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -377,9 +375,10 @@ begin
   DoInit;
 end;
 
-procedure TXMLRTTISerializer.InitStream(const aStream: TStream);
+procedure TXMLRTTISerializer.InitStream(const aStream: TStream;
+  const aOwnsStream: Boolean);
 begin
-  fWriter.InitStream(aStream);
+  fWriter.InitStream(aStream, aOwnsStream);
 
   DoInit;
 end;
@@ -707,7 +706,7 @@ begin
         Result := TValue.From<Double>(0);
     end;
     tkString: Result := TValue.From<string>('');
-    {$IFDEF O_RAWBYTESTRING}
+    {$IFDEF O_HASBYTESTRINGS}
     tkWString: Result := TValue.From<WideString>('');
     tkLString: Result := TValue.From<AnsiString>('');
     {$ENDIF}
@@ -845,13 +844,11 @@ begin
   DoInit;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-procedure TXMLRTTIDeserializer.InitXML_UTF8(const aXML: ORawByteString);
+procedure TXMLRTTIDeserializer.InitXML_UTF8(const aXML: OUTF8Container);
 begin
   fXMLParser.InitXML_UTF8(aXML);
   DoInit;
 end;
-{$ENDIF}
 
 procedure TXMLRTTIDeserializer.ReadCollectionItems(
   const aCollection: TCollection; const aEnumerationNode: PXMLNode;

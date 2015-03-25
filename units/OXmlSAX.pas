@@ -196,9 +196,7 @@ type
     function ParseStream(const aStream: TStream; const aForceEncoding: TEncoding = nil): Boolean;
     //parse XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function ParseXML(const aXML: OWideString): Boolean;
-    {$IFDEF O_RAWBYTESTRING}
-    function ParseXML_UTF8(const aXML: ORawByteString): Boolean;
-    {$ENDIF}
+    function ParseXML_UTF8(const aXML: OUTF8Container): Boolean;
     //parse document from TBytes buffer
     // if aForceEncoding = nil: in encoding specified by the document
     // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
@@ -419,8 +417,7 @@ begin
   end;
 end;
 
-{$IFDEF O_RAWBYTESTRING}
-function TSAXParser.ParseXML_UTF8(const aXML: ORawByteString): Boolean;
+function TSAXParser.ParseXML_UTF8(const aXML: OUTF8Container): Boolean;
 var
   xStream: TVirtualMemoryStream;
 begin
@@ -433,7 +430,6 @@ begin
     xStream.Free;
   end;
 end;
-{$ENDIF}
 
 procedure TSAXParser.NodePathAssignTo(const aNodePath: TOWideStringList);
 begin
@@ -474,7 +470,7 @@ begin
   xAttributes := TSAXAttributes.Create;
   fReader.SetAttributeTokens(xAttributes.fAttributeTokens);
   try
-    while (not fStopParsing) and fReader.ReadNextToken({%H-}xReaderToken) do
+    while (not fStopParsing) and fReader.ReadNextToken(xReaderToken{%H-}) do
     begin
       case xReaderToken.TokenType of
         rtOpenElement:
@@ -631,7 +627,7 @@ end;
 
 function TSAXAttributes.Get(const aAttrName: OWideString): OWideString;
 begin
-  Find(aAttrName, {%H-}Result);
+  Find(aAttrName, Result{%H-});
 end;
 
 function TSAXAttributes.GetCount: Integer;
