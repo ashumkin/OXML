@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 1.6 2015-03-25 [SVN commit: 60, https://sourceforge.net/p/oxml/code/63/]
+Version 1.6 2015-03-25 [SVN commit: 64, https://sourceforge.net/p/oxml/code/64/]
   - Added JSON reader/writer (beta).
   - Compatibility with FPC trunk (3.1.1).
   - Generics disabled in Delphi 2009 due to Delphi bugs.
