@@ -184,7 +184,7 @@ type
     //Returns true if BOM was found in the document
     property BOMFound: Boolean read fBOMFound;
     //Returns true if end-of-file is reached
-    property EOF: Boolean read fEOF;
+    property Eof: Boolean read fEOF;//C++ Builder: conflict with uppercase EOF constant in stdio.h
 
     //Approximate byte position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
@@ -249,7 +249,7 @@ type
     //Character position in text
     property FilePosition: OStreamInt read fFilePosition;//absolute character position in file, 1-based
     //Returns true if end-of-file is reached
-    property EOF: Boolean read fEOF;
+    property Eof: Boolean read fEOF;//C++ Builder: conflict with uppercase EOF constant in stdio.h
 
     property ParseError: IOTextParseError read fParseError;
     property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;
