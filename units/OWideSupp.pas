@@ -305,6 +305,36 @@ type
   TOWideStringList = TStringList;
   {$ENDIF}
 
+  TOTextBuffer = class(TPersistent)//Text buffer, UTF-16 in Delphi, UTF-8 in FPC
+  private
+    fBuffer: array of OWideChar;//Faster in D7 than OWideString
+    fAllocLength: Integer;//allocated length
+    fUsedLength: Integer;//used length
+    fRemaining: Integer;//fAllocLength-fUsedLength
+
+    fDefBufferLength: Integer;
+  protected
+    procedure AssignTo(Dest: TPersistent); override;
+  public
+    procedure Clear(const aFullClear: Boolean = True);
+    procedure GetBuffer(var outString: OWideString); overload;
+    procedure GetBuffer(var outString: OWideString; const aPosition, aLength: Integer); overload;
+    function GetBuffer: OWideString; overload;
+    procedure RemoveLastChar;
+    procedure RemoveLastString(const aLength: Integer);
+
+    procedure WriteChar(const aChar: OWideChar);
+    procedure WriteString(const aString: OWideString); overload;//outPosition 1-based!
+    procedure WriteString(const aString: OWideString; var outPosition, outLength: Integer); overload;//outPosition 1-based!
+    procedure Grow(const aMinChars: Integer);
+
+    constructor Create(const aBufferLength: Integer = 1024);
+  public
+    property UsedLength: Integer read fUsedLength;
+    property AllocLength: Integer read fAllocLength;
+    property Remaining: Integer read fRemaining;
+  end;
+
   TOByteBuffer = class(TPersistent)//Byte buffer
   private
     fBuffer: array of Byte;
@@ -1926,5 +1956,162 @@ begin
 end;
 {$ENDIF}
 {$ENDIF}
+
+{ TOTextBuffer }
+
+procedure TOTextBuffer.AssignTo(Dest: TPersistent);
+var
+  xDest: TOTextBuffer;
+begin
+  if Dest is TOTextBuffer then
+  begin
+    xDest := TOTextBuffer(Dest);
+
+    if xDest.fAllocLength < Self.fAllocLength then
+    begin
+      xDest.fAllocLength := Self.fAllocLength;
+      SetLength(xDest.fBuffer, xDest.fAllocLength);
+    end;
+
+    xDest.fUsedLength := Self.fUsedLength;
+    xDest.fRemaining := Self.fRemaining;
+
+    xDest.fBuffer := Copy(Self.fBuffer, 0, Self.fUsedLength);
+  end else
+    inherited;
+end;
+
+procedure TOTextBuffer.Clear(const aFullClear: Boolean);
+begin
+  if aFullClear and (fAllocLength > fDefBufferLength) then
+  begin
+    fAllocLength := fDefBufferLength;
+    SetLength(fBuffer, fAllocLength);
+  end;
+
+  fUsedLength := 0;
+  fRemaining := fAllocLength;
+end;
+
+constructor TOTextBuffer.Create(const aBufferLength: Integer);
+begin
+  inherited Create;
+
+  fDefBufferLength := aBufferLength;
+  fAllocLength := aBufferLength;
+  fRemaining := fAllocLength;
+  fUsedLength := 0;
+  SetLength(fBuffer, fAllocLength);
+end;
+
+procedure TOTextBuffer.GetBuffer(var outString: OWideString);
+begin
+  GetBuffer(outString, 1, fUsedLength);
+end;
+
+procedure TOTextBuffer.GetBuffer(var outString: OWideString; const aPosition,
+  aLength: Integer);
+{$IFDEF O_DELPHI_2007_DOWN}
+var
+  I: Integer;
+{$ENDIF}
+begin
+  SetLength(outString, aLength);
+  if aLength > 0 then
+  begin
+    {$IFDEF O_DELPHI_2007_DOWN}
+    //Move() is extremly slow in Delphi 7, copy char-by-char is faster
+    for I := 0 to aLength-1 do
+      outString[I+1] := fBuffer[aPosition+I-1];
+    {$ELSE}
+    Move(fBuffer[aPosition-1], outString[1], aLength*SizeOf(OWideChar));
+    {$ENDIF}
+  end;
+end;
+
+function TOTextBuffer.GetBuffer: OWideString;
+begin
+  GetBuffer({%H-}Result);
+end;
+
+procedure TOTextBuffer.Grow(const aMinChars: Integer);
+var
+  xGrowSize: Integer;
+begin
+  xGrowSize := 0;
+  while fRemaining+xGrowSize < aMinChars do
+    Inc(xGrowSize, fAllocLength+xGrowSize);
+
+  Inc(fRemaining, xGrowSize);
+  Inc(fAllocLength, xGrowSize);
+  SetLength(fBuffer, fAllocLength);
+end;
+
+procedure TOTextBuffer.RemoveLastChar;
+begin
+  Dec(fUsedLength);
+  Inc(fRemaining);
+  if fUsedLength < 0 then
+  begin
+    fUsedLength := 0;
+    fRemaining := fAllocLength;
+  end;
+end;
+
+procedure TOTextBuffer.RemoveLastString(const aLength: Integer);
+begin
+  Dec(fUsedLength, aLength);
+  Inc(fRemaining, aLength);
+  if fUsedLength < 0 then
+  begin
+    fUsedLength := 0;
+    fRemaining := fAllocLength;
+  end;
+end;
+
+procedure TOTextBuffer.WriteChar(const aChar: OWideChar);
+begin
+  if fRemaining = 0 then
+    Grow(1);
+
+  Inc(fUsedLength);
+  Dec(fRemaining);
+  fBuffer[fUsedLength-1] := aChar;
+end;
+
+procedure TOTextBuffer.WriteString(const aString: OWideString);
+var
+  xPos, xLen: Integer;
+begin
+  WriteString(aString, {%H-}xPos, {%H-}xLen);
+end;
+
+procedure TOTextBuffer.WriteString(const aString: OWideString; var outPosition,
+  outLength: Integer);
+{$IFDEF O_DELPHI_2007_DOWN}
+var
+  I: Integer;
+{$ENDIF}
+begin
+  outLength := Length(aString);
+  outPosition := fUsedLength+1;
+
+  if outLength > 0 then
+  begin
+    if fRemaining < outLength then
+      Grow(outLength);
+
+    Inc(fUsedLength, outLength);
+    Dec(fRemaining, outLength);
+
+    {$IFDEF O_DELPHI_2007_DOWN}
+    //Move() is extremly slow here in Delphi 7, copy char-by-char is faster also for long strings!!! (this may be a delphi bug)
+    for I := 0 to outLength-1 do
+      fBuffer[outPosition-1+I] := aString[I+1];
+    {$ELSE}
+    Move(aString[1], fBuffer[outPosition-1], outLength*SizeOf(OWideChar));
+    {$ENDIF}
+  end;
+end;
 
 end.
