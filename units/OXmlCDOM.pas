@@ -62,14 +62,15 @@ uses
 type
 
   TXMLDocument = class;
-  XMLNodeId = OXmlReadWrite.XMLNodeId;
   TXMLNode = class;
+  XMLNodeId = OXmlReadWrite.XMLNodeId;
 
   IXMLNodeList = interface;
   TXMLChildNodeList = class;
   TXMLAttributeIndex = class;
 
   {$IFDEF O_GENERICS}
+  //C++ Builder fails to create a compatible header for this, use OXmlPDOM instead...
   TXMLNodeIndex = TDictionary<OHashedStringsIndex,TXMLNode>;
   TXMLNodeList = TList<TXMLNode>;
   {$ELSE}
@@ -110,6 +111,13 @@ type
     function GetPreviousCChild(var ioChildEnum: TXMLNode; const aChildType: TXMLChildType): Boolean;
     function GetCChildFromBegin(const aIndex: Integer; const aChildType: TXMLChildType): TXMLNode;
     function GetCChildFromEnd(const aIndex: Integer; const aChildType: TXMLChildType): TXMLNode;
+    {$IFDEF BCB}
+    function GetChildFromBegin(const aIndex: Integer): TXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetChildFromEnd(const aIndex: Integer): TXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetAttributeFromBegin(const aIndex: Integer): TXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetAttributeFromEnd(const aIndex: Integer): TXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    {$ENDIF}
+
     function FindCChild(const aNodeNameId: OHashedStringsIndex; const aChildType: TXMLChildType;
       var outNode: TXMLNode): Boolean;
     procedure FillCChildList(const aList: IXMLNodeList; const aChildType: TXMLChildType);
@@ -123,7 +131,7 @@ type
     function GetText: OWideString;
     procedure SetText(const aText: OWideString);
     function _AddAttribute(const {%H-}aAttrName, {%H-}aAttrValue: OWideString): TXMLNode; virtual;
-    procedure _SetAttribute(const aAttrName, aAttrValue: OWideString);
+    procedure _SetAttribute(const aAttrName: OWideString; const aAttrValue: OWideString);
 
     function AddCustomChild(const aType: TXmlNodeType; const aName, aValue: OWideString): TXMLNode;
     function InsertCustomChild(const aType: TXmlNodeType; const aName, aValue: OWideString;
@@ -406,17 +414,27 @@ type
 
     property FirstChild: TXMLNode index ctChild read GetFirstCChild;
     property LastChild: TXMLNode index ctChild read GetLastCChild;
-    property ChildFromBegin[const aIndex: Integer]: TXMLNode index ctChild read GetCChildFromBegin;
-    property ChildFromEnd[const aIndex: Integer]: TXMLNode index ctChild read GetCChildFromEnd;
     property FirstAttribute: TXMLNode index ctAttribute read GetFirstCChild;
     property LastAttribute: TXMLNode index ctAttribute read GetLastCChild;
+
+    {$IFDEF BCB}
+    //C++ Builder compatibility
+    property ChildFromBegin[const aIndex: Integer]: TXMLNode read GetChildFromBegin;
+    property ChildFromEnd[const aIndex: Integer]: TXMLNode read GetChildFromEnd;
+    property AttributeFromBegin[const aIndex: Integer]: TXMLNode read GetAttributeFromBegin;
+    property AttributeFromEnd[const aIndex: Integer]: TXMLNode read GetAttributeFromEnd;
+    {$ELSE}
+    property ChildFromBegin[const aIndex: Integer]: TXMLNode index ctChild read GetCChildFromBegin;
+    property ChildFromEnd[const aIndex: Integer]: TXMLNode index ctChild read GetCChildFromEnd;
     property AttributeFromBegin[const aIndex: Integer]: TXMLNode index ctAttribute read GetCChildFromBegin;
     property AttributeFromEnd[const aIndex: Integer]: TXMLNode index ctAttribute read GetCChildFromEnd;
+    {$ENDIF}
 
     property IsTextElement: Boolean read GetIsTextElement;
 
     property NextSibling: TXMLNode read fNextSibling;
     property PreviousSibling: TXMLNode read fPreviousSibling;
+    //get next/previous node in DOM tree (without attributes)
     property NextNodeInTree: TXMLNode read GetNextNodeInTree;
     property PreviousNodeInTree: TXMLNode read GetPreviousNodeInTree;
 
@@ -847,7 +865,6 @@ type
     property ParentElement: TXMLNodeWithChildren read fParentElement;
   end;
 
-
 function CreateXMLDoc: IXMLDocument; overload;
 function CreateXMLDoc(const aRootNodeName: OWideString): IXMLDocument; overload;
 function CreateXMLDoc(const aRootNodeName: OWideString; const aAddXMLDeclaration: Boolean): IXMLDocument; overload;
@@ -900,7 +917,7 @@ begin
   Result := AddCustomChild(ntElement, aElementName, '');
 end;
 
-function TXMLNode.AddCustomChild(const aType: TXMLNodeType; const aName,
+function TXMLNode.AddCustomChild(const aType: TXmlNodeType; const aName,
   aValue: OWideString): TXMLNode;
 begin
   Result := fOwnerDocument.CreateNode(aType, aName, aValue);
@@ -1481,6 +1498,18 @@ begin
     Result := aDefaultValue;
 end;
 
+{$IFDEF BCB}
+function TXMLNode.GetAttributeFromBegin(const aIndex: Integer): TXMLNode;
+begin
+  Result := GetCChildFromBegin(aIndex, ctAttribute);
+end;
+
+function TXMLNode.GetAttributeFromEnd(const aIndex: Integer): TXMLNode;
+begin
+  Result := GetCChildFromEnd(aIndex, ctAttribute);
+end;
+{$ENDIF}
+
 function TXMLNode.GetAttributeNode(const aAttrName: OWideString): TXMLNode;
 begin
   if not FindAttribute(aAttrName, Result{%H-}) then
@@ -1509,6 +1538,18 @@ function TXMLNode.GetChildCount: Integer;
 begin
   Result := 0;
 end;
+
+{$IFDEF BCB}
+function TXMLNode.GetChildFromBegin(const aIndex: Integer): TXMLNode;
+begin
+  Result := GetCChildFromBegin(aIndex, ctChild);
+end;
+
+function TXMLNode.GetChildFromEnd(const aIndex: Integer): TXMLNode;
+begin
+  Result := GetCChildFromEnd(aIndex, ctChild);
+end;
+{$ENDIF}
 
 function TXMLNode.GetCChildFromBegin(const aIndex: Integer;
   const aChildType: TXMLChildType): TXMLNode;
@@ -1780,7 +1821,8 @@ begin
   Result := nil;
 end;
 
-procedure TXMLNode._SetAttribute(const aAttrName, aAttrValue: OWideString);
+procedure TXMLNode._SetAttribute(const aAttrName: OWideString;
+  const aAttrValue: OWideString);
 begin
   _AddAttribute(aAttrName, aAttrValue);
 end;
@@ -1887,7 +1929,7 @@ begin
   Result := InsertCustomChild(ntCData, '', aText, aBeforeNode);
 end;
 
-function TXMLNode.InsertCustomChild(const aType: TXMLNodeType; const aName,
+function TXMLNode.InsertCustomChild(const aType: TXmlNodeType; const aName,
   aValue: OWideString; const aBeforeNode: TXMLNode): TXMLNode;
 begin
   Result := fOwnerDocument.CreateNode(aType, aName, aValue);
@@ -2888,7 +2930,7 @@ begin
     Result := 0;
 
   if Result = 0 then
-    Result := CP_UTF8;
+    Result := CP_UTF_8;
 end;
 
 function TXMLDocument.GetXMLDeclarationAttribute(

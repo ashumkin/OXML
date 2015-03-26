@@ -2031,7 +2031,7 @@ end;
 
 function TOTextBuffer.GetBuffer: OWideString;
 begin
-  GetBuffer({%H-}Result);
+  GetBuffer(Result{%H-});
 end;
 
 procedure TOTextBuffer.Grow(const aMinChars: Integer);

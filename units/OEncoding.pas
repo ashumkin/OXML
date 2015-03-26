@@ -80,8 +80,8 @@ const
   //multi-byte
   CP_UNICODE = 1200;//Unicode UTF-16, little endian byte order
   CP_UNICODE_BE = 1201;//Unicode UTF-16, big endian byte order
-  CP_UTF7 = 65000;//Unicode (UTF-7)
-  CP_UTF8 = 65001;//Unicode (UTF-8)
+  CP_UTF_7 = 65000;//Unicode (UTF-7)
+  CP_UTF_8 = 65001;//Unicode (UTF-8)
 
 {$IFDEF O_DELPHI_2009_UP}
 type
@@ -276,7 +276,7 @@ end;
 
 const
   CodePages: array[0..32] of TEncodingInfo = (
-    (CodePage: CP_UTF8; CPAlias: 'utf-8'),
+    (CodePage: CP_UTF_8; CPAlias: 'utf-8'),
     (CodePage: CP_UNICODE; CPAlias: 'utf-16'),
     (CodePage: CP_UNICODE_BE; CPAlias: 'utf-16be'),
     (CodePage: CP_WIN_1250; CPAlias: 'windows-1250'),
@@ -308,7 +308,7 @@ const
     (CodePage: CP_WIN_874; CPAlias: 'windows-874'),
     (CodePage: CP_IBM_932; CPAlias: 'shift-jis'),
     (CodePage: CP_US_ASCII; CPAlias: 'us-ascii'),
-    (CodePage: CP_UTF7; CPAlias: 'utf-7')
+    (CodePage: CP_UTF_7; CPAlias: 'utf-7')
   );
 
 
@@ -799,7 +799,7 @@ end;
 
 constructor TUTF7Encoding.Create;
 begin
-  inherited Create(CP_UTF7);
+  inherited Create(CP_UTF_7);
 end;
 
 class function TUTF7Encoding.IsSingleByte: Boolean;
@@ -827,12 +827,12 @@ begin
   {$ELSE}
     {$IFDEF MSWINDOWS}
     //IMPORTANT: S is WITH a NULL TERMINATOR -> xCharCount is ALSO WITH NULL TERMINATOR!!!
-    xCharCount := WideCharToMultiByte(CP_UTF8, 0,
+    xCharCount := WideCharToMultiByte(CP_UTF_8, 0,
       PWideChar(S), -1, nil, 0, nil, nil);
 
     SetLength(outBuffer, xCharCount-1);
     if xCharCount > 1 then
-      WideCharToMultiByte(CP_UTF8, 0,
+      WideCharToMultiByte(CP_UTF_8, 0,
         PWideChar(S), -1, PAnsiChar(@outBuffer[TEncodingBuffer_FirstElement]), xCharCount-1, nil, nil);
     {$ELSE}
     if S = '' then
@@ -882,10 +882,10 @@ begin
   //DELPHI
     {$IFDEF MSWINDOWS}
     //IMPORTANT: xByteCount is WITHOUT the NULL character -> xCharCount is ALSO WITHOUT the NULL CHARACTER!!!
-    xCharCount := MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
+    xCharCount := MultiByteToWideChar(CP_UTF_8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
     SetLength(outString, xCharCount);
     if xCharCount > 0 then           
-      MultiByteToWideChar(CP_UTF8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(outString), xCharCount);
+      MultiByteToWideChar(CP_UTF_8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(outString), xCharCount);
     {$ELSE}
     SetLength(outString, xByteCount);
 
@@ -955,7 +955,7 @@ begin
   else if Self is TBigEndianUnicodeEncoding then
     Result := CP_UNICODE_BE
   else if Self is TUTF8Encoding then
-    Result := CP_UTF8
+    Result := CP_UTF_8
   else
     Result := 0;
 end;
@@ -971,9 +971,9 @@ begin
     CP_UNICODE: Result := Unicode;
     CP_UNICODE_BE: Result := BigEndianUnicode;
     {$IFDEF O_ENCODINGS_FULL}
-    CP_UTF7: Result := UTF7;
+    CP_UTF_7: Result := UTF7;
     {$ENDIF}
-    CP_UTF8: Result := UTF8;
+    CP_UTF_8: Result := UTF8;
   else
     Result := TMBCSEncoding.Create(aCodePage);
   end;

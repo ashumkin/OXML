@@ -113,6 +113,12 @@ type
     function GetLastCChild(const aChildType: TXMLChildType): PXMLNode;
     function GetCChildFromBegin(const aIndex: Integer; const aChildType: TXMLChildType): PXMLNode;
     function GetCChildFromEnd(const aIndex: Integer; const aChildType: TXMLChildType): PXMLNode;
+    {$IFDEF BCB}
+    function GetChildFromBegin(const aIndex: Integer): PXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetChildFromEnd(const aIndex: Integer): PXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetAttributeFromBegin(const aIndex: Integer): PXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    function GetAttributeFromEnd(const aIndex: Integer): PXMLNode; {$IFDEF O_INLINE}inline;{$ENDIF}
+    {$ENDIF}
     procedure DeleteCChildren(const aDestroyList: Boolean; const aChildType: TXMLChildType);
     function FindCChild(const aNodeNameId: OHashedStringsIndex; const aChildType: TXMLChildType;
       var outNode: PXMLNode; var outNodeSearchedCount: Integer): Boolean;
@@ -413,12 +419,21 @@ type
 
     property FirstChild: PXMLNode index ctChild read GetFirstCChild;
     property LastChild: PXMLNode index ctChild read GetLastCChild;
-    property ChildFromBegin[const aIndex: Integer]: PXMLNode index ctChild read GetCChildFromBegin;
-    property ChildFromEnd[const aIndex: Integer]: PXMLNode index ctChild read GetCChildFromEnd;
     property FirstAttribute: PXMLNode index ctAttribute read GetFirstCChild;
     property LastAttribute: PXMLNode index ctAttribute read GetLastCChild;
+
+    {$IFDEF BCB}
+    //C++ Builder compatibility
+    property ChildFromBegin[const aIndex: Integer]: PXMLNode read GetChildFromBegin;
+    property ChildFromEnd[const aIndex: Integer]: PXMLNode read GetChildFromEnd;
+    property AttributeFromBegin[const aIndex: Integer]: PXMLNode read GetAttributeFromBegin;
+    property AttributeFromEnd[const aIndex: Integer]: PXMLNode read GetAttributeFromEnd;
+    {$ELSE}
+    property ChildFromBegin[const aIndex: Integer]: PXMLNode index ctChild read GetCChildFromBegin;
+    property ChildFromEnd[const aIndex: Integer]: PXMLNode index ctChild read GetCChildFromEnd;
     property AttributeFromBegin[const aIndex: Integer]: PXMLNode index ctAttribute read GetCChildFromBegin;
     property AttributeFromEnd[const aIndex: Integer]: PXMLNode index ctAttribute read GetCChildFromEnd;
+    {$ENDIF}
 
     property IsTextElement: Boolean read GetIsTextElement;
 
@@ -1633,6 +1648,18 @@ begin
     Result := aDefaultValue;
 end;
 
+{$IFDEF BCB}
+function TXMLNode.GetAttributeFromBegin(const aIndex: Integer): PXMLNode;
+begin
+  Result := GetCChildFromBegin(aIndex, ctAttribute);
+end;
+
+function TXMLNode.GetAttributeFromEnd(const aIndex: Integer): PXMLNode;
+begin
+  Result := GetCChildFromEnd(aIndex, ctAttribute);
+end;
+{$ENDIF}
+
 function TXMLNode.GetAttributeNode(const aAttrName: OWideString): PXMLNode;
 begin
   if not FindAttribute(aAttrName, Result{%H-}) then
@@ -1681,6 +1708,18 @@ begin
     xChild := xChild.fNextSibling;
   end;
 end;
+
+{$IFDEF BCB}
+function TXMLNode.GetChildFromBegin(const aIndex: Integer): PXMLNode;
+begin
+  Result := GetCChildFromBegin(aIndex, ctChild);
+end;
+
+function TXMLNode.GetChildFromEnd(const aIndex: Integer): PXMLNode;
+begin
+  Result := GetCChildFromEnd(aIndex, ctChild);
+end;
+{$ENDIF}
 
 function TXMLNode.GetCChildFromBegin(const aIndex: Integer;
   const aChildType: TXMLChildType): PXMLNode;
@@ -3318,7 +3357,7 @@ begin
     Result := 0;
 
   if Result = 0 then
-    Result := CP_UTF8;
+    Result := CP_UTF_8;
 end;
 
 function TXMLDocument.GetXMLDeclarationAttribute(
