@@ -84,6 +84,7 @@ type
   TOHashedStrings = class(TPersistent)
   private
     fCaseSensitive: Boolean;
+    fOwnsObjects: Boolean;
     fItems: array of POHashItem;//array indexed by index
     fObjects: array of TObject;
     fNextItemId: OHashedStringsIndex;//next list index to use
@@ -118,6 +119,7 @@ type
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
     {$ENDIF}
     property CaseSensitive: Boolean read fCaseSensitive write SetCaseSensitive;
+    property OwnsObjects: Boolean read fOwnsObjects write fOwnsObjects;
     property Count: OHashedStringsIndex read fNextItemId;
     procedure Clear(const aFullClear: Boolean = True);
   end;
@@ -393,7 +395,7 @@ function TOHashedStringDictionary.Add(const aKey, aValue: OWideString
 var
   xNew: Boolean;
 begin
-  Result := fKeys.Add(aKey, {%H-}xNew);
+  Result := fKeys.Add(aKey, xNew{%H-});
   if xNew then
     fValues.Add(aValue)
   else
@@ -470,7 +472,7 @@ function TOHashedStrings.Add(const aText: OWideString): OHashedStringsIndex;
 var
   x: Boolean;
 begin
-  Result := Add(aText, {%H-}x);
+  Result := Add(aText, x{%H-});
 end;
 
 function TOHashedStrings.Add(const aText: OWideString;
@@ -481,7 +483,7 @@ var
   xTextCase: OWideString;
 begin
   xTextCase := LowerCaseIfNotCaseSensitive(aText, fCaseSensitive);
-  xBucket := Find(xTextCase, {%H-}xHash);
+  xBucket := Find(xTextCase, xHash{%H-});
   if Assigned(xBucket) then
   begin
     Result := xBucket.fIndex;
@@ -540,7 +542,7 @@ begin
       xDest.GrowBuckets;
 
     for I := 0 to Self.Count-1 do
-      xDest.Add(Self.fItems[I].Text, {%H-}x);
+      xDest.Add(Self.fItems[I].Text, x{%H-});
   end else
     inherited;
 end;
@@ -549,6 +551,13 @@ procedure TOHashedStrings.Clear(const aFullClear: Boolean);
 var
   I: OHashedStringsIndex;
 begin
+  if fOwnsObjects then
+  for I := 0 to Count-1 do
+  begin
+    GetObject(I).Free;
+    SetObject(I, nil);
+  end;
+
   fNextItemId := 0;
 
   if aFullClear then
@@ -656,7 +665,7 @@ var
   xP: POHashItem;
   xH: OHashedStringsIndex;
 begin
-  xP := Find(LowerCaseIfNotCaseSensitive(aText, fCaseSensitive), {%H-}xH);
+  xP := Find(LowerCaseIfNotCaseSensitive(aText, fCaseSensitive), xH{%H-});
   if xP <> nil then
     Result := xP.fIndex
   else
@@ -777,7 +786,7 @@ function TOVirtualHashIndex.Add(const aTextIndex: OStringIndex): OHashedStringsI
 var
   x: Boolean;
 begin
-  Result := Add(aTextIndex, {%H-}x);
+  Result := Add(aTextIndex, x{%H-});
 end;
 
 function TOVirtualHashIndex.Add(
@@ -789,7 +798,7 @@ var
   xText: OWideString;
 begin
   xText := fOnGetString(aTextIndex);
-  xBucket := Find(xText, {%H-}xHash);
+  xBucket := Find(xText, xHash{%H-});
   if Assigned(xBucket) then
   begin
     Result := xBucket.fIndex;
@@ -825,7 +834,7 @@ var
   xP: POVirtualHashItem;
   xH: OHashedStringsIndex;
 begin
-  xP := Find(aText, {%H-}xH);
+  xP := Find(aText, xH{%H-});
   if xP <> nil then
     Result := xP.fStringIndex
   else

@@ -133,15 +133,19 @@ type
     const aName: OWideString; const aAttributes: TSAXAttributes);
   TSAXEndElementEvent = reference to procedure(aSaxParser: TSAXParser;
     const aName: OWideString);
+  TSAXXMLDeclarationEvent = reference to procedure(aSaxParser: TSAXParser;
+    const aAttributes: TSAXAttributes);
   TSAXProcessingInstructionEvent = reference to procedure(aSaxParser: TSAXParser;
     const aTarget, aContent: OWideString);
   {$ELSE}
-  TSAXNotifyEvent = procedure(Sender: TSAXParser) of Object;
-  TSAXTextEvent = procedure(Sender: TSAXParser; const aText: OWideString) of Object;
+  TSAXNotifyEvent = procedure(Sender: TSAXParser) of object;
+  TSAXTextEvent = procedure(Sender: TSAXParser; const aText: OWideString) of object;
   TSAXStartElementEvent = procedure(Sender: TSAXParser; const aName: OWideString;
-    const aAttributes: TSAXAttributes) of Object;
-  TSAXEndElementEvent = procedure(Sender: TSAXParser; const aName: OWideString) of Object;
-  TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString) of Object;
+    const aAttributes: TSAXAttributes) of object;
+  TSAXEndElementEvent = procedure(Sender: TSAXParser; const aName: OWideString) of object;
+  TSAXXMLDeclarationEvent = procedure(aSaxParser: TSAXParser;
+    const aAttributes: TSAXAttributes) of object;
+  TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString) of object;
   {$ENDIF}
 
   TSAXParser = class(TObject)
@@ -156,6 +160,7 @@ type
     fOnEndDocument: TSAXNotifyEvent;
     fOnCharacters: TSAXTextEvent;
     fOnComment: TSAXTextEvent;
+    fOnXMLDeclaration: TSAXXMLDeclarationEvent;
     fOnProcessingInstruction: TSAXProcessingInstructionEvent;
     fOnStartElement: TSAXStartElementEvent;
     fOnEndElement: TSAXEndElementEvent;
@@ -166,6 +171,7 @@ type
     procedure DoOnEndDocument;
     procedure DoOnCharacters(const aText: OWideString);
     procedure DoOnComment(const aText: OWideString);
+    procedure DoOnXMLDeclaration(const aAttributes: TSAXAttributes);
     procedure DoOnProcessingInstruction(const aTarget, aContent: OWideString);
     procedure DoOnStartElement(const aName: OWideString;
       const aAttributes: TSAXAttributes);
@@ -207,7 +213,7 @@ type
     //  When stopped, parsing cannot be continued again.
     procedure StopParsing;
   public
-    //root element was found -> it's not possible to stop here!
+    //The beginning of a document. The SAX parser will invoke this method only once, before any other event callbacks.
     property OnStartDocument: TSAXNotifyEvent read fOnStartDocument write fOnStartDocument;
     //reached the end of the document
     property OnEndDocument: TSAXNotifyEvent read fOnEndDocument write fOnEndDocument;
@@ -215,12 +221,14 @@ type
     property OnCharacters: TSAXTextEvent read fOnCharacters write fOnCharacters;
     //comment
     property OnComment: TSAXTextEvent read fOnComment write fOnComment;
-    //Processing Instruction
+    //XML Declaration <?xml ... ?>
+    property OnXMLDeclaration: TSAXXMLDeclarationEvent read fOnXMLDeclaration write fOnXMLDeclaration;
+    //Processing Instruction <?php ... ?>
     property OnProcessingInstruction: TSAXProcessingInstructionEvent read fOnProcessingInstruction write fOnProcessingInstruction;
-    //start of an element
-    property OnStartElement: TSAXStartElementEvent read fOnStartElement write fOnStartElement;//element header <a href="title">
-    //end of an element
-    property OnEndElement: TSAXEndElementEvent read fOnEndElement write fOnEndElement;//element end </a> or <a />
+    //start of an element <a href="title">
+    property OnStartElement: TSAXStartElementEvent read fOnStartElement write fOnStartElement;
+    //end of an element </a> or <a />
+    property OnEndElement: TSAXEndElementEvent read fOnEndElement write fOnEndElement;
 
     //XML reader settings
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
@@ -318,6 +326,12 @@ procedure TSAXParser.DoOnStartElement(const aName: OWideString;
 begin
   if Assigned(fOnStartElement) then
     fOnStartElement(Self, aName, aAttributes);
+end;
+
+procedure TSAXParser.DoOnXMLDeclaration(const aAttributes: TSAXAttributes);
+begin
+  if Assigned(fOnXMLDeclaration) then
+    fOnXMLDeclaration(Self, aAttributes);
 end;
 
 function TSAXParser.GetApproxStreamPosition: OStreamInt;
@@ -458,6 +472,11 @@ begin
 end;
 
 function TSAXParser.StartParsing: Boolean;
+  procedure _StartDocument;
+  begin
+    DoOnStartDocument;
+    fDataRead := True;
+  end;
 var
   xAttributes: TSAXAttributes;
   xReaderToken: PXMLReaderToken;
@@ -473,28 +492,34 @@ begin
     while (not fStopParsing) and fReader.ReadNextToken(xReaderToken{%H-}) do
     begin
       case xReaderToken.TokenType of
-        rtOpenElement:
-        begin
-          if not fDataRead then
-          begin
-            DoOnStartDocument;
-            fDataRead := True;
-          end;
-        end;
-        rtFinishOpenElementClose, rtFinishOpenElement:
-        begin
-          xAttributes.CreateIndex;
-          DoOnStartElement(xReaderToken.TokenName, xAttributes);
-          if xReaderToken.TokenType = rtFinishOpenElementClose then
-            DoOnEndElement(xReaderToken.TokenName);
-        end;
-        rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
         rtText, rtCData, rtEntityReference:
           if fDataRead or not OXmlIsWhiteSpace(xReaderToken.TokenValue)
           then//omit empty text before root node
+          begin
+            if not fDataRead then
+              _StartDocument;
             DoOnCharacters(xReaderToken.TokenValue);
-        rtComment: DoOnComment(xReaderToken.TokenValue);
-        rtProcessingInstruction: DoOnProcessingInstruction(xReaderToken.TokenName, xReaderToken.TokenValue);
+          end;
+      else//case
+        if not fDataRead then
+          _StartDocument;
+        case xReaderToken.TokenType of
+          rtFinishOpenElementClose, rtFinishOpenElement:
+          begin
+            xAttributes.CreateIndex;
+            DoOnStartElement(xReaderToken.TokenName, xAttributes);
+            if xReaderToken.TokenType = rtFinishOpenElementClose then
+              DoOnEndElement(xReaderToken.TokenName);
+          end;
+          rtFinishXMLDeclarationClose:
+          begin
+            xAttributes.CreateIndex;
+            DoOnXMLDeclaration(xAttributes);
+          end;
+          rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
+          rtComment: DoOnComment(xReaderToken.TokenValue);
+          rtProcessingInstruction: DoOnProcessingInstruction(xReaderToken.TokenName, xReaderToken.TokenValue);
+        end;
       end;
     end;
 

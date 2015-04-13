@@ -1150,7 +1150,7 @@ begin
     R := cMaxStartBuffer;
   SetLength(Result, R);
   I := 0;
-  while (I < aMaxChars) and ReadNextChar({%H-}xC) do
+  while (I < aMaxChars) and ReadNextChar(xC{%H-}) do
   begin
     if aBreakAtNewLine then
     case xC of
@@ -1418,7 +1418,7 @@ begin
   if aMaxLength < 0 then
   begin
     //write complete string
-    fEncoding.StringToBuffer(aString, {%H-}xBytes);
+    fEncoding.StringToBuffer(aString, xBytes{%H-});
     xBytesLength := Length(xBytes);
   end else
   begin

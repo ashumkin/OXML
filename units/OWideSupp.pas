@@ -631,6 +631,7 @@ var
     xBufferBegin := xI;
   end;
 begin
+  xC := #0;
   aStrList.Clear;
 
   xTextLength := Length(aText);
@@ -994,7 +995,10 @@ var
   I, L, K, OldPattLength, NewPattLength, SLength: Integer;
 begin
   if (OldPattern = '') or (S = '') then
+  begin
+    Result := S;
     Exit;
+  end;
 
   if rfIgnoreCase in Flags then
   begin
@@ -2083,7 +2087,7 @@ procedure TOTextBuffer.WriteString(const aString: OWideString);
 var
   xPos, xLen: Integer;
 begin
-  WriteString(aString, {%H-}xPos, {%H-}xLen);
+  WriteString(aString, xPos{%H-}, xLen{%H-});
 end;
 
 procedure TOTextBuffer.WriteString(const aString: OWideString; var outPosition,

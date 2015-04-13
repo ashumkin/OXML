@@ -725,7 +725,10 @@ var
   xPredicate: OWideString;
   xElementName, xAttributeName, xAttributeValue: OWideString;
 begin
-  aString := Trim(aString);
+  xAttributeName := '';
+  xAttributeValue := '';
+
+  {%H-}aString := Trim(aString);
 
   if (aString <> '') and (aString[1] = '@') then
   begin

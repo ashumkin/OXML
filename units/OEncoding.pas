@@ -415,7 +415,7 @@ begin
   if not Assigned(fxASCIIEncoding) then
   begin
     {$IFDEF MSWINDOWS}
-    if GetCPInfo(CP_US_ASCII, {%H-}xCPInfo) then
+    if GetCPInfo(CP_US_ASCII, xCPInfo{%H-}) then
       fxASCIIEncoding := TMBCSEncoding.Create(CP_US_ASCII)
     else
       fxASCIIEncoding := TMBCSEncoding.Create(CP_IBM_437);
@@ -656,7 +656,7 @@ begin
 
   {$IFDEF MSWINDOWS}
     {$IFDEF FPC}
-    _Convert({%H-}xUS);
+    _Convert(xUS{%H-});
     outString := UTF8Encode(xUS);
     {$ELSE}
     _Convert(outString);

@@ -57,12 +57,6 @@
               </Win32>
             </Options>
           </Linking>
-          <Other>
-            <CompilerMessages>
-              <MsgFileName Value=""/>
-            </CompilerMessages>
-            <CompilerPath Value="$(CompPath)"/>
-          </Other>
         </CompilerOptions>
       </Item2>
       <Item3 Name="Release">
@@ -95,12 +89,6 @@
               </Win32>
             </Options>
           </Linking>
-          <Other>
-            <CompilerMessages>
-              <MsgFileName Value=""/>
-            </CompilerMessages>
-            <CompilerPath Value="$(CompPath)"/>
-          </Other>
         </CompilerOptions>
       </Item3>
     </BuildModes>
@@ -129,7 +117,6 @@
       <Unit0>
         <Filename Value="OXmlTest.lpr"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlTest"/>
       </Unit0>
       <Unit1>
         <Filename Value="uXmlTest.pas"/>
@@ -142,7 +129,6 @@
       <Unit2>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OBufferedStreams"/>
       </Unit2>
       <Unit3>
         <Filename Value="..\..\units\ODictionary.pas"/>
@@ -172,7 +158,6 @@
       <Unit8>
         <Filename Value="..\..\units\OXmlLng.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlLng"/>
       </Unit8>
       <Unit9>
         <Filename Value="..\..\units\OXmlReadWrite.pas"/>
@@ -233,12 +218,6 @@
         </Win32>
       </Options>
     </Linking>
-    <Other>
-      <CompilerMessages>
-        <MsgFileName Value=""/>
-      </CompilerMessages>
-      <CompilerPath Value="$(CompPath)"/>
-    </Other>
   </CompilerOptions>
   <Debugging>
     <Exceptions Count="3">

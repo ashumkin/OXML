@@ -299,7 +299,7 @@ begin
       Move({%H-}PByte({%H-}ONativeUInt(aShortStringPointer)+1)^, xShortString[TEncodingBuffer_FirstElement], xShortStringLength);
 
       {$IFDEF O_UNICODE}
-      TEncoding.ASCII.BufferToString(xShortString, Result);
+      TEncoding.ASCII.BufferToString(xShortString, Result{%H-});
       {$ELSE}
       Result := xShortString;
       {$ENDIF}
@@ -483,7 +483,7 @@ function ISOTryStrToFloat(const aString: string; var outValue: Double): Boolean;
 var
   xValue: Extended;
 begin
-  Result := ISOTryStrToFloat(aString, {%H-}xValue);
+  Result := ISOTryStrToFloat(aString, xValue{%H-});
   if Result then
     outValue := xValue;
 end;
@@ -1124,7 +1124,7 @@ end;
 
 {$IFNDEF O_DELPHI_6_DOWN}
 initialization
-  FillChar({%H-}gxISOFormatSettings, SizeOf(gxISOFormatSettings), 0);
+  FillChar(gxISOFormatSettings{%H-}, SizeOf(gxISOFormatSettings), 0);
   gxISOFormatSettings.DecimalSeparator := '.';
 {$ENDIF}
 

@@ -198,7 +198,7 @@ begin
   if (Sorted = soNone) then
     Result := Count
   else
-    if Find(aKey, Result) then
+    if Find(aKey, Result{%H-}) then
       case Duplicates of
         dupIgnore: Exit;
         dupError: raise EListError.Create(SDuplicateInteger);
@@ -502,7 +502,7 @@ begin
     if Result = Count then
       Result := -1;
 
-  end else if not Find(aKey, Result) then
+  end else if not Find(aKey, Result{%H-}) then
     Result := -1;
 end;
 

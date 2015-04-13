@@ -132,6 +132,8 @@ type
     function GetLocalName: OWideString;
     function GetNameSpacePrefix: OWideString;
     function GetNameSpaceURI: OWideString;
+    procedure SetNodeName(const aName: OWideString);
+    procedure SetNodeNameId(const aNameId: OHashedStringsIndex);
     procedure SetNodeValue(const aValue: OWideString);
     function GetDoPreserveWhiteSpace: Boolean;
     function GetText: OWideString;
@@ -404,12 +406,12 @@ type
   public
     property Id: XMLNodeId read GetId;
     property NodeType: TXMLNodeType read fNodeType;
-    property NodeName: OWideString read GetNodeName;
+    property NodeName: OWideString read GetNodeName write SetNodeName;
     property NodeValue: OWideString read GetNodeValue write SetNodeValue;
     property LocalName: OWideString read GetLocalName;
     property NameSpaceURI: OWideString read GetNameSpaceURI;
     property NameSpacePrefix: OWideString read GetNameSpacePrefix;
-    property NodeNameId: OHashedStringsIndex read fNodeNameId;
+    property NodeNameId: OHashedStringsIndex read fNodeNameId write SetNodeNameId;
     property NodeValueId: OHashedStringsIndex read fNodeValueId write fNodeValueId;
     property Text: OWideString read GetText write SetText;
     property PreserveWhiteSpace: TXMLPreserveWhiteSpace read fPreserveWhiteSpace write fPreserveWhiteSpace;
@@ -2054,15 +2056,13 @@ begin
 end;
 
 function TXMLNode.GetNodeValue: OWideString;
-  procedure _GetXMLDeclarationData;
-  begin
-    Self.SaveToXML(Result);
-    Result := Copy(Result, 7, Length(Result)-8);//extract content from "<?xml content?>"
-  end;
-
 begin
   case fNodeType of
-    ntXMLDeclaration: _GetXMLDeclarationData;
+    ntXMLDeclaration:
+    begin
+      Result := Self.XML;
+      Result := Copy(Result, 7, Length(Result)-8);//extract content from "<?xml content?>"
+    end;
   else
     Result := fOwnerDocument.GetString(fNodeValueId);
   end;
@@ -2855,6 +2855,20 @@ begin
   begin
     //namespace not found, add namespace URI attribute
     SetAttribute(OXmlApplyNameSpace(XML_XMLNS, xNSPrefix), aNameSpaceURI);
+  end;
+end;
+
+procedure TXMLNode.SetNodeName(const aName: OWideString);
+begin
+  NodeNameId := fOwnerDocument.SetString(aName);
+end;
+
+procedure TXMLNode.SetNodeNameId(const aNameId: OHashedStringsIndex);
+begin
+  case fNodeType of
+    ntElement, ntProcessingInstruction: fNodeNameId := aNameId;
+  else
+    raise EXmlDOMException.Create(OXmlLng_SetNodeNameWrongType);
   end;
 end;
 
@@ -3918,7 +3932,7 @@ begin
   end;
 
   for Result := 0 to Count-1 do
-  if (Nodes[Result].fNodeNameId = xNameId) then
+  if (Nodes[Result{%H-}].fNodeNameId = xNameId) then
   begin
     outNode := Nodes[Result];
     Exit;

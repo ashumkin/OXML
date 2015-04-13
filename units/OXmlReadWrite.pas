@@ -818,6 +818,7 @@ var
   xOutputChar: Integer;
   xIsHex: Boolean;
 begin
+  Result := False;
   xOutputChar := -1;
   aCustomBuffer.Clear(False);
   aCustomReader.BlockFlushTempBuffer;

@@ -83,6 +83,7 @@ var
   OXmlLng_XPathCannotBeEmpty: string = 'XPath cannot be empty.';
   OXmlLng_PathCannotBeEmpty: string = 'Path cannot be empty.';
   OXmlLng_CannotWriteToVirtualMemoryStream: string = 'You cannot write to a TVirtualMemoryStream.';
+  OXmlLng_SetNodeNameWrongType: string = 'Changing node names is supported only for element and PI nodes.';
 
   OXmlLng_CannotChangeRootNodeName: string = 'Cannot change RootNodeName after data has been written.';
   OXmlLng_CannotChangeUseRootDataWritten: string = 'Cannot change UseRoot after data has been written.';
