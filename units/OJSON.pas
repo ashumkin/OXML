@@ -53,7 +53,17 @@ uses
   SysUtils, Classes,
   {$ENDIF}
 
-  Contnrs, TypInfo,
+  {$IFDEF O_GENERICS}
+    {$IFDEF O_NAMESPACES}
+    System.Generics.Collections,
+    {$ELSE}
+    Generics.Collections,
+    {$ENDIF}
+  {$ELSE}
+  Contnrs,
+  {$ENDIF}
+
+  TypInfo,
   OBufferedStreams, OEncoding, OWideSupp, OXmlUtils, OTextReadWrite;
 
 type
@@ -198,6 +208,10 @@ type
   end;
 
   TJSONReader = class(TObject)
+  {$IFDEF O_GENERICS}
+  private type
+    TObjectList = TObjectList<TObject>;
+  {$ENDIF}
   private
     fReader: TOCustomUTF8Reader;
 
@@ -618,7 +632,11 @@ begin
     for I := 0 to aPropList.PropCount-1 do
     begin
       xPropInfo := aPropList.PropList^[I];
+      {$IFDEF O_HASBYTESTRINGS}
       if xPropInfo^.Name = xNameToken.PairNameUTF8 then
+      {$ELSE}
+      if SymbolNameToString(@xPropInfo^.Name) = xNameToken.PairName then
+      {$ENDIF}
       begin
         ReadObjectProperty(aObject, xPropInfo);
         Break;
@@ -914,7 +932,7 @@ const
      Ord('8'), Ord('9'), Ord('a'), Ord('b'), Ord('c'), Ord('d'), Ord('e'), Ord('f'));
 begin
   WriteChar(Ord('"'));
-  if aText <> '' then
+  if Length(aText) > 0 then
   begin
     C := @aText[OUTF8Container_FirstElement];
     for I := 0 to Length(aText)-1 do

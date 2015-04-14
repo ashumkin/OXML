@@ -393,7 +393,9 @@ type
 
     //returns XML as a buffer in encoding specified by the document
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
+    {$IFDEF O_HASBYTESTRINGS}
     procedure SaveToBuffer(var outBuffer: OUTF8Container); overload;
+    {$ENDIF}
   public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     function XML: OWideString; overload;
@@ -632,7 +634,9 @@ type
     procedure SaveToStream(const aStream: TStream);
 
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
+    {$IFDEF O_HASBYTESTRINGS}
     procedure SaveToBuffer(var outBuffer: OUTF8Container); overload;
+    {$ENDIF}
     procedure SaveToXML(var outXML: OWideString); overload;
     procedure SaveToXML(var outXML: OWideString; const aIndentType: TXMLIndentType); overload;
     procedure SaveToXML_UTF8(var outXML: OUTF8Container); overload;
@@ -2721,6 +2725,7 @@ begin
   end;
 end;
 
+{$IFDEF O_HASBYTESTRINGS}
 procedure TXMLNode.SaveToBuffer(var outBuffer: TBytes);
 var
   xStream: TMemoryStream;
@@ -2739,6 +2744,7 @@ begin
     xStream.Free;
   end;
 end;
+{$ENDIF}
 
 { TXMLDocument }
 
@@ -3126,10 +3132,12 @@ begin
   Result := Node.LoadFromXML_UTF8(aXML);
 end;
 
+{$IFDEF O_HASBYTESTRINGS}
 procedure TXMLDocument.SaveToBuffer(var outBuffer: OUTF8Container);
 begin
   Node.SaveToBuffer(outBuffer);
 end;
+{$ENDIF}
 
 procedure TXMLDocument.SaveToFile(const aFileName: OWideString);
 begin

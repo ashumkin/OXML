@@ -203,8 +203,6 @@ type
     property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;
   end;
 
-
-
   TOCustomUTF8Reader = class(TObject)
   protected
     fURL: OWideString;

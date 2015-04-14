@@ -554,7 +554,9 @@ begin
   if fOwnsObjects then
   for I := 0 to Count-1 do
   begin
+    {$IFNDEF O_ARC}
     GetObject(I).Free;
+    {$ENDIF}
     SetObject(I, nil);
   end;
 

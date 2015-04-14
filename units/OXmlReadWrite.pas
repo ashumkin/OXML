@@ -696,7 +696,9 @@ type
 
     //returns XML as a buffer in encoding specified by the document
     procedure SaveToBuffer(var outBuffer: TBytes); overload;
+    {$IFDEF O_HASBYTESTRINGS}
     procedure SaveToBuffer(var outBuffer: OUTF8Container); overload;
+    {$ENDIF}
 
   //public
     //returns XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC

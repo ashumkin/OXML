@@ -80,6 +80,9 @@
     {$IF CompilerVersion >= 26}
       {$DEFINE O_DELPHI_XE5_UP}
     {$IFEND}
+    {$IF CompilerVersion >= 29}
+      {$DEFINE O_DELPHI_XE8_UP}
+    {$IFEND}
 
 
     {$IFNDEF O_DELPHI_XE_UP}

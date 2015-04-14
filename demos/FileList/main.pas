@@ -42,7 +42,7 @@ type
     procedure StartDOM(const Dir: string;
       const Element: PXMLNode; const MaxLevel: Integer);
     procedure StartDirect(const Dir: string;
-      const Element: PXMLWriterElement; const MaxLevel: Integer);
+      var Element: TXMLWriterElement; const MaxLevel: Integer);
   public
     { Public declarations }
   end;
@@ -241,7 +241,7 @@ begin
       RootElement.Attribute('name', cobDrive.Drive);
 
       // start recursive scan of selected drive
-      StartDirect(cobDrive.Drive + ':', @RootElement, USE_DIR_LEVELS);
+      StartDirect(cobDrive.Drive + ':', RootElement, USE_DIR_LEVELS);
       RootElement.CloseElement;
       // save document to file
       ForceDirectories(ExtractFileDir(eFileName.Text));
@@ -290,7 +290,7 @@ begin
 end;
 
 procedure TfMain.StartDirect(const Dir: string;
-  const Element: PXMLWriterElement; const MaxLevel: Integer);
+  var Element: TXMLWriterElement; const MaxLevel: Integer);
 var
   sr: TSearchRec;
   SingleFile,
@@ -308,7 +308,7 @@ begin
             // sub-directory
             SubDirectory := Element.OpenElementR('dir');
             SubDirectory.Attribute('name', sr.Name);
-            StartDirect(Dir + '\' + sr.Name, @SubDirectory, MaxLevel-1);
+            StartDirect(Dir + '\' + sr.Name, SubDirectory, MaxLevel-1);
             SubDirectory.CloseElement;
           end
         end

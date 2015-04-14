@@ -438,7 +438,7 @@ end;
 
 function TDOMIStreamAdapter.Seek(Offset: Longint; Origin: Word): Longint;
 var
-  Pos: Largeint;
+  Pos: {$IFDEF O_DELPHI_XE8_UP}UInt64{$ELSE}LargeInt{$ENDIF};
 begin
   FStream.Seek(Offset, Origin, Pos);
   Result := Longint(Pos);
