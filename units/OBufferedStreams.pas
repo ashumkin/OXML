@@ -63,7 +63,13 @@ type
     fTempBufferUsedLength: Integer;
     fBufferSize: Integer;
   protected
+    procedure WriteToStream(const aBuffer; const aBufferLength: Integer); virtual;
+
     function GetSize: OStreamInt; {$IFNDEF O_DELPHI_6_DOWN}override;{$ENDIF}
+  protected
+    property TempBuffer: TBytes read fTempBuffer;
+    property TempBufferUsedLength: Integer read fTempBufferUsedLength;
+    property BufferSize: Integer read fBufferSize;
   public
     constructor Create(const aStream: TStream; const aOwnsStream: Boolean = False;
       const aBufferSize: Integer = OBUFFEREDSTREAMS_DEFBUFFERSIZE);
@@ -172,9 +178,7 @@ procedure TOBufferedWriteStream.EnsureTempBufferWritten;
 begin
   if fTempBufferUsedLength > 0 then
   begin
-    fStream.WriteBuffer(fTempBuffer[0], fTempBufferUsedLength);
-    fStreamSize := fStreamSize + fTempBufferUsedLength;
-    fStreamPosition := fStreamPosition + fTempBufferUsedLength;
+    WriteToStream(fTempBuffer[0], fTempBufferUsedLength);
     fTempBufferUsedLength := 0;
   end;
 end;
@@ -235,7 +239,7 @@ begin
   if Result > fBufferSize then
   begin
     //count to write bigger then buffer -> write directly
-    fStream.WriteBuffer(Buffer, Result);
+    WriteToStream(Buffer, Result);
   end else if Result > 0 then
   begin
     //store to temp!
@@ -253,6 +257,14 @@ begin
     Result := Write({%H-}Pointer({%H-}ONativeUInt(@Buffer)+ONativeUInt(Result))^, Count-Result) + Result;
   end;
   {$ENDIF}
+end;
+
+procedure TOBufferedWriteStream.WriteToStream(const aBuffer;
+  const aBufferLength: Integer);
+begin
+  fStream.WriteBuffer(aBuffer, aBufferLength);
+  fStreamSize := fStreamSize + aBufferLength;
+  fStreamPosition := fStreamPosition + aBufferLength;
 end;
 
 {$IFDEF O_DELPHI_XE3_UP}
