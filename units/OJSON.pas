@@ -343,11 +343,7 @@ end;
 
 function TJSONReaderToken.GetPairName: OWideString;
 begin
-  {$IFDEF FPC}
-  Result := GetPairNameUTF8;
-  {$ELSE}
-  Result := {$IFDEF O_UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}(GetPairNameUTF8);
-  {$ENDIF}
+  Result := OUTF8ContainerToWide(GetPairNameUTF8);
 end;
 
 function TJSONReaderToken.GetPairNameUTF8: OUTF8Container;
@@ -358,11 +354,7 @@ end;
 
 function TJSONReaderToken.GetStringValue: OWideString;
 begin
-  {$IFDEF FPC}
-  Result := GetStringValueUTF8;
-  {$ELSE}
-  Result := {$IFDEF O_UNICODE}UTF8ToString{$ELSE}UTF8Decode{$ENDIF}(GetStringValueUTF8);
-  {$ENDIF}
+  Result := OUTF8ContainerToWide(GetStringValueUTF8);
 end;
 
 function TJSONReaderToken.GetStringValueUTF8: OUTF8Container;

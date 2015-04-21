@@ -86,6 +86,7 @@ type
 
   TXMLWriterElement = {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
+    {$IFDEF O_ARC}[Weak]{$ENDIF}
     fOwner: TXMLWriter;
     fElementName: OWideString;
     fOpenElementFinished: Boolean;
@@ -171,6 +172,7 @@ type
 
   TXMLWriterSettings = class(TCustomXMLWriterSettings)
   private
+    {$IFDEF O_ARC}[Weak]{$ENDIF}
     fOwner: TXMLWriter;
 
     function GetEncoding: TEncoding;
@@ -2380,7 +2382,8 @@ begin
       ckNewLine13:
         if fWriterSettings.fLineBreak = lbDoNotProcess then
           RawText(XML_ENTITY_CR)
-        else begin
+        else
+        begin
           if aInAttributeValue and fWriterSettings.fUseTabCRLFEntitiesInAttributes then
             RawText(XMLLineBreakEntity(fWriterSettings.fLineBreak))
           else

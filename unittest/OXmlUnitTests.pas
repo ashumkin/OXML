@@ -20,6 +20,7 @@ unit OXmlUnitTests;
   {$ELSE}
     //Delphi 5
     {$DEFINE USE_CONTROLS}
+    {$DEFINE MSWINDOWS}
   {$ENDIF}
 {$ELSE}
   {$DEFINE USE_DATEUTILS}
@@ -42,7 +43,7 @@ uses
   ;
 
 const
-  cTestCount = 64;
+  cTestCount = 66;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -122,6 +123,8 @@ type
     function Test_TOVirtualHashIndex: Boolean;
     function Test_TOVirtualHashIndex_GetString(const aIndex: OHashedStringsIndex): OWideString;
     function Test_TOHashedStrings_NotCaseSensitive: Boolean;
+    function Test_TOHashedStrings_Delete: Boolean;
+    function Test_TOHashedStringObjDictinary_Test1: Boolean;
   private
     //OXmlSAX.pas
     procedure Test_TSAXParser_HashIndex_SAXStartElement({%H-}aSaxParser: TSAXParser;
@@ -391,6 +394,8 @@ begin
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
   ExecuteFunction(Test_TOVirtualHashIndex, 'Test_TOVirtualHashIndex');
   ExecuteFunction(Test_TOHashedStrings_NotCaseSensitive, 'Test_TOHashedStrings_NotCaseSensitive');
+  ExecuteFunction(Test_TOHashedStrings_Delete, 'Test_TOHashedStrings_Delete');
+  ExecuteFunction(Test_TOHashedStringObjDictinary_Test1, 'Test_TOHashedStringObjDictinary_Test1');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
   ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
@@ -588,6 +593,78 @@ begin
     end;
   finally
     xBuf.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_TOHashedStringObjDictinary_Test1: Boolean;
+var
+  xStrL: TOHashedStringObjDictionary;
+  I: Integer;
+const
+  cMax = 1000;
+begin
+  xStrL := TOHashedStringObjDictionary.Create;
+  try
+    {$IFNDEF NEXTGEN}
+    xStrL.OwnsObjects := True;
+    {$ENDIF}
+    for I := 1 to cMax do
+    begin
+      xStrL.AddObject(IntToStr(I), TObject.Create);
+    end;
+    xStrL.AddObject(IntToStr(50), TObject.Create);
+    xStrL.Delete(IntToStr(50));
+    xStrL.AddObject(IntToStr(50), TObject.Create);
+
+    Result := xStrL.Count = cMax;
+    //check for memory leaks!
+  finally
+    xStrL.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_TOHashedStrings_Delete: Boolean;
+var
+  xHS: TOHashedStrings;
+  I: Integer;
+  xIndex: OHashedStringsIndex;
+const
+  cMax = 10*1000-1;
+begin
+  xHS := TOHashedStrings.Create;
+  try
+    for I := 0 to cMax do
+      xHS.Add(IntToStr(I));
+
+    xHS.BeginDelete;
+    for I := 0 to xHS.Count div 2 - 1 do
+      xHS.Delete(I);
+    xHS.EndDelete;
+
+    for I := 0 to cMax do
+    begin
+      xIndex := xHS.IndexOf(IntToStr(I));
+      if I mod 2 = 0 then
+      begin//deleted
+        Result := (xIndex = -1);
+      end else
+      begin//not deleted
+        Result := (xIndex = I div 2);
+      end;
+      if not Result then Exit;
+    end;
+
+    for I := 0 to cMax do
+      xHS.Add(IntToStr(I));
+
+    for I := 0 to xHS.Count - 1 - (cMax div 2 + 1) do
+    begin
+      Result := StrToInt(xHS[I + (cMax div 2 + 1)]) = I*2;//every second is a duplicate, therefore was not added!
+      if not Result then Exit;
+    end;
+
+  finally
+    xHS.Free;
   end;
 end;
 
@@ -1862,26 +1939,35 @@ end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_TabCRLF: Boolean;
 const
-  inXML: OWideString =  '<root attr="'#10#9'">'#10#13#9#32#13#10'</root>';//see the wrong sentence #10#13
-  outXML1: OWideString =  '<root attr="&#xD;&#xA;&#9;">'+sLineBreak+sLineBreak+#9#32+sLineBreak+'</root>';
-  outXML2: OWideString =  '<root attr="'+sLineBreak+#9'">'+sLineBreak+sLineBreak+#9#32+sLineBreak+'</root>';
+  {$IFDEF MSWINDOWS}
+  cEntLineBreak = '&#xD;&#xA;';
+  {$ELSE}
+  cEntLineBreak = '&#xA;';
+  {$ENDIF}
+  inXML =   '<root attr="'#10#9'">'#10#13#9#32#13#10'</root>';//see the wrong sentence #10#13
+  outXML1 = '<root attr="'+cEntLineBreak+'&#9;">'+sLineBreak+sLineBreak+#9#32+sLineBreak+'</root>';
+  outXML2 = '<root attr="'+sLineBreak+#9'">'+sLineBreak+sLineBreak+#9#32+sLineBreak+'</root>';
 var
   xXML: OXmlPDOM.IXMLDocument;
+  xOutXML: OWideString;
 begin
   xXML := OXmlPDOM.CreateXMLDoc;
 
   xXML.WhiteSpaceHandling := wsPreserveAll;
+  xXML.ReaderSettings.LineBreak := lbLF;
   xXML.LoadFromXML(inXML);
   xXML.WriterSettings.LineBreak := lbLF;
   xXML.WriterSettings.UseTabCRLFEntitiesInAttributes := True;
 
-  Result := (xXML.XML = outXML1);
+  xOutXML := xXML.XML;
+  Result := (xOutXML = outXML1);
   if not Result then
     Exit;
 
   xXML.WriterSettings.UseTabCRLFEntitiesInAttributes := False;
 
-  Result := (xXML.XML = outXML2);
+  xOutXML := xXML.XML;
+  Result := (xOutXML = outXML2);
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_WhiteSpaceHandling: Boolean;

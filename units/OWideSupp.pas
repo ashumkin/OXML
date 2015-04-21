@@ -485,9 +485,10 @@ procedure OWideToFast(const aSourceWide: OWideString; var outDestFast: OFastStri
 
 function OWideToUTF8Container(const aSourceWide: OWideString): OUTF8Container; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OUnicodeToUTF8Container(const aSourceUnicode: OUnicodeString): OUTF8Container; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OUTF8ContainerToWide(const aSourceUTF8: OUTF8Container): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 
-function OUnicodeToWide(const aSourceUnicode: OUnicodeString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OWideToUnicode(const aSourceWide: OWideString): OUnicodeString; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OUnicodeToWide(const aSourceUnicode: OUnicodeString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 //split a text to pieces with a delimiter
 //if aConsiderQuotes=True, delimiters in quotes are ignored
@@ -864,7 +865,7 @@ begin
 end;
 {$ENDIF}
 
-function OWideToUTF8Container(const aSourceWide: OWideString): OUTF8Container; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OWideToUTF8Container(const aSourceWide: OWideString): OUTF8Container;
 begin
   {$IFDEF FPC}
   Result := aSourceWide;
@@ -875,7 +876,18 @@ begin
   {$ENDIF}{$ENDIF}
 end;
 
-function OUnicodeToUTF8Container(const aSourceUnicode: OUnicodeString): OUTF8Container; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OUTF8ContainerToWide(const aSourceUTF8: OUTF8Container): OWideString;
+begin
+  {$IFDEF FPC}
+  Result := aSourceUTF8;
+  {$ELSE}{$IFDEF O_HASBYTESTRINGS}
+  Result := {$IFDEF O_DELPHI_2009_UP}UTF8ToString(RawByteString({$ELSE}UTF8Decode(({$ENDIF}aSourceUTF8));//IMPORTANT there is a bug in UTF8ToString(S: array of Byte)
+  {$ELSE}
+  Result := TEncoding.UTF8.GetString(aSourceUTF8);
+  {$ENDIF}{$ENDIF}
+end;
+
+function OUnicodeToUTF8Container(const aSourceUnicode: OUnicodeString): OUTF8Container;
 begin
   {$IFDEF O_HASBYTESTRINGS}
   Result := UTF8Encode(aSourceUnicode);
@@ -1870,8 +1882,7 @@ end;
 
 function OWideStringListCompareStrings(List: TOWideStringList; Index1, Index2: Integer): Integer;
 begin
-  Result := List.CompareStrings(List[Index1],
-                                List[Index2]);
+  Result := List.CompareStrings(List[Index1], List[Index2]);
 end;
 
 procedure TOWideStringList.Sort;

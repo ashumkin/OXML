@@ -2614,6 +2614,26 @@ begin
   end;
 end;
 
+procedure TXMLNode.SaveToBuffer(var outBuffer: TBytes);
+var
+  xStream: TMemoryStream;
+begin
+  xStream := TMemoryStream.Create;
+  try
+    SaveToStream(xStream);
+
+    SetLength(outBuffer, xStream.Size);
+    if xStream.Size > 0 then
+    begin
+      xStream.Seek(0, soFromBeginning);
+      xStream.ReadBuffer(outBuffer[0], xStream.Size);
+    end;
+  finally
+    xStream.Free;
+  end;
+end;
+
+{$IFDEF O_HASBYTESTRINGS}
 procedure TXMLNode.SaveToBuffer(var outBuffer: OUTF8Container);
 var
   xStream: TMemoryStream;
@@ -2626,12 +2646,13 @@ begin
     if xStream.Size > 0 then
     begin
       xStream.Seek(0, soFromBeginning);
-      xStream.ReadBuffer(outBuffer[1], xStream.Size);
+      xStream.ReadBuffer(outBuffer[OUTF8Container_FirstElement], xStream.Size);
     end;
   finally
     xStream.Free;
   end;
 end;
+{$ENDIF}
 
 procedure TXMLNode.SaveToFile(const aFileName: OWideString);
 var
@@ -2729,7 +2750,7 @@ begin
     if xStream.Size > 0 then
     begin
       xStream.Seek(0, soFromBeginning);
-      xStream.ReadBuffer(outXML[1], xStream.Size);
+      xStream.ReadBuffer(outXML[OUTF8Container_FirstElement], xStream.Size);
     end;
   finally
     xStream.Free;
@@ -3053,27 +3074,6 @@ begin
     end;
   end;
 end;
-
-{$IFDEF O_HASBYTESTRINGS}
-procedure TXMLNode.SaveToBuffer(var outBuffer: TBytes);
-var
-  xStream: TMemoryStream;
-begin
-  xStream := TMemoryStream.Create;
-  try
-    SaveToStream(xStream);
-
-    SetLength(outBuffer, xStream.Size);
-    if xStream.Size > 0 then
-    begin
-      xStream.Seek(0, soFromBeginning);
-      xStream.ReadBuffer(outBuffer[0], xStream.Size);
-    end;
-  finally
-    xStream.Free;
-  end;
-end;
-{$ENDIF}
 
 { TXMLDocument }
 
@@ -3541,11 +3541,6 @@ begin
   Result := Node.XML_UTF8(aIndentType);
 end;
 
-procedure TXMLDocument.SaveToBuffer(var outBuffer: TBytes);
-begin
-  Node.SaveToBuffer(outBuffer);
-end;
-
 procedure TXMLDocument.Grow;
 var
   xNewArray: PXMLNodeArray;
@@ -3606,6 +3601,11 @@ function TXMLDocument.LoadFromXML_UTF8(const aXML: OUTF8Container): Boolean;
 begin
   Clear;
   Result := Node.LoadFromXML_UTF8(aXML);
+end;
+
+procedure TXMLDocument.SaveToBuffer(var outBuffer: TBytes);
+begin
+  Node.SaveToBuffer(outBuffer);
 end;
 
 {$IFDEF O_HASBYTESTRINGS}

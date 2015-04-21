@@ -86,6 +86,7 @@ const
 {$IFDEF O_DELPHI_2009_UP}
 type
   TEncodingBuffer = TBytes;
+  TEncodingBufferElement = Byte;
 const
   TEncodingBuffer_FirstElement = 0;
 {$ELSE}
@@ -94,6 +95,7 @@ const
 //  FPC: default routines CP437ToUTF8 etc use AnsiString and not Array of Byte!
 type
   TEncodingBuffer = AnsiString;
+  TEncodingBufferElement = AnsiChar;
 const
   TEncodingBuffer_FirstElement = 1;
 {$ENDIF}

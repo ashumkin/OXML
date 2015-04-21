@@ -1004,7 +1004,7 @@ begin
 
   xLength := Length(aString);
   if xLength > 0 then
-    xNewStream.WriteBuffer(aString[1], xLength);
+    xNewStream.WriteBuffer(aString[OUTF8Container_FirstElement], xLength);
   xNewStream.Position := 0;
 
   DoInit(xNewStream, True, nil);
@@ -1751,7 +1751,7 @@ begin
 
   xLength := Length(aString);
   if xLength > 0 then
-    xNewStream.WriteBuffer(aString[1], xLength);
+    xNewStream.WriteBuffer(aString[OUTF8Container_FirstElement], xLength);
   xNewStream.Position := 0;
 
   DoInit(xNewStream, True);

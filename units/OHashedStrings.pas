@@ -84,15 +84,13 @@ type
   TOHashedStrings = class(TPersistent)
   private
     fCaseSensitive: Boolean;
-    fOwnsObjects: Boolean;
     fItems: array of POHashItem;//array indexed by index
-    fObjects: array of TObject;
     fNextItemId: OHashedStringsIndex;//next list index to use
     fItemLength: OHashedStringsIndex;//count of allocated items in fList
     fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
     fBuckets: array of POHashItem;//array indexed by hash
-
     fLastHashI: OHashedStringsIndex;
+    fBlockDelete: Integer;//speeds up multiple delete() calls
 
     procedure SetCaseSensitive(const aCaseSensitive: Boolean);
   protected
@@ -104,24 +102,58 @@ type
   protected
     procedure AssignTo(Dest: TPersistent); override;
   public
-    constructor Create;
+    constructor Create; virtual;
     destructor Destroy; override;
   public
     function IndexOf(const aText: OWideString): OHashedStringsIndex;
     function Add(const aText: OWideString): OHashedStringsIndex; overload;
-    function Add(const aText: OWideString; var outNewEntry: Boolean): OHashedStringsIndex; overload;
+    function Add(const aText: OWideString; var outNewEntry: Boolean): OHashedStringsIndex; overload; virtual;
     function Get(const aIndex: OHashedStringsIndex): OWideString;
     function GetItem(const aIndex: OHashedStringsIndex): POHashItem;
+
+    function Delete(const aText: OWideString): Boolean; overload;
+    procedure Delete(const aIndex: OHashedStringsIndex); overload; virtual;
+    procedure Clear(const aFullClear: Boolean = True); virtual;
+    procedure BeginDelete;//speeds up multiple delete calls in a row
+    procedure EndDelete;
+    procedure EndDeleteForce;
+
+    property CaseSensitive: Boolean read fCaseSensitive write SetCaseSensitive;
+    property Strings[const aIndex: OHashedStringsIndex]: OWideString read Get; default;
+    property Count: OHashedStringsIndex read fNextItemId;
+  end;
+
+  TOHashedStringObjDictionary = class(TOHashedStrings)
+  private
+    {$IFNDEF O_ARC}
+    fOwnsObjects: Boolean;
+    {$ENDIF}
+    {$IFDEF O_GENERICS}
+    fObjects: TList<Pointer>;
+    {$ELSE}
+    fObjects: TList;
+    {$ENDIF}
+  public
+    constructor Create; override;
+    destructor Destroy; override;
+
+    function Add(const aText: OWideString; var outNewEntry: Boolean): OHashedStringsIndex; overload; override;
+    function AddObject(const aText: OWideString; const aObject: TObject;
+      var outNewEntry: Boolean): OHashedStringsIndex; overload;
+    function AddObject(const aText: OWideString; const aObject: TObject): OHashedStringsIndex; overload;
+    procedure Delete(const aIndex: OHashedStringsIndex); overload; override;
+    procedure Clear(const aFullClear: Boolean = True); override;
+
     procedure SetObject(const aIndex: OHashedStringsIndex; const aObject: TObject);
     function GetObject(const aIndex: OHashedStringsIndex): TObject;
-    {$IFNDEF O_ARC}
     procedure SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
-    {$ENDIF}
-    property CaseSensitive: Boolean read fCaseSensitive write SetCaseSensitive;
+
+    {$IFNDEF O_ARC}
     property OwnsObjects: Boolean read fOwnsObjects write fOwnsObjects;
-    property Count: OHashedStringsIndex read fNextItemId;
-    procedure Clear(const aFullClear: Boolean = True);
+    {$ENDIF}
+    property Objects[const aIndex: OHashedStringsIndex]: TObject read GetObject write SetObject;
+    property PObjects[const aIndex: OHashedStringsIndex]: Pointer read GetPObject write SetPObject;
   end;
 
   TOHashedStringDictionaryEnum = class;
@@ -276,7 +308,6 @@ begin
   for I := 1 to Length(aKey) do
     Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
       Ord(aKey[I]);
-end;
 {$ELSE}
 var
   I, xLen: Integer;
@@ -294,14 +325,13 @@ begin
       Inc(xK);
     end;
   end;
-end;
 {$ENDIF}
+end;
 
 function HashOfFast(const aKey: OFastString): Cardinal;
 {$IFDEF O_UNICODE}
 begin
   Result := HashOf(aKey);
-end;
 {$ELSE}
 var
   I: Integer;
@@ -310,8 +340,116 @@ begin
   for I := 1 to Length(aKey) do
     Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
       Ord(aKey[I]);
-end;
 {$ENDIF}
+end;
+
+
+{ TOHashedStringObjDictionary }
+
+function TOHashedStringObjDictionary.Add(const aText: OWideString;
+  var outNewEntry: Boolean): OHashedStringsIndex;
+begin
+  Result := inherited Add(aText, outNewEntry);
+
+  while fObjects.Count < Count do
+    fObjects.Add(nil);
+end;
+
+function TOHashedStringObjDictionary.AddObject(const aText: OWideString;
+  const aObject: TObject): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := AddObject(aText, aObject, x{%H-});
+end;
+
+function TOHashedStringObjDictionary.AddObject(const aText: OWideString;
+  const aObject: TObject; var outNewEntry: Boolean): OHashedStringsIndex;
+begin
+  Result := Add(aText, outNewEntry);
+  SetObject(Result, aObject);
+end;
+
+procedure TOHashedStringObjDictionary.Clear(const aFullClear: Boolean);
+var
+  I: Integer;
+begin
+  {$IFNDEF O_ARC}
+  if fOwnsObjects then
+  {$ENDIF}
+  for I := 0 to Count-1 do
+  begin
+    SetObject(I, nil);
+  end;
+
+  inherited Clear(aFullClear);
+
+  if aFullClear then
+    fObjects.Clear;
+end;
+
+constructor TOHashedStringObjDictionary.Create;
+begin
+  inherited Create;
+
+  {$IFDEF O_GENERICS}
+  fObjects := TList<Pointer>.Create;
+  {$ELSE}
+  fObjects := TList.Create;
+  {$ENDIF}
+end;
+
+procedure TOHashedStringObjDictionary.Delete(const aIndex: OHashedStringsIndex);
+begin
+  {$IFNDEF O_ARC}
+  if fOwnsObjects then
+  {$ENDIF}
+  begin
+    SetObject(aIndex, nil);//free or nil when ARC or OwnsObjects!
+  end;
+
+  inherited Delete(aIndex);
+end;
+
+destructor TOHashedStringObjDictionary.Destroy;
+begin
+  inherited Destroy;
+
+  fObjects.Free;//must be after destroy -> fObjects is used in Clear!
+end;
+
+function TOHashedStringObjDictionary.GetObject(const aIndex: OHashedStringsIndex
+  ): TObject;
+begin
+  Result := TObject(fObjects[aIndex]);
+end;
+
+function TOHashedStringObjDictionary.GetPObject(
+  const aIndex: OHashedStringsIndex): Pointer;
+begin
+  Result := fObjects[aIndex];
+end;
+
+procedure TOHashedStringObjDictionary.SetObject(
+  const aIndex: OHashedStringsIndex; const aObject: TObject);
+begin
+  {$IFDEF O_ARC}
+  if Assigned(fObjects[aIndex]) then
+    TObject(fObjects[aIndex]).__ObjRelease;//release last object
+  if Assigned(aObject) then
+    aObject.__ObjAddRef;//increment reference count of new object
+  {$ELSE}
+  if fOwnsObjects and Assigned(fObjects[aIndex]) then
+    TObject(fObjects[aIndex]).Free;
+  {$ENDIF}
+  fObjects[aIndex] := aObject;
+end;
+
+procedure TOHashedStringObjDictionary.SetPObject(
+  const aIndex: OHashedStringsIndex; const aObject: Pointer);
+begin
+  fObjects[aIndex] := aObject;
+end;
 
 { TOHashedStringDictionary }
 
@@ -482,6 +620,9 @@ var
   xHash: OHashedStringsIndex;
   xTextCase: OWideString;
 begin
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
   xTextCase := LowerCaseIfNotCaseSensitive(aText, fCaseSensitive);
   xBucket := Find(xTextCase, xHash{%H-});
   if Assigned(xBucket) then
@@ -510,7 +651,6 @@ begin
   OWideToFast(aText, xBucket.fTextFast);
   {$ENDIF}
   xBucket.fIndex := fNextItemId;
-  fObjects[fNextItemId] := nil;
   Result := fNextItemId;
 
   AddItem(xBucket, xHash);
@@ -547,19 +687,15 @@ begin
     inherited;
 end;
 
+procedure TOHashedStrings.BeginDelete;
+begin
+  Inc(fBlockDelete);
+end;
+
 procedure TOHashedStrings.Clear(const aFullClear: Boolean);
 var
   I: OHashedStringsIndex;
 begin
-  if fOwnsObjects then
-  for I := 0 to Count-1 do
-  begin
-    {$IFNDEF O_ARC}
-    GetObject(I).Free;
-    {$ENDIF}
-    SetObject(I, nil);
-  end;
-
   fNextItemId := 0;
 
   if aFullClear then
@@ -593,11 +729,74 @@ begin
   GrowBuckets;
 end;
 
+procedure TOHashedStrings.Delete(const aIndex: OHashedStringsIndex);
+var
+  xBucket, xRunner, xPrevious: POHashItem;
+  xHash: OHashedStringsIndex;
+  I: OHashedStringsIndex;
+begin
+  xBucket := GetItem(aIndex);
+
+  //move current bucket to last position
+  System.Move(fItems[aIndex+1], fItems[aIndex], (Count-aIndex)*SizeOf(POHashItem));
+  fItems[Count-1] := xBucket;
+  Dec(fNextItemId);
+  if fBlockDelete = 0 then
+    for I := aIndex to Count-1 do
+      Dec(fItems[I].fIndex);
+
+  //remove from hash table
+  xHash := HashOfFast(FastLowerCaseIfNotCaseSensitive(xBucket.TextFast, fCaseSensitive)) mod Cardinal(Length(fBuckets));
+  xRunner := fBuckets[xHash];
+  xPrevious := nil;
+  while (xRunner <> nil) and (xRunner <> xBucket) do
+  begin
+    xPrevious := xRunner;
+    xRunner := xRunner.fNext;
+  end;
+  Assert(xRunner = xBucket);
+  if Assigned(xPrevious) then
+    xPrevious.fNext := xBucket.fNext
+  else
+    fBuckets[xHash] := xBucket.fNext;
+end;
+
+function TOHashedStrings.Delete(const aText: OWideString): Boolean;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := IndexOf(aText);
+  Result := xIndex >= 0;
+  if Result then
+    Delete(xIndex);
+end;
+
 destructor TOHashedStrings.Destroy;
 begin
   Clear(True);
 
   inherited;
+end;
+
+procedure TOHashedStrings.EndDelete;
+var
+  I: Integer;
+begin
+  if fBlockDelete > 0 then
+    Dec(fBlockDelete);
+
+  if fBlockDelete = 0 then
+    for I := 0 to Count-1 do
+      fItems[I].fIndex := I;
+end;
+
+procedure TOHashedStrings.EndDeleteForce;
+begin
+  if fBlockDelete > 0 then
+  begin
+    fBlockDelete := 1;
+    EndDelete;
+  end;
 end;
 
 function TOHashedStrings.Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POHashItem;
@@ -626,11 +825,6 @@ begin
   Result := fItems[aIndex];
 end;
 
-function TOHashedStrings.GetObject(const aIndex: OHashedStringsIndex): TObject;
-begin
-  Result := fObjects[aIndex];
-end;
-
 const
   cHashTable: Array[0..27] of LongWord =
   ( 53,         97,         193,       389,       769,
@@ -653,7 +847,6 @@ begin
   fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
 
   SetLength(fItems, fMaxItemsBeforeGrowBuckets);
-  SetLength(fObjects, fMaxItemsBeforeGrowBuckets);
 
   for I := 0 to fNextItemId-1 do
     AddItem(fItems[I], HashOfFast(FastLowerCaseIfNotCaseSensitive(fItems[I].fTextFast, fCaseSensitive)) mod Cardinal(Length(fBuckets)));
@@ -667,6 +860,9 @@ var
   xP: POHashItem;
   xH: OHashedStringsIndex;
 begin
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
   xP := Find(LowerCaseIfNotCaseSensitive(aText, fCaseSensitive), xH{%H-});
   if xP <> nil then
     Result := xP.fIndex
@@ -684,26 +880,6 @@ begin
 
   fCaseSensitive := aCaseSensitive;
 end;
-
-procedure TOHashedStrings.SetObject(const aIndex: OHashedStringsIndex;
-  const aObject: TObject);
-begin
-  fObjects[aIndex] := aObject;
-end;
-
-{$IFNDEF O_ARC}
-function TOHashedStrings.GetPObject(
-  const aIndex: OHashedStringsIndex): Pointer;
-begin
-  Result := Pointer(fObjects[aIndex]);//unsave but fine
-end;
-
-procedure TOHashedStrings.SetPObject(const aIndex: OHashedStringsIndex;
-  const aObject: Pointer);
-begin
-  fObjects[aIndex] := TObject(aObject);//unsave but fine
-end;
-{$ENDIF}
 
 { TOHashItem }
 

@@ -495,13 +495,12 @@ begin
     then
       Exit;
 
-    xItemType := xCurrent.PropertyType;
-
     fWriter.OpenElement('_oxmldefenum', stFinish);
     while xMoveNext.Invoke(xEnumObject, []).AsBoolean do
     begin
       xValue := xCurrent.GetValue(xEnumObject);
-      WriteObjectProperty(SymbolNameToString(@xValue.TypeInfo.Name),
+      xItemType := Context.GetRealObjectType(xValue, xCurrent.PropertyType);
+      WriteObjectProperty(xItemType.Name,
         xItemType, xValue, False, True);
     end;
     fWriter.CloseElement('_oxmldefenum', True);
