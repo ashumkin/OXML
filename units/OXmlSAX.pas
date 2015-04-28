@@ -75,7 +75,7 @@ type
   TSAXAttributes = class(TObject)
   private
     fAttributeTokens: TXMLReaderTokenList;
-    fIndex: TOVirtualHashIndex;//for fast Find/IndexOf function -> use only for more than attribute limit
+    fIndex: TOVirtualHashedStrings;//for fast Find/IndexOf function -> use only for more than attribute limit
     fIndexUsed: Boolean;
 
     fIteratorCurrent: Integer;//for fast Next & Prev
@@ -238,11 +238,11 @@ type
     //functions to work with the current path in the XML document
     function NodePathMatch(const aNodePath: OWideString): Boolean; overload;
     function NodePathMatch(const aNodePath: TOWideStringList): Boolean; overload;
-    function NodePathMatch(const aNodePath: Array of OWideString): Boolean; overload;
+    function NodePathMatch(const aNodePath: array of OWideString): Boolean; overload;
     function RefIsChildOfNodePath(const aRefNodePath: TOWideStringList): Boolean; overload;
-    function RefIsChildOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
+    function RefIsChildOfNodePath(const aRefNodePath: array of OWideString): Boolean; overload;
     function RefIsParentOfNodePath(const aRefNodePath: TOWideStringList): Boolean; overload;
-    function RefIsParentOfNodePath(const aRefNodePath: Array of OWideString): Boolean; overload;
+    function RefIsParentOfNodePath(const aRefNodePath: array of OWideString): Boolean; overload;
     procedure NodePathAssignTo(const aNodePath: TOWideStringList);
     function NodePathAsString: OWideString;
 
@@ -577,7 +577,7 @@ begin
   inherited;
 
   fAttributeTokens := TXMLReaderTokenList.Create;
-  fIndex := TOVirtualHashIndex.Create(GetKeyByIndex);
+  fIndex := TOVirtualHashedStrings.Create(GetKeyByIndex);
 end;
 
 procedure TSAXAttributes.CreateIndex;
@@ -587,7 +587,7 @@ begin
   fIndexUsed := Count > XMLUseIndexNodeLimit;
   if fIndexUsed then
   begin
-    fIndex.Clear(Count);
+    fIndex.Clear(False);
     for I := 0 to fAttributeTokens.Count-1 do
       fIndex.Add(I);
   end;

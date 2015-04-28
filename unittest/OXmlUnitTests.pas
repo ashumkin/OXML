@@ -118,10 +118,10 @@ type
     function Test_TOByteBuffer: Boolean;
   private
     //OHashedStrings.pas
-    fTest_TOVirtualHashIndex_StrL: TStringList;
+    fTest_TOVirtualHashedStrings_StrL: TStringList;
     function Test_TOHashedStrings_Grow: Boolean;
-    function Test_TOVirtualHashIndex: Boolean;
-    function Test_TOVirtualHashIndex_GetString(const aIndex: OHashedStringsIndex): OWideString;
+    function Test_TOVirtualHashedStrings: Boolean;
+    function Test_TOVirtualHashedStrings_GetString(const aIndex: OHashedStringsIndex): OWideString;
     function Test_TOHashedStrings_NotCaseSensitive: Boolean;
     function Test_TOHashedStrings_Delete: Boolean;
     function Test_TOHashedStringObjDictinary_Test1: Boolean;
@@ -392,7 +392,7 @@ begin
 
   ExecuteFunction(Test_TOByteBuffer, 'Test_TOByteBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
-  ExecuteFunction(Test_TOVirtualHashIndex, 'Test_TOVirtualHashIndex');
+  ExecuteFunction(Test_TOVirtualHashedStrings, 'Test_TOVirtualHashedStrings');
   ExecuteFunction(Test_TOHashedStrings_NotCaseSensitive, 'Test_TOHashedStrings_NotCaseSensitive');
   ExecuteFunction(Test_TOHashedStrings_Delete, 'Test_TOHashedStrings_Delete');
   ExecuteFunction(Test_TOHashedStringObjDictinary_Test1, 'Test_TOHashedStringObjDictinary_Test1');
@@ -1693,16 +1693,16 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TOVirtualHashIndex: Boolean;
+function TOXmlUnitTest.Test_TOVirtualHashedStrings: Boolean;
 var
-  xHS: TOVirtualHashIndex;
+  xHS: TOVirtualHashedStrings;
   I: Integer;
   xStrL: TStringList;
   xString: OWideString;
 begin
-  fTest_TOVirtualHashIndex_StrL := TStringList.Create;
-  xStrL := fTest_TOVirtualHashIndex_StrL;
-  xHS := TOVirtualHashIndex.Create(Test_TOVirtualHashIndex_GetString);
+  fTest_TOVirtualHashedStrings_StrL := TStringList.Create;
+  xStrL := fTest_TOVirtualHashedStrings_StrL;
+  xHS := TOVirtualHashedStrings.Create(Test_TOVirtualHashedStrings_GetString);
   try
     //multiple add of same value
     for I := 0 to 2 do
@@ -1710,7 +1710,7 @@ begin
       xStrL.Add('0');
       xHS.Add(I);
     end;
-    Result := (xHS.NextItemId = 1);
+    Result := (xHS.Count = 1);
     if not Result then
       Exit;
 
@@ -1721,8 +1721,12 @@ begin
     xHS.Add(2);
 
     for I := 0 to xStrL.Count-1 do
-    begin
       xHS.Add(I);
+
+    for I := xStrL.Count div 3 * 2 downto xStrL.Count div 2 do
+    begin
+      xHS.DeleteByStringIndex(I, True);
+      xStrL.Delete(I);
     end;
 
     for I := 0 to xStrL.Count-1 do
@@ -1738,10 +1742,10 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TOVirtualHashIndex_GetString(
+function TOXmlUnitTest.Test_TOVirtualHashedStrings_GetString(
   const aIndex: OHashedStringsIndex): OWideString;
 begin
-  Result := fTest_TOVirtualHashIndex_StrL[aIndex];
+  Result := fTest_TOVirtualHashedStrings_StrL[aIndex];
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;

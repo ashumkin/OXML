@@ -124,7 +124,6 @@
       <Unit3>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OBufferedStreams"/>
       </Unit3>
       <Unit4>
         <Filename Value="..\..\units\ODictionary.pas"/>
@@ -133,7 +132,6 @@
       <Unit5>
         <Filename Value="..\..\units\OEncoding.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OEncoding"/>
       </Unit5>
       <Unit6>
         <Filename Value="..\..\units\OHashedStrings.pas"/>
@@ -143,22 +141,18 @@
       <Unit7>
         <Filename Value="..\..\units\OTextReadWrite.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OTextReadWrite"/>
       </Unit7>
       <Unit8>
         <Filename Value="..\..\units\OWideSupp.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OWideSupp"/>
       </Unit8>
       <Unit9>
         <Filename Value="..\..\units\OXmlLng.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlLng"/>
       </Unit9>
       <Unit10>
         <Filename Value="..\..\units\OXmlReadWrite.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlReadWrite"/>
       </Unit10>
       <Unit11>
         <Filename Value="..\..\units\OXmlSAX.pas"/>
@@ -172,27 +166,22 @@
       <Unit13>
         <Filename Value="..\..\units\OXmlUtils.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlUtils"/>
       </Unit13>
       <Unit14>
         <Filename Value="..\..\units\OXmlPDOM.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlPDOM"/>
       </Unit14>
       <Unit15>
         <Filename Value="..\..\units\OXmlCDOM.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlCDOM"/>
       </Unit15>
       <Unit16>
         <Filename Value="..\..\units\OXmlSerialize.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlSerialize"/>
       </Unit16>
       <Unit17>
         <Filename Value="..\..\units\OJSON.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OJSON"/>
       </Unit17>
     </Units>
   </ProjectOptions>

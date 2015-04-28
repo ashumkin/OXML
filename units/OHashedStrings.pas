@@ -223,44 +223,61 @@ type
   {$IFDEF O_ANONYMOUS_METHODS}
   TOVirtualHashIndexGetStringProc = reference to function(const aStringIndex: OStringIndex): OWideString;
   TOVirtualHashIndexSameStringProc = reference to function(const aString1Index: OStringIndex;
-    const aString2: OWideString): Boolean;
+    const aString2: OWideString; const aCaseSensitive: Boolean): Boolean;
   {$ELSE}
   TOVirtualHashIndexGetStringProc = function(const aStringIndex: OStringIndex): OWideString of Object;
   TOVirtualHashIndexSameStringProc = function(const aString1Index: OStringIndex;
-    const aString2: OWideString): Boolean of Object;
+    const aString2: OWideString; const aCaseSensitive: Boolean): Boolean of Object;
   {$ENDIF}
 
-  TOVirtualHashIndex = class(TObject)
+  TOVirtualHashedStrings = class(TPersistent)
   private
-    fList: array of TOVirtualHashItem;//list of real items (by item index)
-    fBuckets: array of POVirtualHashItem;//indexed by hash
+    fCaseSensitive: Boolean;
+    fItems: array of POVirtualHashItem;//array indexed by index
+    fNextItemId: OHashedStringsIndex;//next list index to use
+    fItemLength: OHashedStringsIndex;//count of allocated items in fList
+    fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
+    fBuckets: array of POVirtualHashItem;//array indexed by hash
+    fLastHashI: OHashedStringsIndex;
+    fBlockDelete: Integer;//speeds up multiple delete() calls
+
     fOnGetString: TOVirtualHashIndexGetStringProc;
     fOnSameString: TOVirtualHashIndexSameStringProc;
-    fNextItemId: OHashedStringsIndex;//next list index to use
-
-    fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
 
     function DefOnSameString(const aString1Index: OStringIndex;
-      const aString2: OWideString): Boolean;
+      const aString2: OWideString; const aCaseSensitive: Boolean): Boolean;
 
-    function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POVirtualHashItem;
+    procedure SetCaseSensitive(const aCaseSensitive: Boolean);
+  protected
+    function Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POVirtualHashItem;//aKey must be already processed with LowerCaseIfNotCaseSensitive
+    procedure AddItem(const aItem: POVirtualHashItem; const aHash: OHashedStringsIndex);
+
     procedure GrowBuckets;
-    procedure AddItem(const aItem: POVirtualHashItem;
-      const aHash: OHashedStringsIndex);
+    procedure ClearBuckets;
   public
     constructor Create(
       const aOnGetString: TOVirtualHashIndexGetStringProc;
       const aOnSameString: TOVirtualHashIndexSameStringProc = nil);
+    destructor Destroy; override;
   public
-    procedure Clear(const aNewCount: Integer = 0);
-
+    function HashedIndexOf(const aText: OWideString): OHashedStringsIndex;
     function StringIndexOf(const aText: OWideString): OStringIndex;
-    //Add text to the list -> you have to supply its unique index that will be used to retrieve the string in OnGetString
-    function Add(const aTextIndex: OStringIndex): OHashedStringsIndex; overload;
-    function Add(const aTextIndex: OStringIndex;
-      var outNewEntry: Boolean): OHashedStringsIndex; overload;
-  public
-    property NextItemId: OHashedStringsIndex read fNextItemId;//next list index to use
+    function Get(const aIndex: OHashedStringsIndex): OStringIndex;
+    function GetItem(const aIndex: OHashedStringsIndex): POVirtualHashItem;
+
+    function Add(const aStringIndex: OStringIndex): OHashedStringsIndex; overload;
+    function Add(const aStringIndex: OStringIndex; var outNewEntry: Boolean): OHashedStringsIndex; overload;
+    function DeleteByString(const aText: OWideString; const aDecStringIndex: Boolean = True): Boolean;
+    function DeleteByStringIndex(const aStringIndex: OStringIndex; const aDecStringIndex: Boolean = True): Boolean;
+    procedure DeleteByHashIndex(const aIndex: OHashedStringsIndex; const aDecStringIndex: Boolean = True);
+    procedure Clear(const aFullClear: Boolean = True);
+    procedure BeginDelete;//speeds up multiple delete calls in a row
+    procedure EndDelete;
+    procedure EndDeleteForce;
+
+    property CaseSensitive: Boolean read fCaseSensitive write SetCaseSensitive;
+    property StringIndex[const aIndex: OHashedStringsIndex]: OStringIndex read Get; default;
+    property Count: OHashedStringsIndex read fNextItemId;
   end;
 
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
@@ -738,8 +755,11 @@ begin
   xBucket := GetItem(aIndex);
 
   //move current bucket to last position
-  System.Move(fItems[aIndex+1], fItems[aIndex], (Count-aIndex)*SizeOf(POHashItem));
-  fItems[Count-1] := xBucket;
+  if aIndex < High(fItems) then
+  begin
+    System.Move(fItems[aIndex+1], fItems[aIndex], (Count-aIndex)*SizeOf(POHashItem));
+    fItems[Count-1] := xBucket;
+  end;
   Dec(fNextItemId);
   if fBlockDelete = 0 then
     for I := aIndex to Count-1 do
@@ -822,11 +842,14 @@ end;
 
 function TOHashedStrings.GetItem(const aIndex: OHashedStringsIndex): POHashItem;
 begin
+  if (aIndex < 0) or (aIndex >= fNextItemId) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
   Result := fItems[aIndex];
 end;
 
 const
-  cHashTable: Array[0..27] of LongWord =
+  cHashTable: array[0..27] of LongWord =
   ( 53,         97,         193,       389,       769,
     1543,       3079,       6151,      12289,     24593,
     49157,      98317,      196613,    393241,    786433,
@@ -909,9 +932,100 @@ begin
   {$ENDIF}
 end;
 
-{ TOVirtualHashIndex }
+{ TOVirtualHashedStrings }
 
-constructor TOVirtualHashIndex.Create(
+function TOVirtualHashedStrings.Add(const aStringIndex: OStringIndex
+  ): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := Add(aStringIndex, x{%H-});
+end;
+
+function TOVirtualHashedStrings.Add(const aStringIndex: OStringIndex;
+  var outNewEntry: Boolean): OHashedStringsIndex;
+var
+  xBucket: POVirtualHashItem;
+  xHash: OHashedStringsIndex;
+  xTextCase: OWideString;
+begin
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
+  xTextCase := LowerCaseIfNotCaseSensitive(fOnGetString(aStringIndex), fCaseSensitive);
+  xBucket := Find(xTextCase, xHash{%H-});
+  if Assigned(xBucket) then
+  begin
+    Result := xBucket.fIndex;
+    outNewEntry := False;
+    Exit;
+  end;
+
+  if fNextItemId = fMaxItemsBeforeGrowBuckets then
+  begin
+    GrowBuckets;
+    xHash := HashOf(xTextCase) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
+  end;
+
+  if fNextItemId = fItemLength then
+  begin
+    New(fItems[fNextItemId]);
+    Inc(fItemLength);
+  end;
+
+  xBucket := fItems[fNextItemId];
+  xBucket.fStringIndex := aStringIndex;
+  xBucket.fIndex := fNextItemId;
+  Result := fNextItemId;
+
+  AddItem(xBucket, xHash);
+
+  Inc(fNextItemId);
+
+  outNewEntry := True;
+end;
+
+procedure TOVirtualHashedStrings.AddItem(const aItem: POVirtualHashItem;
+  const aHash: OHashedStringsIndex);
+begin
+  aItem.fNext := fBuckets[aHash];
+  fBuckets[aHash] := aItem;
+end;
+
+procedure TOVirtualHashedStrings.BeginDelete;
+begin
+  Inc(fBlockDelete);
+end;
+
+procedure TOVirtualHashedStrings.Clear(const aFullClear: Boolean);
+var
+  I: OHashedStringsIndex;
+begin
+  fNextItemId := 0;
+
+  if aFullClear then
+  begin
+    for I := 0 to fItemLength-1 do
+      Dispose(POVirtualHashItem(fItems[I]));
+    fItemLength := 0;
+
+    fLastHashI := 0;
+    GrowBuckets;
+  end else
+  begin
+    ClearBuckets;
+  end;
+end;
+
+procedure TOVirtualHashedStrings.ClearBuckets;
+var
+  I: OHashedStringsIndex;
+begin
+  for I := 0 to Length(fBuckets)-1 do
+    fBuckets[I] := nil;
+end;
+
+constructor TOVirtualHashedStrings.Create(
   const aOnGetString: TOVirtualHashIndexGetStringProc;
   const aOnSameString: TOVirtualHashIndexSameStringProc);
 begin
@@ -924,141 +1038,200 @@ begin
   else
     fOnSameString := DefOnSameString;
 
+  fCaseSensitive := True;
+
   GrowBuckets;
 end;
 
-function TOVirtualHashIndex.DefOnSameString(const aString1Index: OStringIndex;
-  const aString2: OWideString): Boolean;
+function TOVirtualHashedStrings.DefOnSameString(
+  const aString1Index: OStringIndex; const aString2: OWideString;
+  const aCaseSensitive: Boolean): Boolean;
 begin
-  Result := (fOnGetString(aString1Index) = aString2);
+  Result := (LowerCaseIfNotCaseSensitive(fOnGetString(aString1Index), aCaseSensitive) = aString2);//aString2 must already be in lowercase!
 end;
 
-function TOVirtualHashIndex.Find(const aKey: OWideString;
-  var outHash: OHashedStringsIndex): POVirtualHashItem;
+function TOVirtualHashedStrings.DeleteByStringIndex(
+  const aStringIndex: OStringIndex; const aDecStringIndex: Boolean): Boolean;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := HashedIndexOf(fOnGetString(aStringIndex));
+  Result := xIndex >= 0;
+  if Result then
+    DeleteByHashIndex(xIndex, aDecStringIndex);
+end;
+
+procedure TOVirtualHashedStrings.DeleteByHashIndex(
+  const aIndex: OHashedStringsIndex; const aDecStringIndex: Boolean);
+var
+  xBucket, xRunner, xPrevious: POVirtualHashItem;
+  xHash: OHashedStringsIndex;
+  I: OHashedStringsIndex;
+begin
+  xBucket := GetItem(aIndex);
+
+  //move current bucket to last position
+  if aIndex < High(fItems) then
+  begin
+    System.Move(fItems[aIndex+1], fItems[aIndex], (Count-aIndex)*SizeOf(POVirtualHashItem));
+    fItems[Count-1] := xBucket;
+  end;
+  Dec(fNextItemId);
+  if fBlockDelete = 0 then
+    for I := aIndex to Count-1 do
+      Dec(fItems[I].fIndex);
+
+  //if string was deleted from original string container, decrement string indizes
+  if aDecStringIndex then
+    for I := 0 to Count-1 do
+      if fItems[I].fStringIndex > xBucket.fStringIndex then
+        Dec(fItems[I].fStringIndex);
+
+  //remove from hash table
+  xHash := HashOf(LowerCaseIfNotCaseSensitive(fOnGetString(xBucket.fStringIndex), fCaseSensitive)) mod Cardinal(Length(fBuckets));
+  xRunner := fBuckets[xHash];
+  xPrevious := nil;
+  while (xRunner <> nil) and (xRunner <> xBucket) do
+  begin
+    xPrevious := xRunner;
+    xRunner := xRunner.fNext;
+  end;
+  Assert(xRunner = xBucket);
+  if Assigned(xPrevious) then
+    xPrevious.fNext := xBucket.fNext
+  else
+    fBuckets[xHash] := xBucket.fNext;
+end;
+
+function TOVirtualHashedStrings.DeleteByString(const aText: OWideString;
+  const aDecStringIndex: Boolean): Boolean;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := HashedIndexOf(aText);
+  Result := xIndex >= 0;
+  if Result then
+    DeleteByHashIndex(xIndex, aDecStringIndex);
+end;
+
+destructor TOVirtualHashedStrings.Destroy;
+begin
+  Clear(True);
+
+  inherited;
+end;
+
+procedure TOVirtualHashedStrings.EndDelete;
+var
+  I: Integer;
+begin
+  if fBlockDelete > 0 then
+    Dec(fBlockDelete);
+
+  if fBlockDelete = 0 then
+    for I := 0 to Count-1 do
+      fItems[I].fIndex := I;
+end;
+
+procedure TOVirtualHashedStrings.EndDeleteForce;
+begin
+  if fBlockDelete > 0 then
+  begin
+    fBlockDelete := 1;
+    EndDelete;
+  end;
+end;
+
+function TOVirtualHashedStrings.Find(const aKey: OWideString; var outHash: OHashedStringsIndex): POVirtualHashItem;
 begin
   outHash := HashOf(aKey) mod Cardinal(Length(fBuckets));
   Result := fBuckets[outHash];
   while Result <> nil do
   begin
-    if fOnSameString(Result.fStringIndex, aKey) then
+    if fOnSameString(Result.fStringIndex, aKey, fCaseSensitive) then
       Exit
     else
       Result := Result.fNext;
   end;
 end;
 
-procedure TOVirtualHashIndex.GrowBuckets;
+function TOVirtualHashedStrings.Get(const aIndex: OHashedStringsIndex): OStringIndex;
+begin
+  if (aIndex < 0) or (aIndex >= fNextItemId) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  Result := fItems[aIndex].fStringIndex;
+end;
+
+function TOVirtualHashedStrings.GetItem(const aIndex: OHashedStringsIndex): POVirtualHashItem;
+begin
+  if (aIndex < 0) or (aIndex >= fNextItemId) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  Result := fItems[aIndex];
+end;
+
+procedure TOVirtualHashedStrings.GrowBuckets;
 var
-  I, xLastItemCount: OHashedStringsIndex;
+  I: OHashedStringsIndex;
+  xTableSize: LongWord;
 begin
-  xLastItemCount := fNextItemId;
-  Clear(fMaxItemsBeforeGrowBuckets+1);
+  ClearBuckets;
 
-  for I := 0 to xLastItemCount-1 do
-    AddItem(@fList[I], HashOf(fOnGetString(fList[I].fStringIndex)) mod Cardinal(Length(fBuckets)));
+  xTableSize := cHashTable[fLastHashI];
 
-  fNextItemId := xLastItemCount;
+  SetLength(fBuckets, xTableSize);
+  fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
+
+  SetLength(fItems, fMaxItemsBeforeGrowBuckets);
+
+  for I := 0 to fNextItemId-1 do
+    AddItem(fItems[I], HashOf(LowerCaseIfNotCaseSensitive(fOnGetString(fItems[I].fStringIndex), fCaseSensitive)) mod Cardinal(Length(fBuckets)));
+
+  Inc(fLastHashI);
 end;
 
-function TOVirtualHashIndex.Add(const aTextIndex: OStringIndex): OHashedStringsIndex;
+function TOVirtualHashedStrings.HashedIndexOf(const aText: OWideString
+  ): OHashedStringsIndex;
 var
-  x: Boolean;
+  xP: POVirtualHashItem;
+  xH: OHashedStringsIndex;
 begin
-  Result := Add(aTextIndex, x{%H-});
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
+  xP := Find(LowerCaseIfNotCaseSensitive(aText, fCaseSensitive), xH{%H-});
+  if xP <> nil then
+    Result := xP.fIndex
+  else
+    Result := -1;
 end;
 
-function TOVirtualHashIndex.Add(
-  const aTextIndex: OStringIndex;
-  var outNewEntry: Boolean): OHashedStringsIndex;
-var
-  xBucket: POVirtualHashItem;
-  xHash: OHashedStringsIndex;
-  xText: OWideString;
-begin
-  xText := fOnGetString(aTextIndex);
-  xBucket := Find(xText, xHash{%H-});
-  if Assigned(xBucket) then
-  begin
-    Result := xBucket.fIndex;
-    outNewEntry := False;
-    Exit;
-  end;
-
-  if fNextItemId = fMaxItemsBeforeGrowBuckets then
-  begin
-    GrowBuckets;
-    xHash := HashOf(xText) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
-  end;
-
-  AddItem(@fList[fNextItemId], xHash);
-  fList[fNextItemId].fStringIndex := aTextIndex;
-  Result := fNextItemId;
-
-  Inc(fNextItemId);
-
-  outNewEntry := True;
-end;
-
-procedure TOVirtualHashIndex.AddItem(const aItem: POVirtualHashItem;
-  const aHash: OHashedStringsIndex);
-begin
-  aItem.fNext := fBuckets[aHash];
-  fBuckets[aHash] := aItem;
-end;
-
-function TOVirtualHashIndex.StringIndexOf(
+function TOVirtualHashedStrings.StringIndexOf(
   const aText: OWideString): OStringIndex;
 var
   xP: POVirtualHashItem;
   xH: OHashedStringsIndex;
 begin
-  xP := Find(aText, xH{%H-});
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
+  xP := Find(LowerCaseIfNotCaseSensitive(aText, fCaseSensitive), xH{%H-});
   if xP <> nil then
     Result := xP.fStringIndex
   else
     Result := -1;
 end;
 
-procedure TOVirtualHashIndex.Clear(const aNewCount: Integer);
-var
-  I: OHashedStringsIndex;
-  xTableSize: LongWord;
-  xLastLength: Integer;
+procedure TOVirtualHashedStrings.SetCaseSensitive(const aCaseSensitive: Boolean);
 begin
-  if aNewCount > fMaxItemsBeforeGrowBuckets then
-  begin
-    for I := Low(cHashTable) to High(cHashTable) do
-    if cHashTable[I] > Cardinal(aNewCount)*3 div 2 then
-    begin
-      xTableSize := cHashTable[I];
+  if fCaseSensitive = aCaseSensitive then
+    Exit;
 
-      SetLength(fBuckets, xTableSize);
-      fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
+  if fNextItemId > 0 then
+    raise Exception.Create('TOVirtualHashedStrings: cannot set CaseSensitive to a non-empty list.');
 
-      Break;
-    end;
-  end;
-
-  if Length(fList) < fMaxItemsBeforeGrowBuckets then
-  begin
-    xLastLength := Length(fList);
-    SetLength(fList, fMaxItemsBeforeGrowBuckets);
-    for I := xLastLength to High(fList) do
-      fList[I].fStringIndex := -1;
-  end;
-
-
-  for I := Low(fList) to High(fList) do//must set all to nil!
-  begin
-    fList[I].fIndex := I;
-    fList[I].fNext := nil;
-    //you must not set fStringIndex to -1 here -> old indices would get overwritten !!!
-  end;
-
-  for I := Low(fBuckets) to High(fBuckets) do//must set all to nil!
-    fBuckets[I] := nil;
-
-  fNextItemId := 0;
+  fCaseSensitive := aCaseSensitive;
 end;
 
 end.

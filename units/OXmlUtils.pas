@@ -133,6 +133,7 @@ type
     procedure SetString(const aString: OWideString);
     procedure SetString_UTF8(const aString: OUTF8Container);
     procedure SetBuffer(const aBuffer: TBytes);
+    procedure SetEncodingBuffer(const aBuffer: TEncodingBuffer);
   end;
 
   TXMLDeclaration = class(TObject)
@@ -1081,7 +1082,18 @@ begin
     SetPointer(nil, 0);
 end;
 
-procedure TVirtualMemoryStream.SetPointer(aPtr: Pointer; const aSize: Integer);
+procedure TVirtualMemoryStream.SetEncodingBuffer(const aBuffer: TEncodingBuffer);
+var
+  xLength: Integer;
+begin
+  xLength := Length(aBuffer);
+  if xLength > 0 then
+    SetPointer(@aBuffer[TEncodingBuffer_FirstElement], xLength)
+  else
+    SetPointer(nil, 0);
+end;
+
+procedure TVirtualMemoryStream.SetPointer(aPtr: Pointer; const aSize: Longint);
 begin
   inherited SetPointer(aPtr, aSize);
 end;
@@ -1108,7 +1120,7 @@ begin
     SetPointer(nil, 0);
 end;
 
-function TVirtualMemoryStream.{%H-}Write(const Buffer; Count: Integer): Longint;
+function TVirtualMemoryStream.Write(const Buffer; Count: Longint): Longint;
 begin
   raise Exception.Create(OXmlLng_CannotWriteToVirtualMemoryStream);
 end;
