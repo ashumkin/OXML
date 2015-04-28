@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 1.7 2015-04-28 [SVN commit: 73, https://sourceforge.net/p/oxml/code/73/]
+Version 1.7 2015-04-28 [SVN commit: 75, https://sourceforge.net/p/oxml/code/75/]
   - Compatibility with XE8.
   - Fixed FileList demo.
   - Completely rewritten TOVirtualHashIndex -> it's called TOVirtualHashedStrings now
@@ -17,6 +17,7 @@ Version 1.7 2015-04-28 [SVN commit: 73, https://sourceforge.net/p/oxml/code/73/]
   - Fixed demos
   - C++ Builder compatibility.
   - TOTextBuffer inserted back.
+  - Delphi packages changed with use of LIBSUFFIX. OXml.dpk is a runtime package, OXml_Designtime.dpk is a design-time package.
 
 
 Version 1.6 2015-03-25 [SVN commit: 64, https://sourceforge.net/p/oxml/code/64/]
