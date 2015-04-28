@@ -1,6 +1,24 @@
 OXml Change Log
 ---------------
 
+Version 1.7 2015-04-28 [SVN commit: 73, https://sourceforge.net/p/oxml/code/73/]
+  - Compatibility with XE8.
+  - Fixed FileList demo.
+  - Completely rewritten TOVirtualHashIndex -> it's called TOVirtualHashedStrings now
+    and it has the same properties as TOHashedStrings.
+  - TOHashedStrings with object dictionary split into TOHashedStringObjDictionary. You can now use Pointer dictionary on ARC as well.
+  - Fixed various bugs on NextGEN/ARC (OJSON.pas, OTextReadWrite.pas, OXmlCDOM.pas, OXmlPDOM.pas, OXmlReadWrite.pas, OXmlRTTISerialize.pas).
+  - Unit tests now sucessfully run on all supported Delphi versions, including non-unicode, unicode, ARC and FPC/Lazarus.
+  - Added more properties to TOBufferedWriteStream.
+  - Added TOHashedStrings.OwnsObjects
+  - Added a setter to TXMLNode.NodeName and TXMLNode.NodeNameId (OXmlPDOM, OXmlCDOM).
+  - Added TSAXParser.OnXMLDeclaration
+  - Fixed bug in WideStringReplace
+  - Fixed demos
+  - C++ Builder compatibility.
+  - TOTextBuffer inserted back.
+
+
 Version 1.6 2015-03-25 [SVN commit: 64, https://sourceforge.net/p/oxml/code/64/]
   - Added JSON reader/writer (beta).
   - Compatibility with FPC trunk (3.1.1).

@@ -98,11 +98,11 @@ uses
 
 type
   {$IFDEF FPC}
-    OWideString = string;//UTF-8
+    OWideString = UTF8String;//UTF-8
     OUnicodeString = UnicodeString;//UTF-16
-    OWideChar = Char;
-    POWideChar = PChar;
-    OUnicodeChar = WideChar;
+    OWideChar = AnsiChar;
+    POWideChar = PAnsiChar;
+    OUnicodeChar = UnicodeChar;
     POUnicodeChar = PWideChar;
     ORawByteString = AnsiString;
     ONativeInt = NativeInt;
@@ -159,8 +159,13 @@ type
   //Unicode Delphi: string
   //Non-unicode Delphi: WideString stored in AnsiString -> with double char size!!!
   //Lazarus: UTF8
-  OFastString = string;
-  POFastChar = PChar;
+  {$IFDEF O_DELPHI_2007_DOWN}
+  OFastString = AnsiString;
+  POFastChar = PAnsiChar;
+  {$ELSE}
+  OFastString = OWideString;
+  POFastChar = POWideChar;
+  {$ENDIF}
 
   TOWideStringArray = array of OWideString;
 

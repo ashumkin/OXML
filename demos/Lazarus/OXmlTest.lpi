@@ -57,6 +57,9 @@
               </Win32>
             </Options>
           </Linking>
+          <Other>
+            <CustomOptions Value="-FcUTF8"/>
+          </Other>
         </CompilerOptions>
       </Item2>
       <Item3 Name="Release">
@@ -89,8 +92,14 @@
               </Win32>
             </Options>
           </Linking>
+          <Other>
+            <CustomOptions Value="-FcUTF8"/>
+          </Other>
         </CompilerOptions>
       </Item3>
+      <SharedMatrixOptions Count="1">
+        <Item1 ID="912981131336" Modes="Release,Debug,Default" Value="-dEnableUTF8RTL"/>
+      </SharedMatrixOptions>
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
@@ -218,6 +227,9 @@
         </Win32>
       </Options>
     </Linking>
+    <Other>
+      <CustomOptions Value="-FcUTF8"/>
+    </Other>
   </CompilerOptions>
   <Debugging>
     <Exceptions Count="3">

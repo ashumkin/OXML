@@ -236,6 +236,8 @@ type
     //  -> it's not assured that some text can be read, use only as extra information
     //     e.g. for errors etc.
     function ReadPreviousString(const aMaxChars: Integer; const aBreakAtNewLine: Boolean = False): TBytes;
+
+    procedure ReleaseDocument; virtual;
   public
     //(optional) URL parameter that will be shown if an error occurs
     property URL: OWideString read fURL write fURL;
@@ -251,8 +253,6 @@ type
 
     property ParseError: IOTextParseError read fParseError;
     property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;
-  public
-    procedure ReleaseDocument; virtual;
   end;
 
   TOUTF8StringReader = class(TOCustomUTF8Reader)

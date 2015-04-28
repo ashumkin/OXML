@@ -476,14 +476,6 @@ begin
   begin
   end;
 
-  {if fReader.CurrentChar^ = Ord(',') then//value/namepair separator
-  begin
-    fReader.IncCurrentChar;
-    while OJSONIsWhiteSpaceChar(fReader.CurrentChar^) and fReader.IncCurrentChar do//jump over spaces
-    begin
-    end;
-  end;}
-
   case fReader.CurrentChar^ of
     Ord(','):
     begin

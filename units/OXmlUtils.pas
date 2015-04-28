@@ -231,7 +231,7 @@ function TryEncodeDateTime(aYear, aMonth, aDay, aHour, aMin, aSec,
   aMSec: Word; var outValue: TDateTime): Boolean;
 {$ENDIF}
 
-function SymbolNameToString(const aShortStringPointer: PByte): string;
+function SymbolNameToString(const aShortStringPointer: PByte): OWideString;
 
 //solves problem with generic names TType<A,B> -> TType_-A-B-_
 function OXmlNameToXML(const aName: string): string;
@@ -282,7 +282,7 @@ begin
   Result := StringReplace(Result, '-', ',', [rfReplaceAll]);
 end;
 
-function SymbolNameToString(const aShortStringPointer: PByte): string;
+function SymbolNameToString(const aShortStringPointer: PByte): OWideString;
 var
   xShortStringLength: Byte;
   xShortString: TEncodingBuffer;
@@ -1122,6 +1122,9 @@ end;
 
 function TVirtualMemoryStream.Write(const Buffer; Count: Longint): Longint;
 begin
+  {$IFDEF FPC}
+  Result := 0;//to supress compiler warnings
+  {$ENDIF}
   raise Exception.Create(OXmlLng_CannotWriteToVirtualMemoryStream);
 end;
 

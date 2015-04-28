@@ -3,7 +3,7 @@
         <ProjectGuid>{11532EE1-08F2-4DA2-8411-A4E4ADAD1ACC}</ProjectGuid>
         <MainSource>OXmlTest.dpr</MainSource>
         <Base>True</Base>
-        <Config Condition="'$(Config)'==''">Debug</Config>
+        <Config Condition="'$(Config)'==''">Release</Config>
         <TargetedPlatforms>1</TargetedPlatforms>
         <AppType>Application</AppType>
         <FrameworkType>VCL</FrameworkType>
