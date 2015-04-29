@@ -721,7 +721,7 @@ begin
     Result[I] := CurrentChar^;
     Inc(I);
   until
-    (I < aMaxChars) and IncCurrentChar;
+    not((I < aMaxChars) and IncCurrentChar);
 
   if aBreakAtNewLine and aMoveCaretAfterNewLine then
   begin

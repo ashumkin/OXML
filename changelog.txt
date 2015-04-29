@@ -1,7 +1,7 @@
 OXml Change Log
 ---------------
 
-Version 1.7 2015-04-28 [SVN commit: 75, https://sourceforge.net/p/oxml/code/75/]
+Version 1.7 2015-04-28 [SVN commit: 76, https://sourceforge.net/p/oxml/code/76/]
   - Compatibility with XE8.
   - Fixed FileList demo.
   - Completely rewritten TOVirtualHashIndex -> it's called TOVirtualHashedStrings now
