@@ -32,7 +32,6 @@ package OXml_Designtime;
 
 requires
   rtl,
-  xmlrtl,
   OXml;
 
 contains

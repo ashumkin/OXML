@@ -1,6 +1,6 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{1EAA1BDC-C6EF-4B6B-B818-BE2A8407E53A}</ProjectGuid>
+        <ProjectGuid>{9734C9A8-C4A8-4FE9-91AD-73E6D9379415}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
         <Projects Include="OXml.dproj">
