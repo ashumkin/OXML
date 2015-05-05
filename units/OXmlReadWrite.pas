@@ -1203,6 +1203,8 @@ begin
     xLastName := fReaderToken.TokenName;
     fLastTokenType := rtDocumentStart;
     fOpenElementTokens.Clear;
+    if Assigned(fAttributeTokens) then
+      fAttributeTokens.Clear;
     //parse from beginning back to the encoding attribute
     while ReadNextToken(xReaderToken{%H-}) do
     begin
