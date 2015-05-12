@@ -329,19 +329,15 @@ function ISOFloatToStr(const aValue: Extended): string;
 {$IFDEF O_DELPHI_6_DOWN}
 var
   I: Integer;
-  PResult: PChar;
 {$ENDIF}
 begin
   {$IFDEF O_DELPHI_6_DOWN}
   Result := FloatToStr(aValue);
   if DecimalSeparator <> '.' then
   begin
-    I := Pos(',', Result);
+    I := Pos(DecimalSeparator, Result);
     if I > 0 then
-    begin
-      PResult := PChar(Result);
-      PResult[I-1] := '.';
-    end;
+      Result[I] := '.';
   end;
   {$ELSE}
   Result := FloatToStr(aValue, gxISOFormatSettings);
