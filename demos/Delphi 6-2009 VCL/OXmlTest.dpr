@@ -16,10 +16,9 @@ uses
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
-  {$IFNDEF VER130}
   OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas',
-  {$ENDIF}
-  OXmlCDOM in '..\..\units\OXmlCDOM.pas';
+  OXmlCDOM in '..\..\units\OXmlCDOM.pas',
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas';
 
 {$R *.res}
 

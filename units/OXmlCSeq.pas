@@ -1,4 +1,4 @@
-unit OXmlSeq;
+unit OXmlCSeq;
 
 {
 
@@ -13,16 +13,16 @@ unit OXmlSeq;
 }
 
 {
-  OXmlSeq.pas
+  OXmlCSeq.pas
 
-  Sequential DOM XML parser based on XmlPDOM.pas
+  Sequential DOM XML parser based on OXmlCDOM.pas
     -> read particular XML elements into DOM and so parse huge XML documents
        with small memory usage but still take advantage of DOM capabilities.
     -> you can also omit some XML passages and get only the information
        that is insteresting to you
-    -> OXmlSeq is faster than OXmlPDOM - there is no significant performance
+    -> OXmlCSeq is faster than OXmlCDOM - there is no significant performance
        penalty when using sequential parser instead of pure DOM. On the contrary
-       OXmlSeq stores less objects in the memory, therefore it is even faster.
+       OXmlCSeq stores less objects in the memory, therefore it is even faster.
 }
 
 {$I OXml.inc}
@@ -46,7 +46,7 @@ uses
   SysUtils, Classes,
   {$ENDIF}
 
-  OWideSupp, OXmlUtils, OTextReadWrite, OXmlReadWrite, OEncoding, OXmlPDOM;
+  OWideSupp, OXmlUtils, OTextReadWrite, OXmlReadWrite, OEncoding, OXmlCDOM;
 
 type
 
@@ -121,7 +121,7 @@ type
     //  if no child element is found (result=false), the reader position will
     //    be set after the parent's closing element (i.e. no GoToPath('..') call
     //    is needed).
-    function ReadNextChildElementHeader(var outNode: PXMLNode;
+    function ReadNextChildElementHeader(var outNode: TXMLNode;
       var outElementIsOpen: Boolean): Boolean;
     //the same as ReadNextChildElementHeader, but no information is returned
     function SkipNextChildElementHeader(var outElementIsOpen: Boolean): Boolean;
@@ -130,14 +130,14 @@ type
     //  (e.g. '<child attr="value">' will be read
     //  if element has child nodes, the parser will seek to the closing element
     //  so that the same parent level is reached again
-    function ReadNextChildElementHeaderClose(var outNode: PXMLNode): Boolean;
+    function ReadNextChildElementHeaderClose(var outNode: TXMLNode): Boolean;
 
     //seek to next XML node (element, text, CData, etc.) and read the whole
     //  element contents with attributes and children.
     //  (e.g. '<child attr="value">my text<br />2nd line</child>' will be read.
     //  if no child element is found (result=false), the reader position will
     //    be set after the parent's closing element.
-    function ReadNextChildNode(var outNode: PXMLNode): Boolean;
+    function ReadNextChildNode(var outNode: TXMLNode): Boolean;
     //the same as ReadNextChildNode, but no information is returned
     function SkipNextChildNode: Boolean;
 
@@ -323,14 +323,14 @@ end;
 function TXMLSeqParser.SkipNextChildElementHeader(
   var outElementIsOpen: Boolean): Boolean;
 var
-  x: PXMLNode;
+  x: TXMLNode;
 begin
   Result := ReadNextChildElementHeader(x{%H-}, outElementIsOpen);
 end;
 
 function TXMLSeqParser.SkipNextChildNode: Boolean;
 var
-  x: PXMLNode;
+  x: TXMLNode;
 begin
   //use ReadNextChildElementHeaderClose instead of ReadNextChildNode
   //  -> the same result/functionality, but better performance because
@@ -339,7 +339,7 @@ begin
 end;
 
 function TXMLSeqParser.ReadNextChildElementHeader(
-  var outNode: PXMLNode; var outElementIsOpen: Boolean): Boolean;
+  var outNode: TXMLNode; var outElementIsOpen: Boolean): Boolean;
 begin
   Result := ReadNextChildNodeCustom(True, outElementIsOpen);
   if Result then
@@ -347,7 +347,7 @@ begin
 end;
 
 function TXMLSeqParser.ReadNextChildElementHeaderClose(
-  var outNode: PXMLNode): Boolean;
+  var outNode: TXMLNode): Boolean;
 var
   xElementIsOpen: Boolean;
 begin
@@ -356,7 +356,7 @@ begin
     GoToPath('..');//go back to parent
 end;
 
-function TXMLSeqParser.ReadNextChildNode(var outNode: PXMLNode): Boolean;
+function TXMLSeqParser.ReadNextChildNode(var outNode: TXMLNode): Boolean;
 var
   x: Boolean;
 begin
@@ -372,7 +372,7 @@ type
 function TXMLSeqParser.ReadNextChildNodeCustom(
   const aOnlyElementHeader: Boolean; var outElementIsOpen: Boolean): Boolean;
 var
-  xLastNode: PXMLNode;
+  xLastNode: TXMLNode;
   xBreakReading: TXMLBreakReading;
 begin
   Result := False;

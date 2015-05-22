@@ -122,7 +122,7 @@
         <PackageName Value="LCL"/>
       </Item3>
     </RequiredPackages>
-    <Units Count="16">
+    <Units Count="17">
       <Unit0>
         <Filename Value="OXmlTest.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -133,7 +133,6 @@
         <ComponentName Value="Form1"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Form"/>
-        <UnitName Value="uXmlTest"/>
       </Unit1>
       <Unit2>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
@@ -142,27 +141,22 @@
       <Unit3>
         <Filename Value="..\..\units\ODictionary.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="ODictionary"/>
       </Unit3>
       <Unit4>
         <Filename Value="..\..\units\OEncoding.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OEncoding"/>
       </Unit4>
       <Unit5>
         <Filename Value="..\..\units\OHashedStrings.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OHashedStrings"/>
       </Unit5>
       <Unit6>
         <Filename Value="..\..\units\OTextReadWrite.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OTextReadWrite"/>
       </Unit6>
       <Unit7>
         <Filename Value="..\..\units\OWideSupp.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OWideSupp"/>
       </Unit7>
       <Unit8>
         <Filename Value="..\..\units\OXmlLng.pas"/>
@@ -171,38 +165,35 @@
       <Unit9>
         <Filename Value="..\..\units\OXmlReadWrite.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlReadWrite"/>
       </Unit9>
       <Unit10>
         <Filename Value="..\..\units\OXmlSAX.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlSAX"/>
       </Unit10>
       <Unit11>
         <Filename Value="..\..\units\OXmlSeq.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlSeq"/>
       </Unit11>
       <Unit12>
         <Filename Value="..\..\units\OXmlUtils.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlUtils"/>
       </Unit12>
       <Unit13>
         <Filename Value="..\..\units\OXmlXPath.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlXPath"/>
       </Unit13>
       <Unit14>
         <Filename Value="..\..\units\OXmlPDOM.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlPDOM"/>
       </Unit14>
       <Unit15>
         <Filename Value="..\..\units\OXmlCDOM.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlCDOM"/>
       </Unit15>
+      <Unit16>
+        <Filename Value="..\..\units\OXmlCSeq.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit16>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

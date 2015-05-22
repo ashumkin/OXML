@@ -107,7 +107,7 @@
         <PackageName Value="LazUtils"/>
       </Item1>
     </RequiredPackages>
-    <Units Count="18">
+    <Units Count="19">
       <Unit0>
         <Filename Value="OXmlUTest_Laz.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -115,7 +115,6 @@
       <Unit1>
         <Filename Value="..\OXmlUnitTests.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlUnitTests"/>
       </Unit1>
       <Unit2>
         <Filename Value="..\..\units\OXmlXPath.pas"/>
@@ -136,7 +135,6 @@
       <Unit6>
         <Filename Value="..\..\units\OHashedStrings.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OHashedStrings"/>
       </Unit6>
       <Unit7>
         <Filename Value="..\..\units\OTextReadWrite.pas"/>
@@ -157,7 +155,6 @@
       <Unit11>
         <Filename Value="..\..\units\OXmlSAX.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="OXmlSAX"/>
       </Unit11>
       <Unit12>
         <Filename Value="..\..\units\OXmlSeq.pas"/>
@@ -183,6 +180,10 @@
         <Filename Value="..\..\units\OJSON.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit17>
+      <Unit18>
+        <Filename Value="..\..\units\OXmlCSeq.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit18>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

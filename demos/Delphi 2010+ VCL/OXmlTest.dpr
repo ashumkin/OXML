@@ -19,7 +19,8 @@ uses
   OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas',
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
-  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas',
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas';
 
 {$R *.res}
 

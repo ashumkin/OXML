@@ -35,7 +35,7 @@ uses
 
   OWideSupp, OXmlUtils, OEncoding,
   OTextReadWrite, OXmlReadWrite,
-  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq, OJSON,
+  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq, OXmlCSeq, OJSON,
   OXmlSerialize
   {$IFDEF USE_RTTI}, OXmlRTTISerialize, Generics.Collections{$ENDIF}
 
@@ -43,7 +43,7 @@ uses
   ;
 
 const
-  cTestCount = 66;
+  cTestCount = 67;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -132,7 +132,10 @@ type
     function Test_TSAXParser_HashIndex: Boolean;
   private
     //OXmlSeq.pas
-    function Test_TXMLSeqParser_Test1: Boolean;
+    function Test_OXmlSeq_TXMLSeqParser_Test1: Boolean;
+  private
+    //OXmlCSeq.pas
+    function Test_OXmlCSeq_TXMLSeqParser_Test1: Boolean;
   private
     //OXmlXPath.pas
     function Test_OXmlXPath_Test1: Boolean;
@@ -397,7 +400,8 @@ begin
   ExecuteFunction(Test_TOHashedStrings_Delete, 'Test_TOHashedStrings_Delete');
   ExecuteFunction(Test_TOHashedStringObjDictinary_Test1, 'Test_TOHashedStringObjDictinary_Test1');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
-  ExecuteFunction(Test_TXMLSeqParser_Test1, 'Test_TXMLSeqParser_Test1');
+  ExecuteFunction(Test_OXmlSeq_TXMLSeqParser_Test1, 'Test_OXmlSeq_TXMLSeqParser_Test1');
+  ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test1, 'Test_OXmlCSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
   ExecuteFunction(Test_OXmlSerializer_Test1True, 'Test_OXmlSerializer_Test1True');
   ExecuteFunction(Test_OXmlSerializer_Test1False, 'Test_OXmlSerializer_Test1False');
@@ -1253,7 +1257,7 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_TXMLSeqParser_Test1: Boolean;
+function TOXmlUnitTest.Test_OXmlSeq_TXMLSeqParser_Test1: Boolean;
 const
   inXml: OWideString =
     '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
@@ -1275,16 +1279,78 @@ const
     '</teryt>'+sLineBreak;
   outStr: OWideString = 'WOJ:04;POW:10;ABC:09;CDE:11;REW:00;OLD:99;';
 var
-  xXMLSeq: TXMLSeqParser;
-  xNode: OXmlPDOM.PXMLNode;
-  xColNode: OXmlPDOM.PXMLNode;
-  xName, xValue:String;
+  xXMLSeq: OXmlSeq.TXMLSeqParser;
+  xNode, xColNode: OXmlPDOM.PXMLNode;
+  xName, xValue: string;
   xOpened: Boolean;
   xStr: OWideString;
 begin
   Result := False;
 
-  xXMLSeq := TXMLSeqParser.Create;
+  xXMLSeq := OXmlSeq.TXMLSeqParser.Create;
+  try
+    xXMLSeq.InitXML(inXml);
+    xXMLSeq.WhiteSpaceHandling := wsTrim;
+
+    if not(xXMLSeq.GoToPath('/teryt/catalog')) then
+      Exit;
+
+    if not((xXMLSeq.ReadNextChildElementHeader({%H-}xNode, {%H-}xOpened)) and xOpened) then
+      Exit;
+
+    xStr := '';
+    while xXMLSeq.ReadNextChildNode(xNode) do
+    begin
+      if(xNode.NodeType = ntElement) and (xNode.NodeName = 'row') then
+      begin
+        xColNode := nil;
+        while xNode.GetNextChild(xColNode) do
+        begin
+          xName := xColNode.GetAttribute('name');
+          xValue := xColNode.Text;
+
+          xStr := xStr + xName+':'+xValue+';'
+        end;
+      end;
+    end;
+
+    Result := (xStr = outStr);
+  finally
+    xXMLSeq.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCSeq_TXMLSeqParser_Test1: Boolean;
+const
+  inXml: OWideString =
+    '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
+    '<teryt>'+sLineBreak+
+    '  <catalog name="ULIC">'+sLineBreak+
+    '    <row name="row1">'+sLineBreak+
+    '      <col name="WOJ">04</col>'+sLineBreak+
+    '      <col name="POW">10</col>'+sLineBreak+
+    '    </row>'+sLineBreak+
+    '    <row name="row2">'+sLineBreak+
+    '      <col name="ABC">09</col>'+sLineBreak+
+    '      <col name="CDE">11</col>'+sLineBreak+
+    '    </row>'+sLineBreak+
+    '    <row name="row3">'+sLineBreak+
+    '      <col name="REW">00</col>'+sLineBreak+
+    '      <col name="OLD">99</col>'+sLineBreak+
+    '    </row>'+sLineBreak+
+    '  </catalog>'+sLineBreak+
+    '</teryt>'+sLineBreak;
+  outStr: OWideString = 'WOJ:04;POW:10;ABC:09;CDE:11;REW:00;OLD:99;';
+var
+  xXMLSeq: OXmlCSeq.TXMLSeqParser;
+  xNode, xColNode: OXmlCDOM.TXMLNode;
+  xName, xValue: string;
+  xOpened: Boolean;
+  xStr: OWideString;
+begin
+  Result := False;
+
+  xXMLSeq := OXmlCSeq.TXMLSeqParser.Create;
   try
     xXMLSeq.InitXML(inXml);
     xXMLSeq.WhiteSpaceHandling := wsTrim;

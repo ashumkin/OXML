@@ -24,7 +24,8 @@ uses
   OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
   OXmlSerialize in '..\..\units\OXmlSerialize.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
-  OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas';
+  OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas',
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas';
 
 var
   xTest: TOXmlUnitTest;

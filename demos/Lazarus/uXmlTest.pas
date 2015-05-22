@@ -68,7 +68,7 @@ uses
   {$ENDIF}
   //END XML LIBRARIES UNITS
   OEncoding, OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
-  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlSeq, OXmlSerialize
+  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlSeq, OXmlCSeq, OXmlSerialize
   {$IFDEF USE_RTTI}
   , OXmlRTTISerialize
   {$ENDIF}
@@ -944,7 +944,7 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
       end;
     end;
   var
-    xSeq: TXMLSeqParser;
+    xSeq: OXmlSeq.TXMLSeqParser;
     xT1, xT2: Int64;
     xDataIsOpen: Boolean;
     xRowNode: PXMLNode;
@@ -952,7 +952,7 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
     xT1 := GetTickCount64;
 
     //read
-    xSeq := TXMLSeqParser.Create;
+    xSeq := OXmlSeq.TXMLSeqParser.Create;
     try
       xSeq.InitFile(DocDir+'sheet1.xml');
 
@@ -975,7 +975,69 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
 
     Memo1.Lines.Text :=
       Memo1.Lines.Text+sLineBreak+
-      'OXml Sequential DOM'+sLineBreak+
+      'OXml Sequential DOM (record)'+sLineBreak+
+      'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
+      sLineBreak+sLineBreak;
+  end;
+
+  procedure TestOXmlCSeq;
+    procedure _Navigate(const aNode: OXmlCDOM.TXMLNode);
+    var
+      xCNode: OXmlCDOM.TXMLNode;
+    begin
+      if aNode.HasAttributes then begin
+        xCNode := aNode.FirstAttribute;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, xCNode.NodeValue);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+
+      if aNode.HasChildNodes then begin
+        xCNode := aNode.FirstChild;
+        while Assigned(xCNode) do
+        begin
+          DoNothing(xCNode.NodeName, '');
+          if xCNode.NodeType = OXmlUtils.ntElement then
+            _Navigate(xCNode);
+          xCNode := xCNode.NextSibling;
+        end;
+      end;
+    end;
+  var
+    xSeq: OXmlCSeq.TXMLSeqParser;
+    xT1, xT2: Int64;
+    xDataIsOpen: Boolean;
+    xRowNode: OXmlCDOM.TXMLNode;
+  begin
+    xT1 := GetTickCount64;
+
+    //read
+    xSeq := OXmlCSeq.TXMLSeqParser.Create;
+    try
+      xSeq.InitFile(DocDir+'sheet1.xml');
+
+      xSeq.GoToPath('/worksheet/sheetData');
+      xSeq.SkipNextChildElementHeader(xDataIsOpen{%H-});
+      if xDataIsOpen then
+      begin
+        while xSeq.ReadNextChildNode(xRowNode{%H-}) do
+        begin
+          //nothing
+        end;
+      end;
+
+      xSeq.GoToPath('/');//go to end
+    finally
+      xSeq.Free;
+    end;
+
+    xT2 := GetTickCount64;
+
+    Memo1.Lines.Text :=
+      Memo1.Lines.Text+sLineBreak+
+      'OXml Sequential DOM (class)'+sLineBreak+
       'Load: '+FloatToStr((xT2-xT1) / 1000)+sLineBreak+
       sLineBreak+sLineBreak;
   end;
@@ -1058,6 +1120,8 @@ begin
   TestOXmlCDOM;
 
   TestOXmlPDOM;
+
+  TestOXmlCSeq;
 
   TestOXmlSeq;
 
@@ -1195,12 +1259,12 @@ end;
 procedure TForm1.BtnSequentialTestClick(Sender: TObject);
   procedure TestSeq(const aXML, aCorrectOutput: OWideString; aMemo: TMemo);
   var
-    xSeqParser: TXMLSeqParser;
+    xSeqParser: OXmlSeq.TXMLSeqParser;
     xNode, xAttr: OXmlPDOM.PXMLNode;
     xItemsElementIsOpen: Boolean;
     xName, xColor, xText: OWideString;
   begin
-    xSeqParser := TXMLSeqParser.Create;
+    xSeqParser := OXmlSeq.TXMLSeqParser.Create;
     try
       xSeqParser.InitXML(aXML);
       xSeqParser.ReaderSettings.BreakReading := brNone;
