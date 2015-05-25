@@ -3,6 +3,7 @@
   <Package Version="4">
     <PathDelim Value="\"/>
     <Name Value="OXml_Lazarus"/>
+    <Type Value="RunTimeOnly"/>
     <CompilerOptions>
       <Version Value="11"/>
       <PathDelim Value="\"/>
@@ -10,14 +11,8 @@
         <OtherUnitFiles Value="..\..\units"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
-      <Other>
-        <CompilerMessages>
-          <MsgFileName Value=""/>
-        </CompilerMessages>
-        <CompilerPath Value="$(CompPath)"/>
-      </Other>
     </CompilerOptions>
-    <Files Count="16">
+    <Files Count="17">
       <Item1>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
         <UnitName Value="OBufferedStreams"/>
@@ -82,8 +77,11 @@
         <Filename Value="..\..\units\OJSON.pas"/>
         <UnitName Value="OJSON"/>
       </Item16>
+      <Item17>
+        <Filename Value="..\..\units\OXmlCSeq.pas"/>
+        <UnitName Value="OXmlCSeq"/>
+      </Item17>
     </Files>
-    <Type Value="RunTimeOnly"/>
     <RequiredPkgs Count="2">
       <Item1>
         <PackageName Value="LazUtils"/>

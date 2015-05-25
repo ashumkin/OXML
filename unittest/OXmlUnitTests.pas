@@ -2154,7 +2154,7 @@ const
   inXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone></root>';
   outXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone><clone attr="value"/><clone attr="value"><n>text</n><m/></clone></root>';
 var
-  xXML: OXmlPDOM.IXMLDocument;
+  xXML, xXML2: OXmlPDOM.IXMLDocument;
   xCloneNode: OXmlPDOM.PXMLNode;
 begin
   xXML := OXmlPDOM.CreateXMLDoc;
@@ -2173,6 +2173,13 @@ begin
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(True));
 
   Result := xXML.XML = outXML;
+  if not Result then
+    Exit;
+
+  xXML2 := OXmlPDOM.CreateXMLDoc;
+  xXML2.Node.AppendChild(xXML.DocumentElement.CloneNode2(True, xXML2));
+
+  Result := xXML2.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS: Boolean;
@@ -3228,7 +3235,7 @@ const
   inXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone></root>';
   outXML: OWideString = '<root><clone attr="value"><n>text</n><m/></clone><clone attr="value"/><clone attr="value"><n>text</n><m/></clone></root>';
 var
-  xXML: OXmlCDOM.IXMLDocument;
+  xXML, xXML2: OXmlCDOM.IXMLDocument;
   xCloneNode: OXmlCDOM.TXMLNode;
 begin
   xXML := OXmlCDOM.CreateXMLDoc;
@@ -3247,6 +3254,13 @@ begin
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(True));
 
   Result := xXML.XML = outXML;
+  if not Result then
+    Exit;
+
+  xXML2 := OXmlCDOM.CreateXMLDoc;
+  xXML2.Node.AppendChild(xXML.DocumentElement.CloneNode2(True, xXML2));
+
+  Result := xXML2.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_Normalize: Boolean;

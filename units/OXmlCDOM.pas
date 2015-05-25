@@ -1022,7 +1022,7 @@ begin
     xIter := Self.FirstChild;
     while Assigned(xIter) do
     begin
-      xNewNode := xIter.CloneNode(aDeep);
+      xNewNode := xIter.CloneNode(aDeep, aToDocument);
       Result.Append(xNewNode, ctChild);
       xIter := xIter.NextSibling;
     end;

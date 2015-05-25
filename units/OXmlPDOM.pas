@@ -1087,7 +1087,7 @@ var
   xIter, xNewNode: PXMLNode;
 begin
   if aToDocument = nil then
-    Result := fOwnerDocument.CreateNode(fNodeType, fNodeNameId, fNodeValueId)
+    Result := fOwnerDocument.CreateNode(fNodeType, NodeNameId, NodeValueId)
   else
     Result := aToDocument.CreateNode(fNodeType, NodeName, NodeValue);
   Result.AssignProperties(@Self);
@@ -1109,7 +1109,7 @@ begin
     xIter := Self.FirstChild;
     while Assigned(xIter) do
     begin
-      xNewNode := xIter.CloneNode(aDeep);
+      xNewNode := xIter.CloneNode(aDeep, aToDocument);
       Result.Append(xNewNode, ctChild);
       xIter := xIter.NextSibling;
     end;
