@@ -2169,15 +2169,15 @@ begin
 
   xXML.LoadFromXML(inXML);
   xCloneNode := xXML.DocumentElement.SelectNode('clone');
-  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(False));
-  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(True));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(False));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
 
   Result := xXML.XML = outXML;
   if not Result then
     Exit;
 
   xXML2 := OXmlPDOM.CreateXMLDoc;
-  xXML2.Node.AppendChild(xXML.DocumentElement.CloneNode2(True, xXML2));
+  xXML2.Node.AppendChild(xXML.DocumentElement.CloneNode(True, xXML2));
 
   Result := xXML2.XML = outXML;
 end;
@@ -3250,15 +3250,15 @@ begin
 
   xXML.LoadFromXML(inXML);
   xCloneNode := xXML.DocumentElement.SelectNode('clone');
-  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(False));
-  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(True));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(False));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
 
   Result := xXML.XML = outXML;
   if not Result then
     Exit;
 
   xXML2 := OXmlCDOM.CreateXMLDoc;
-  xXML2.Node.AppendChild(xXML.DocumentElement.CloneNode2(True, xXML2));
+  xXML2.Node.AppendChild(xXML.DocumentElement.CloneNode(True, xXML2));
 
   Result := xXML2.XML = outXML;
 end;

@@ -323,8 +323,9 @@ type
     //  aDeep = true: node with attributes and all child tree
     //  aToDocument: the document that will be the owner of the created node, nil = the same document
     //  + append the created node after cloning with TXMLNode.AppendChild()
-    function CloneNode(const aDeep: Boolean; const aToDocument: TXMLDocument = nil): PXMLNode;
-    function CloneNode2(const aDeep: Boolean; const aToDocument: IXMLDocument = nil): PXMLNode;
+    function CloneNode(const aDeep: Boolean): PXMLNode; overload;
+    function CloneNode(const aDeep: Boolean; const aToDocument: TXMLDocument): PXMLNode; overload;
+    function CloneNode(const aDeep: Boolean; const aToDocument: IXMLDocument): PXMLNode; overload;
     //consolidate adjacent text nodes and remove any empty text nodes
     procedure Normalize;
   public
@@ -1082,12 +1083,17 @@ begin
     Result.Add(xChildNode.NodeNameId, xChildNode);
 end;
 
+function TXMLNode.CloneNode(const aDeep: Boolean): PXMLNode;
+begin
+  Result := CloneNode(aDeep, fOwnerDocument);
+end;
+
 function TXMLNode.CloneNode(const aDeep: Boolean; const aToDocument: TXMLDocument): PXMLNode;
 var
   xIter, xNewNode: PXMLNode;
 begin
-  if aToDocument = nil then
-    Result := fOwnerDocument.CreateNode(fNodeType, NodeNameId, NodeValueId)
+  if (aToDocument = nil) or (aToDocument = fOwnerDocument) then
+    Result := fOwnerDocument.CreateNode(fNodeType, fNodeNameId, fNodeValueId)
   else
     Result := aToDocument.CreateNode(fNodeType, NodeName, NodeValue);
   Result.AssignProperties(@Self);
@@ -1095,7 +1101,7 @@ begin
   xIter := Self.FirstAttribute;
   while Assigned(xIter) do
   begin
-    if aToDocument = nil then
+    if (aToDocument = nil) or (aToDocument = fOwnerDocument) then
       xNewNode := fOwnerDocument.CreateNode(xIter.fNodeType, xIter.fNodeNameId, xIter.fNodeValueId)
     else
       xNewNode := aToDocument.CreateNode(xIter.fNodeType, xIter.NodeName, xIter.NodeValue);
@@ -1116,7 +1122,7 @@ begin
   end;
 end;
 
-function TXMLNode.CloneNode2(const aDeep: Boolean; const aToDocument: IXMLDocument): PXMLNode;
+function TXMLNode.CloneNode(const aDeep: Boolean; const aToDocument: IXMLDocument): PXMLNode;
 var
   xToDocument: TXMLDocument;
 begin
