@@ -2164,6 +2164,15 @@ begin
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
 
   Result := xXML.XML = outXML;
+  if not Result then
+    Exit;
+
+  xXML.LoadFromXML(inXML);
+  xCloneNode := xXML.DocumentElement.SelectNode('clone');
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(False));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(True));
+
+  Result := xXML.XML = outXML;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttributeNS: Boolean;
@@ -3227,6 +3236,15 @@ begin
   xCloneNode := xXML.DocumentElement.SelectNode('clone');
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(False));
   xXML.DocumentElement.AppendChild(xCloneNode.CloneNode(True));
+
+  Result := xXML.XML = outXML;
+  if not Result then
+    Exit;
+
+  xXML.LoadFromXML(inXML);
+  xCloneNode := xXML.DocumentElement.SelectNode('clone');
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(False));
+  xXML.DocumentElement.AppendChild(xCloneNode.CloneNode2(True));
 
   Result := xXML.XML = outXML;
 end;

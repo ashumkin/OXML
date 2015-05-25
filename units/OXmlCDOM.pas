@@ -61,6 +61,7 @@ uses
 
 type
 
+  IXMLDocument = interface;
   TXMLDocument = class;
   TXMLNode = class;
   XMLNodeId = OXmlReadWrite.XMLNodeId;
@@ -320,6 +321,7 @@ type
     //  aToDocument: the document that will be the owner of the created node, nil = the same document
     //  + append the created node after cloning with TXMLNode.AppendChild()
     function CloneNode(const aDeep: Boolean; const aToDocument: TXMLDocument = nil): TXMLNode;
+    function CloneNode2(const aDeep: Boolean; const aToDocument: IXMLDocument = nil): TXMLNode;
     //consolidate adjacent text nodes and remove any empty text nodes
     procedure Normalize;
   public
@@ -1025,6 +1027,18 @@ begin
       xIter := xIter.NextSibling;
     end;
   end;
+end;
+
+function TXMLNode.CloneNode2(const aDeep: Boolean; const aToDocument: IXMLDocument): TXMLNode;
+var
+  xToDocument: TXMLDocument;
+begin
+  if Assigned(aToDocument) then
+    xToDocument := aToDocument.Node.OwnerDocument//a trick to convert IXMLDocument to TXMLDocument
+  else
+    xToDocument := fOwnerDocument;
+
+  Result := CloneNode(aDeep, xToDocument);
 end;
 
 procedure TXMLNode.DeleteAttributes;
