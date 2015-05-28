@@ -63,7 +63,7 @@ uses
   SysUtils, Classes, TypInfo, RTTI, Generics.Collections,
   {$ENDIF}
   OWideSupp, OEncoding, OHashedStrings, OTextReadWrite,
-  OXmlReadWrite, OXmlPDOM, OXmlSeq, OXmlUtils;
+  OXmlReadWrite, OXmlPDOM, OXmlPSeq, OXmlUtils;
 
 type
   TXMLRTTISerializer = class;

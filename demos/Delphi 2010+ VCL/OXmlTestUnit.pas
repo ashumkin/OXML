@@ -68,7 +68,7 @@ uses
   {$ENDIF}
   //END XML LIBRARIES UNITS
   OEncoding, OWideSupp, OTextReadWrite, OXmlReadWrite, OXmlUtils,
-  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlSeq, OXmlCSeq, OXmlSerialize
+  OXmlCDOM, OXmlPDOM, OXmlSAX, OXmlPSeq, OXmlCSeq, OXmlSerialize
   {$IFDEF USE_RTTI}
   , OXmlRTTISerialize
   {$ENDIF}
@@ -918,7 +918,7 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
       sLineBreak+sLineBreak;
   end;
 
-  procedure TestOXmlSeq;
+  procedure TestOXmlPSeq;
     procedure _Navigate(const aNode: OXmlPDOM.PXMLNode);
     var
       xCNode: OXmlPDOM.PXMLNode;
@@ -944,7 +944,7 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
       end;
     end;
   var
-    xSeq: OXmlSeq.TXMLSeqParser;
+    xSeq: OXmlPSeq.TXMLSeqParser;
     xT1, xT2: Int64;
     xDataIsOpen: Boolean;
     xRowNode: PXMLNode;
@@ -952,7 +952,7 @@ procedure TForm1.BtnReadPerformanceTestClick(Sender: TObject);
     xT1 := GetTickCount64;
 
     //read
-    xSeq := OXmlSeq.TXMLSeqParser.Create;
+    xSeq := OXmlPSeq.TXMLSeqParser.Create;
     try
       xSeq.InitFile(DocDir+'sheet1.xml');
 
@@ -1123,7 +1123,7 @@ begin
 
   TestOXmlCSeq;
 
-  TestOXmlSeq;
+  TestOXmlPSeq;
 
   TestOXmlSAX;
 
@@ -1259,12 +1259,12 @@ end;
 procedure TForm1.BtnSequentialTestClick(Sender: TObject);
   procedure TestSeq(const aXML, aCorrectOutput: OWideString; aMemo: TMemo);
   var
-    xSeqParser: OXmlSeq.TXMLSeqParser;
+    xSeqParser: OXmlPSeq.TXMLSeqParser;
     xNode, xAttr: OXmlPDOM.PXMLNode;
     xItemsElementIsOpen: Boolean;
     xName, xColor, xText: OWideString;
   begin
-    xSeqParser := OXmlSeq.TXMLSeqParser.Create;
+    xSeqParser := OXmlPSeq.TXMLSeqParser.Create;
     try
       xSeqParser.InitXML(aXML);
       xSeqParser.ReaderSettings.BreakReading := brNone;

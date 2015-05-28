@@ -60,7 +60,7 @@ uses
   {$IFNDEF O_GENERICS}
   ODictionary,
   {$ENDIF}
-  OWideSupp, OEncoding, OTextReadWrite, OXmlReadWrite, OXmlPDOM, OXmlSeq,
+  OWideSupp, OEncoding, OTextReadWrite, OXmlReadWrite, OXmlPDOM, OXmlPSeq,
   OXmlUtils;
 
 type

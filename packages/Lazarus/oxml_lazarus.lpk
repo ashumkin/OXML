@@ -58,28 +58,28 @@
         <UnitName Value="OXmlSAX"/>
       </Item11>
       <Item12>
-        <Filename Value="..\..\units\OXmlSeq.pas"/>
-        <UnitName Value="OXmlSeq"/>
-      </Item12>
-      <Item13>
         <Filename Value="..\..\units\OXmlUtils.pas"/>
         <UnitName Value="OXmlUtils"/>
-      </Item13>
-      <Item14>
+      </Item12>
+      <Item13>
         <Filename Value="..\..\units\OXmlXPath.pas"/>
         <UnitName Value="OXmlXPath"/>
-      </Item14>
-      <Item15>
+      </Item13>
+      <Item14>
         <Filename Value="..\..\units\OXmlSerialize.pas"/>
         <UnitName Value="OXmlSerialize"/>
-      </Item15>
-      <Item16>
+      </Item14>
+      <Item15>
         <Filename Value="..\..\units\OJSON.pas"/>
         <UnitName Value="OJSON"/>
-      </Item16>
-      <Item17>
+      </Item15>
+      <Item16>
         <Filename Value="..\..\units\OXmlCSeq.pas"/>
         <UnitName Value="OXmlCSeq"/>
+      </Item16>
+      <Item17>
+        <Filename Value="..\..\units\OXmlPSeq.pas"/>
+        <UnitName Value="OXmlSeq"/>
       </Item17>
     </Files>
     <RequiredPkgs Count="2">

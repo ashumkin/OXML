@@ -1,4 +1,4 @@
-unit OXmlSeq;
+unit OXmlPSeq;
 
 {
 
@@ -13,16 +13,16 @@ unit OXmlSeq;
 }
 
 {
-  OXmlSeq.pas
+  OXmlPSeq.pas
 
   Sequential DOM XML parser based on XmlPDOM.pas
     -> read particular XML elements into DOM and so parse huge XML documents
        with small memory usage but still take advantage of DOM capabilities.
     -> you can also omit some XML passages and get only the information
        that is insteresting to you
-    -> OXmlSeq is faster than OXmlPDOM - there is no significant performance
+    -> OXmlPSeq is faster than OXmlPDOM - there is no significant performance
        penalty when using sequential parser instead of pure DOM. On the contrary
-       OXmlSeq stores less objects in the memory, therefore it is even faster.
+       OXmlPSeq stores less objects in the memory, therefore it is even faster.
 }
 
 {$I OXml.inc}

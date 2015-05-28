@@ -126,7 +126,8 @@
         <DCCReference Include="..\..\units\OXmlPDOM.pas"/>
         <DCCReference Include="..\..\units\OXmlRTTISerialize.pas"/>
         <DCCReference Include="..\..\units\OXmlSAX.pas"/>
-        <DCCReference Include="..\..\units\OXmlSeq.pas"/>
+        <DCCReference Include="..\..\units\OXmlPSeq.pas"/>
+        <DCCReference Include="..\..\units\OXmlCSeq.pas"/>
         <DCCReference Include="..\..\units\OXmlSerialize.pas"/>
         <DCCReference Include="..\..\units\OXmlUtils.pas"/>
         <DCCReference Include="..\..\units\OXmlXPath.pas"/>

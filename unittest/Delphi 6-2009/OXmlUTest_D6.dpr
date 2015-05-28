@@ -18,12 +18,12 @@ uses
   OXmlLng in '..\..\units\OXmlLng.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
-  OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlSerialize in '..\..\units\OXmlSerialize.pas',
-  OXmlCSeq in '..\..\units\OXmlCSeq.pas';
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas',
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
 
 var
   xTest: TOXmlUnitTest;

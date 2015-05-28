@@ -13,9 +13,10 @@ uses
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
-  OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
-  OXmlXPath in '..\..\units\OXmlXPath.pas';
+  OXmlXPath in '..\..\units\OXmlXPath.pas',
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas',
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
 
 {$R *.RES}
 

@@ -5,7 +5,7 @@ interface
 uses
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   StdCtrls, FileCtrl, ComCtrls, ExtCtrls,
-  OEncoding, OXmlUtils, OXmlPDOM, OXmlReadWrite, OXmlSeq;
+  OEncoding, OXmlUtils, OXmlPDOM, OXmlReadWrite, OXmlPSeq;
 
 type
   TfMain = class(TForm)

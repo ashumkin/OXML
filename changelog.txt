@@ -1,6 +1,16 @@
 OXml Change Log
 ---------------
 
+Version 1.8 2015-05-28 [SVN commit: 85, https://sourceforge.net/p/oxml/code/85/]
+  - Added OXmlCSeq.pas (sequential parser based on OXmlCDOM).
+  ! File OXmlSeq.pas renamed to OXmlPSeq.pas to have te same format with OXmlPDOM.
+  - Added TXMLNode.CloneNode with an IXMLDocument overloaded parameter.
+  - ISOFloatToStr for Delphi 6 fixed.
+  - Fixed bug in TSAXParser.OnXMLDeclaration.
+  - Delphi XE7 packages recreated.
+  - Delphi XE8 packages recreated.
+
+
 Version 1.7 2015-04-28 [SVN commit: 76, https://sourceforge.net/p/oxml/code/76/]
   - Compatibility with XE8.
   - Fixed FileList demo.

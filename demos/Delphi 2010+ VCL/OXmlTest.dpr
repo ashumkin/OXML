@@ -12,7 +12,6 @@ uses
   OXmlLng in '..\..\units\OXmlLng.pas',
   OXmlReadWrite in '..\..\units\OXmlReadWrite.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
-  OXmlSeq in '..\..\units\OXmlSeq.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlXPath in '..\..\units\OXmlXPath.pas',
   OXmlPDOM in '..\..\units\OXmlPDOM.pas',
@@ -20,7 +19,8 @@ uses
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
   OXmlSerialize in '..\..\units\OXmlSerialize.pas',
-  OXmlCSeq in '..\..\units\OXmlCSeq.pas';
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas',
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
 
 {$R *.res}
 

@@ -17,9 +17,10 @@ uses
   OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas',
   OXmlUtils in '..\..\units\OXmlUtils.pas',
   OXmlLng in '..\..\units\OXmlLng.pas',
-  OXmlSeq in '..\..\units\OXmlSeq.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
-  OXmlSAX in '..\..\units\OXmlSAX.pas';
+  OXmlSAX in '..\..\units\OXmlSAX.pas',
+  OXmlCSeq in '..\..\units\OXmlCSeq.pas',
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
 
 {$R *.res}
 

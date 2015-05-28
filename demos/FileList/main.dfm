@@ -139,6 +139,7 @@ object fMain: TfMain
     Width = 241
     Height = 21
     Style = csDropDownList
+    ItemHeight = 13
     TabOrder = 3
   end
   object bDriveSaveDOM: TButton

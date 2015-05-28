@@ -1,6 +1,6 @@
 object fMain: TfMain
-  Left = 108
-  Top = 166
+  Left = 239
+  Top = 144
   BorderStyle = bsDialog
   Caption = 'OXml demo: ErrorInfo (converted from OmniXML)'
   ClientHeight = 514

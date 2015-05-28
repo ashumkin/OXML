@@ -35,7 +35,7 @@ uses
 
   OWideSupp, OXmlUtils, OEncoding,
   OTextReadWrite, OXmlReadWrite,
-  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlSeq, OXmlCSeq, OJSON,
+  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlPSeq, OXmlCSeq, OJSON,
   OXmlSerialize
   {$IFDEF USE_RTTI}, OXmlRTTISerialize, Generics.Collections{$ENDIF}
 
@@ -131,8 +131,8 @@ type
       const {%H-}aName: OWideString; const aAttributes: TSAXAttributes);
     function Test_TSAXParser_HashIndex: Boolean;
   private
-    //OXmlSeq.pas
-    function Test_OXmlSeq_TXMLSeqParser_Test1: Boolean;
+    //OXmlPSeq.pas
+    function Test_OXmlPSeq_TXMLSeqParser_Test1: Boolean;
   private
     //OXmlCSeq.pas
     function Test_OXmlCSeq_TXMLSeqParser_Test1: Boolean;
@@ -400,7 +400,7 @@ begin
   ExecuteFunction(Test_TOHashedStrings_Delete, 'Test_TOHashedStrings_Delete');
   ExecuteFunction(Test_TOHashedStringObjDictinary_Test1, 'Test_TOHashedStringObjDictinary_Test1');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
-  ExecuteFunction(Test_OXmlSeq_TXMLSeqParser_Test1, 'Test_OXmlSeq_TXMLSeqParser_Test1');
+  ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test1, 'Test_OXmlPSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test1, 'Test_OXmlCSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
   ExecuteFunction(Test_OXmlSerializer_Test1True, 'Test_OXmlSerializer_Test1True');
@@ -1257,7 +1257,7 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_OXmlSeq_TXMLSeqParser_Test1: Boolean;
+function TOXmlUnitTest.Test_OXmlPSeq_TXMLSeqParser_Test1: Boolean;
 const
   inXml: OWideString =
     '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
@@ -1279,7 +1279,7 @@ const
     '</teryt>'+sLineBreak;
   outStr: OWideString = 'WOJ:04;POW:10;ABC:09;CDE:11;REW:00;OLD:99;';
 var
-  xXMLSeq: OXmlSeq.TXMLSeqParser;
+  xXMLSeq: OXmlPSeq.TXMLSeqParser;
   xNode, xColNode: OXmlPDOM.PXMLNode;
   xName, xValue: string;
   xOpened: Boolean;
@@ -1287,7 +1287,7 @@ var
 begin
   Result := False;
 
-  xXMLSeq := OXmlSeq.TXMLSeqParser.Create;
+  xXMLSeq := OXmlPSeq.TXMLSeqParser.Create;
   try
     xXMLSeq.InitXML(inXml);
     xXMLSeq.WhiteSpaceHandling := wsTrim;
