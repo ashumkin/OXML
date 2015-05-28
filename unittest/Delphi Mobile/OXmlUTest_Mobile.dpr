@@ -20,7 +20,10 @@ uses
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OXmlSAX in '..\..\units\OXmlSAX.pas',
   OXmlCSeq in '..\..\units\OXmlCSeq.pas',
-  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas',
+  OJSON in '..\..\units\OJSON.pas',
+  OXmlRTTISerialize in '..\..\units\OXmlRTTISerialize.pas',
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 {$R *.res}
 
