@@ -264,7 +264,7 @@ implementation
 uses Windows;
 {$ELSE}
 {$IFDEF FPC}
-uses LConvEncoding;
+uses LConvEncoding, Math;
 {$ENDIF}
 {$ENDIF}
 

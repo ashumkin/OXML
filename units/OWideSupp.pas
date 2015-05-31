@@ -444,6 +444,7 @@ function OFastLowerCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}
 function OFastUpperCase(const aStr: OFastString): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OCompareText(const aStr1, aStr2: OWideString): Integer;
 function OReverseString(const aStr: OWideString): OWideString;
+function OTrim(const aStr: OWideString): OWideString;
 
 //CharInSet for all compilers
 type
@@ -787,6 +788,35 @@ begin
   {$ELSE}
   Result := WideCompareText(aStr1, aStr2);
   {$ENDIF}
+end;
+
+function OTrim(const aStr: OWideString): OWideString;
+var
+  xLeft, xLen: Integer;
+begin
+  xLen := Length(aStr);
+  if xLen = 0 then
+  begin
+    Result := '';
+    Exit;
+  end;
+
+  xLeft := 1;
+  while xLeft <= xLen do
+  case aStr[xLeft] of
+    #0..#32: Inc(xLeft);
+  else
+    Break;
+  end;
+
+  while xLen >= xLeft do
+  case aStr[xLen] of
+    #0..#32: Dec(xLen);
+  else
+    Break;
+  end;
+
+  Result := Copy(aStr, xLeft, xLen-xLeft+1);
 end;
 
 function OReverseString(const aStr: OWideString): OWideString;
