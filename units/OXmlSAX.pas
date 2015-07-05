@@ -20,9 +20,17 @@ unit OXmlSAX;
   Event-based XML parser.
     -> Events in FPC or older Delphi versions.
     -> Events + anonymous methods in D2009+.
-    -> Use the StopParsing() procedure to pause the parsing.
-       Parsing can be continued by calling TSAXParser.ContinueParsing() again.
+    -> Use the PauseParsing procedure to pause the parsing.
+       Parsing can be continued by calling TSAXParser.ContinueParsing again.
 
+  External class handler support: TSAXHandler
+    -> Assign a Handler to TSAXParser and you will be able to catch SAX events
+       with an external object.
+    -> TSAXHandler can be nested! Use AddChildHandler to handle children elements.
+
+  See /unittest/OXmlUnitTests.pas:
+      TOXmlUnitTest.Test_TSAXHandler_Test1
+    for example code.
 }
 
 {$I OXml.inc}
