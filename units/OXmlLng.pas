@@ -105,6 +105,9 @@ var
 
   OXmlLng_FileNotFound: string = 'The file "%s" was not found.';
 
+  OXmlLng_CannotResumeNotPaused: string = 'Cannot resume - parsing wasn''t paused.';
+  OXmlLng_ElementNameAlreadyRegistered: string = 'The element name "%s" is already registered.';
+
   OXmlLng_JSON_CloseTooMany: string = 'You try to close too many objects or arrays.';
   OXmlLng_JSON_CannotOpenObject: string = 'You cannot open object in this state.';
   OXmlLng_JSON_CannotCloseObject: string = 'You cannot close object in this state.';

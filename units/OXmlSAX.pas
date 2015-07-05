@@ -148,13 +148,111 @@ type
   TSAXProcessingInstructionEvent = procedure(Sender: TSAXParser; const aTarget, aContent: OWideString) of object;
   {$ENDIF}
 
+  TSAXHandler = class(TObject)
+  private
+    fChildHandlers: TOHashedStringObjDictionary;
+    fActiveChildHandler: TSAXHandler;
+    fThisElementStartLevel: Integer;
+    fThisElementName: OWideString;
+
+    fOnStartDocument: TSAXNotifyEvent;
+    fOnEndDocument: TSAXNotifyEvent;
+    fOnXMLDeclaration: TSAXXMLDeclarationEvent;
+
+    fOnStartThisElement: TSAXStartElementEvent;
+    fOnEndThisElement: TSAXEndElementEvent;
+    fOnThisCharacters: TSAXTextEvent;
+    fOnThisComment: TSAXTextEvent;
+    fOnThisProcessingInstruction: TSAXProcessingInstructionEvent;
+
+    fOnStartOtherElement: TSAXStartElementEvent;
+    fOnEndOtherElement: TSAXEndElementEvent;
+    fOnOtherCharacters: TSAXTextEvent;
+    fOnOtherComment: TSAXTextEvent;
+    fOnOtherProcessingInstruction: TSAXProcessingInstructionEvent;
+  private
+    procedure _DoOnStartDocument(Sender: TSAXParser);
+    procedure _DoOnEndDocument(Sender: TSAXParser);
+    procedure _DoOnXMLDeclaration(Sender: TSAXParser; const aAttributes: TSAXAttributes);
+    procedure _DoOnCharacters(Sender: TSAXParser; const aText: OWideString);
+    procedure _DoOnComment(Sender: TSAXParser; const aText: OWideString);
+    procedure _DoOnProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString);
+    procedure _DoOnStartElement(Sender: TSAXParser; const aName: OWideString;
+      const aAttributes: TSAXAttributes);
+    procedure _DoOnEndElement(Sender: TSAXParser; const aName: OWideString);
+  protected
+    procedure DoOnStartDocument(Sender: TSAXParser); virtual;
+    procedure DoOnEndDocument(Sender: TSAXParser); virtual;
+    procedure DoOnXMLDeclaration(Sender: TSAXParser; const aAttributes: TSAXAttributes); virtual;
+
+    procedure DoOnStartThisElement(Sender: TSAXParser; const aName: OWideString;
+      const aAttributes: TSAXAttributes); virtual;
+    procedure DoOnEndThisElement(Sender: TSAXParser; const aName: OWideString); virtual;
+    procedure DoOnThisCharacters(Sender: TSAXParser; const aText: OWideString); virtual;
+    procedure DoOnThisComment(Sender: TSAXParser; const aText: OWideString); virtual;
+    procedure DoOnThisProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString); virtual;
+
+    procedure DoOnStartOtherElement(Sender: TSAXParser; const aName: OWideString;
+      const aAttributes: TSAXAttributes); virtual;
+    procedure DoOnEndOtherElement(Sender: TSAXParser; const aName: OWideString); virtual;
+    procedure DoOnOtherCharacters(Sender: TSAXParser; const aText: OWideString); virtual;
+    procedure DoOnOtherComment(Sender: TSAXParser; const aText: OWideString); virtual;
+    procedure DoOnOtherProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString); virtual;
+  public
+    constructor Create; virtual;
+    destructor Destroy; override;
+  public
+    //The beginning of a document. The SAX parser will invoke this method only once, before any other event callbacks.
+    property OnStartDocument: TSAXNotifyEvent read fOnStartDocument write fOnStartDocument;
+    //reached the end of the document
+    property OnEndDocument: TSAXNotifyEvent read fOnEndDocument write fOnEndDocument;
+    //XML Declaration <?xml ... ?>
+    property OnXMLDeclaration: TSAXXMLDeclarationEvent read fOnXMLDeclaration write fOnXMLDeclaration;
+
+
+    //start of element assigned with this handler
+    property OnStartThisElement: TSAXStartElementEvent read fOnStartThisElement write fOnStartThisElement;
+    //end of element assigned with this handler </a> or <a />
+    property OnEndThisElement: TSAXEndElementEvent read fOnEndThisElement write fOnEndThisElement;
+    //text or CData within element assigned with this handler
+    property OnThisCharacters: TSAXTextEvent read fOnThisCharacters write fOnThisCharacters;
+    //comment within element assigned with this handler
+    property OnThisComment: TSAXTextEvent read fOnThisComment write fOnThisComment;
+    //Processing Instruction <?php ... ?> within element assigned with this handler
+    property OnThisProcessingInstruction: TSAXProcessingInstructionEvent read fOnThisProcessingInstruction write fOnThisProcessingInstruction;
+
+    //start of a (child) element not assigned with any handler - if the target element is assigned with a handler, OnStartThisElement of that handler is called instead
+    property OnStartOtherElement: TSAXStartElementEvent read fOnStartOtherElement write fOnStartOtherElement;
+    //end of a (child) element not assigned with any handler - if the target element is assigned with a handler, OnEndThisElement of that handler is called instead
+    property OnEndOtherElement: TSAXEndElementEvent read fOnEndOtherElement write fOnEndOtherElement;
+    //text or CData within a (child) element not assigned with this handler
+    property OnOtherCharacters: TSAXTextEvent read fOnOtherCharacters write fOnOtherCharacters;
+    //comment within a (child) element not assigned with this handler
+    property OnOtherComment: TSAXTextEvent read fOnOtherComment write fOnOtherComment;
+    //Processing Instruction <?php ... ?> within a (child) element not assigned with this handler
+    property OnOtherProcessingInstruction: TSAXProcessingInstructionEvent read fOnOtherProcessingInstruction write fOnOtherProcessingInstruction;
+  public
+    //Add handler for child elements, aElementName must be valid (not empty) and it must not be registered
+    //  don't free aHandler, it will be destroyed automatically
+    procedure AddChildHandler(const aElementName: OWideString; const aHandler: TSAXHandler);
+    //Remove ChildHandler assigned with an element name. It will be destroyed automatically.
+    //  Return false if not found, otherwise True.
+    function RemoveChildHandler(const aElementName: OWideString): Boolean;
+    //Get handler for element name, return nil if not found
+    function FindChildHandler(const aElementName: OWideString): TSAXHandler;
+  end;
+
+  TSAXParserState = (spsIdle, spsRunning, spsPaused, spsStopping, spsStopped);
+
   TSAXParser = class(TObject)
   private
     fURL: OWideString;
 
     fReader: TXMLReader;
     fDataRead: Boolean;
-    fStopParsing: Boolean;
+    fParserState: TSAXParserState;
+    fAttributes: TSAXAttributes;
+    fHandler: TSAXHandler;
 
     fOnStartDocument: TSAXNotifyEvent;
     fOnEndDocument: TSAXNotifyEvent;
@@ -167,23 +265,29 @@ type
 
     fParseError: IOTextParseError;
 
-    procedure DoOnStartDocument;
-    procedure DoOnEndDocument;
-    procedure DoOnCharacters(const aText: OWideString);
-    procedure DoOnComment(const aText: OWideString);
-    procedure DoOnXMLDeclaration(const aAttributes: TSAXAttributes);
-    procedure DoOnProcessingInstruction(const aTarget, aContent: OWideString);
-    procedure DoOnStartElement(const aName: OWideString;
-      const aAttributes: TSAXAttributes);
-    procedure DoOnEndElement(const aName: OWideString);
-
+  private
     function GetNodePath(const aIndex: Integer): OWideString;
     function GetNodePathCount: Integer;
     function GetApproxStreamPosition: OStreamInt;
+    function GetParsingStopped: Boolean;
     function GetStreamSize: OStreamInt;
     function GetReaderSettings: TXMLReaderSettings;
+    procedure SetHandler(const aHandler: TSAXHandler);
+
+  protected
+    procedure DoOnStartDocument; virtual;
+    procedure DoOnEndDocument; virtual;
+    procedure DoOnCharacters(const aText: OWideString); virtual;
+    procedure DoOnComment(const aText: OWideString); virtual;
+    procedure DoOnXMLDeclaration(const aAttributes: TSAXAttributes); virtual;
+    procedure DoOnProcessingInstruction(const aTarget, aContent: OWideString); virtual;
+    procedure DoOnStartElement(const aName: OWideString;
+      const aAttributes: TSAXAttributes); virtual;
+    procedure DoOnEndElement(const aName: OWideString); virtual;
+
   protected
     function StartParsing: Boolean;
+    procedure FinishedParsing;
   public
     constructor Create;
     destructor Destroy; override;
@@ -209,6 +313,10 @@ type
     function ParseBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
     function ParseBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
   public
+    //call PauseParsing from an event or anonymous method to pause parsing
+    procedure PauseParsing;
+    //parsing can be continued with ResumeParsing when paused
+    function ResumeParsing: Boolean;
     //call StopParsing from an event or anonymous method to stop parsing
     //  When stopped, parsing cannot be continued again.
     procedure StopParsing;
@@ -257,16 +365,271 @@ type
     //size of original stream
     property StreamSize: OStreamInt read GetStreamSize;
 
+    property ParserState: TSAXParserState read fParserState write fParserState;
     //determines if parsing has been stopped with the StopParsing procedure
-    property ParsingStopped: Boolean read fStopParsing;
+    property ParsingStopped: Boolean read GetParsingStopped;
+
+    //Handler callback object
+    property Handler: TSAXHandler read fHandler write SetHandler;
 
     //ParseError has information about the error that occured when parsing a document
     property ParseError: IOTextParseError read fParseError;
   end;
 
   ESAXParserException = class(Exception);
+  ESAXHandlerException = class(Exception);
+  ESAXHandlerInputException = class(ESAXHandlerException);
 
 implementation
+
+uses
+  OXmlLng;
+
+{ TSAXHandler }
+
+procedure TSAXHandler.AddChildHandler(const aElementName: OWideString;
+  const aHandler: TSAXHandler);
+var
+  xNew: Boolean;
+  xIndex: OHashedStringsIndex;
+begin
+  if not OXmlValidName(aElementName) then
+    raise ESAXHandlerInputException.CreateFmt(OXmlLng_InvalidElementName, [aElementName]);
+
+  xIndex := fChildHandlers.Add(aElementName, xNew{%H-});
+  if not xNew then
+    raise ESAXHandlerInputException.CreateFmt(OXmlLng_ElementNameAlreadyRegistered, [aElementName]);
+
+  fChildHandlers.Objects[xIndex] := aHandler;
+  aHandler.fThisElementName := aElementName;
+end;
+
+constructor TSAXHandler.Create;
+begin
+  inherited Create;
+
+  fChildHandlers := TOHashedStringObjDictionary.Create;
+  fChildHandlers.OwnsObjects := True;
+
+  fThisElementStartLevel := -1;
+end;
+
+destructor TSAXHandler.Destroy;
+begin
+  fChildHandlers.Free;
+
+  inherited Destroy;
+end;
+
+procedure TSAXHandler.DoOnThisCharacters(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  if Assigned(fOnThisCharacters) then
+    fOnThisCharacters(Sender, aText);
+end;
+
+procedure TSAXHandler.DoOnThisComment(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  if Assigned(fOnThisComment) then
+    fOnThisComment(Sender, aText);
+end;
+
+procedure TSAXHandler.DoOnThisProcessingInstruction(Sender: TSAXParser;
+  const aTarget, aContent: OWideString);
+begin
+  if Assigned(fOnThisProcessingInstruction) then
+    fOnThisProcessingInstruction(Sender, aTarget, aContent);
+end;
+
+procedure TSAXHandler.DoOnEndDocument(Sender: TSAXParser);
+begin
+  if Assigned(fOnEndDocument) then
+    fOnEndDocument(Sender);
+end;
+
+procedure TSAXHandler.DoOnEndOtherElement(Sender: TSAXParser;
+  const aName: OWideString);
+begin
+  if Assigned(fOnEndOtherElement) then
+    fOnEndOtherElement(Sender, aName);
+end;
+
+procedure TSAXHandler.DoOnEndThisElement(Sender: TSAXParser;
+  const aName: OWideString);
+begin
+  if Assigned(fOnEndThisElement) then
+    fOnEndThisElement(Sender, aName);
+end;
+
+procedure TSAXHandler.DoOnOtherCharacters(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  if Assigned(fOnOtherCharacters) then
+    fOnOtherCharacters(Sender, aText);
+end;
+
+procedure TSAXHandler.DoOnOtherComment(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  if Assigned(fOnOtherComment) then
+    fOnOtherComment(Sender, aText);
+end;
+
+procedure TSAXHandler.DoOnOtherProcessingInstruction(Sender: TSAXParser;
+  const aTarget, aContent: OWideString);
+begin
+  if Assigned(fOnOtherProcessingInstruction) then
+    fOnOtherProcessingInstruction(Sender, aTarget, aContent);
+end;
+
+procedure TSAXHandler.DoOnStartDocument(Sender: TSAXParser);
+begin
+  if Assigned(fOnStartDocument) then
+    fOnStartDocument(Sender);
+end;
+
+procedure TSAXHandler.DoOnStartOtherElement(Sender: TSAXParser;
+  const aName: OWideString; const aAttributes: TSAXAttributes);
+begin
+  if Assigned(fOnStartOtherElement) then
+    fOnStartOtherElement(Sender, aName, aAttributes);
+end;
+
+procedure TSAXHandler.DoOnStartThisElement(Sender: TSAXParser;
+  const aName: OWideString; const aAttributes: TSAXAttributes);
+begin
+  if Assigned(fOnStartThisElement) then
+    fOnStartThisElement(Sender, aName, aAttributes);
+end;
+
+procedure TSAXHandler.DoOnXMLDeclaration(Sender: TSAXParser;
+  const aAttributes: TSAXAttributes);
+begin
+  if Assigned(fOnXMLDeclaration) then
+    fOnXMLDeclaration(Sender, aAttributes);
+end;
+
+function TSAXHandler.FindChildHandler(const aElementName: OWideString
+  ): TSAXHandler;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := fChildHandlers.IndexOf(aElementName);
+  if xIndex >= 0 then
+    Result := TSAXHandler(fChildHandlers.Objects[xIndex])
+  else
+    Result := nil;
+end;
+
+function TSAXHandler.RemoveChildHandler(const aElementName: OWideString
+  ): Boolean;
+begin
+  Result := fChildHandlers.Delete(aElementName);
+end;
+
+procedure TSAXHandler._DoOnCharacters(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnCharacters(Sender, aText)
+  else
+  begin
+    if Sender.NodePathCount = fThisElementStartLevel then
+      DoOnThisCharacters(Sender, aText)
+    else
+      DoOnOtherCharacters(Sender, aText);
+  end;
+end;
+
+procedure TSAXHandler._DoOnComment(Sender: TSAXParser; const aText: OWideString
+  );
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnComment(Sender, aText)
+  else
+  begin
+    if Sender.NodePathCount = fThisElementStartLevel then
+      DoOnThisComment(Sender, aText)
+    else
+      DoOnOtherComment(Sender, aText);
+  end;
+end;
+
+procedure TSAXHandler._DoOnEndDocument(Sender: TSAXParser);
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnEndDocument(Sender)
+  else
+    DoOnEndDocument(Sender);
+end;
+
+procedure TSAXHandler._DoOnEndElement(Sender: TSAXParser;
+  const aName: OWideString);
+begin
+  if Assigned(fActiveChildHandler) then
+  begin
+    fActiveChildHandler._DoOnEndElement(Sender, aName);
+    if fActiveChildHandler.fThisElementStartLevel = -1 then//fActiveChildHandler was closed
+      fActiveChildHandler := nil;
+  end else
+  begin
+    if (fThisElementStartLevel = Sender.GetNodePathCount+1) and (fThisElementName = aName) then
+    begin
+      fThisElementStartLevel := -1;
+      DoOnEndThisElement(Sender, aName);
+    end else
+      DoOnEndOtherElement(Sender, aName);
+  end;
+end;
+
+procedure TSAXHandler._DoOnProcessingInstruction(Sender: TSAXParser;
+  const aTarget, aContent: OWideString);
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnProcessingInstruction(Sender, aTarget, aContent)
+  else
+  begin
+    if Sender.NodePathCount = fThisElementStartLevel then
+      DoOnThisProcessingInstruction(Sender, aTarget, aContent)
+    else
+      DoOnOtherProcessingInstruction(Sender, aTarget, aContent);
+  end;
+end;
+
+procedure TSAXHandler._DoOnStartDocument(Sender: TSAXParser);
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnStartDocument(Sender)
+  else
+    DoOnStartDocument(Sender);
+end;
+
+procedure TSAXHandler._DoOnStartElement(Sender: TSAXParser;
+  const aName: OWideString; const aAttributes: TSAXAttributes);
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnStartElement(Sender, aName, aAttributes)
+  else
+  begin
+    fActiveChildHandler := FindChildHandler(aName);
+    if Assigned(fActiveChildHandler) then
+    begin
+      fActiveChildHandler.fThisElementStartLevel := Sender.GetNodePathCount;
+      fActiveChildHandler.DoOnStartThisElement(Sender, aName, aAttributes)
+    end else
+      DoOnStartOtherElement(Sender, aName, aAttributes);
+  end;
+end;
+
+procedure TSAXHandler._DoOnXMLDeclaration(Sender: TSAXParser;
+  const aAttributes: TSAXAttributes);
+begin
+  if Assigned(fActiveChildHandler) then
+    fActiveChildHandler._DoOnXMLDeclaration(Sender, aAttributes)
+  else
+    DoOnXMLDeclaration(Sender, aAttributes);
+end;
 
 { TSAXParser }
 
@@ -288,24 +651,32 @@ procedure TSAXParser.DoOnCharacters(const aText: OWideString);
 begin
   if Assigned(fOnCharacters) then
     fOnCharacters(Self, aText);
+  if Assigned(fHandler) then
+    fHandler._DoOnCharacters(Self, aText);
 end;
 
 procedure TSAXParser.DoOnComment(const aText: OWideString);
 begin
   if Assigned(fOnComment) then
     fOnComment(Self, aText);
+  if Assigned(fHandler) then
+    fHandler._DoOnComment(Self, aText);
 end;
 
 procedure TSAXParser.DoOnEndDocument;
 begin
   if Assigned(fOnEndDocument) then
     fOnEndDocument(Self);
+  if Assigned(fHandler) then
+    fHandler._DoOnEndDocument(Self);
 end;
 
 procedure TSAXParser.DoOnEndElement(const aName: OWideString);
 begin
   if Assigned(fOnEndElement) then
     fOnEndElement(Self, aName);
+  if Assigned(fHandler) then
+    fHandler._DoOnEndElement(Self, aName);
 end;
 
 procedure TSAXParser.DoOnProcessingInstruction(const aTarget,
@@ -313,12 +684,16 @@ procedure TSAXParser.DoOnProcessingInstruction(const aTarget,
 begin
   if Assigned(fOnProcessingInstruction) then
     fOnProcessingInstruction(Self, aTarget, aContent);
+  if Assigned(fHandler) then
+    fHandler._DoOnProcessingInstruction(Self, aTarget, aContent);
 end;
 
 procedure TSAXParser.DoOnStartDocument;
 begin
   if Assigned(fOnStartDocument) then
     fOnStartDocument(Self);
+  if Assigned(fHandler) then
+    fHandler._DoOnStartDocument(Self);
 end;
 
 procedure TSAXParser.DoOnStartElement(const aName: OWideString;
@@ -326,12 +701,31 @@ procedure TSAXParser.DoOnStartElement(const aName: OWideString;
 begin
   if Assigned(fOnStartElement) then
     fOnStartElement(Self, aName, aAttributes);
+  if Assigned(fHandler) then
+    fHandler._DoOnStartElement(Self, aName, aAttributes);
 end;
 
 procedure TSAXParser.DoOnXMLDeclaration(const aAttributes: TSAXAttributes);
 begin
   if Assigned(fOnXMLDeclaration) then
     fOnXMLDeclaration(Self, aAttributes);
+  if Assigned(fHandler) then
+    fHandler._DoOnXMLDeclaration(Self, aAttributes);
+end;
+
+procedure TSAXParser.FinishedParsing;
+begin
+  if not (fParserState in [spsIdle, spsStopping]) then
+  begin
+    fReader.SetAttributeTokens(nil);
+    FreeAndNil(fAttributes);
+    fReader.ReleaseDocument;
+    fURL := '';
+    if fParserState = spsStopping then
+      fParserState := spsStopped
+    else
+      fParserState := spsIdle;
+  end;
 end;
 
 function TSAXParser.GetApproxStreamPosition: OStreamInt;
@@ -347,6 +741,11 @@ end;
 function TSAXParser.GetNodePathCount: Integer;
 begin
   Result := fReader.NodePathCount;
+end;
+
+function TSAXParser.GetParsingStopped: Boolean;
+begin
+  Result := fParserState in [spsStopped, spsStopping];
 end;
 
 function TSAXParser.GetReaderSettings: TXMLReaderSettings;
@@ -445,6 +844,12 @@ begin
   end;
 end;
 
+procedure TSAXParser.PauseParsing;
+begin
+  if fParserState = spsRunning then
+    fParserState := spsPaused;
+end;
+
 procedure TSAXParser.NodePathAssignTo(const aNodePath: TOWideStringList);
 begin
   fReader.NodePathAssignTo(aNodePath);
@@ -472,24 +877,45 @@ begin
 end;
 
 function TSAXParser.StartParsing: Boolean;
+begin
+  fParseError := nil;
+  fDataRead := False;
+  fParserState := spsPaused;
+
+  fAttributes := TSAXAttributes.Create;
+  fReader.SetAttributeTokens(fAttributes.fAttributeTokens);
+
+  Result := ResumeParsing;
+end;
+
+function TSAXParser.RefIsChildOfNodePath(
+  const aRefNodePath: TOWideStringList): Boolean;
+begin
+  Result := fReader.RefIsChildOfNodePath(aRefNodePath);
+end;
+
+function TSAXParser.RefIsParentOfNodePath(
+  const aRefNodePath: TOWideStringList): Boolean;
+begin
+  Result := fReader.RefIsParentOfNodePath(aRefNodePath);
+end;
+
+function TSAXParser.ResumeParsing: Boolean;
   procedure _StartDocument;
   begin
     DoOnStartDocument;
     fDataRead := True;
   end;
 var
-  xAttributes: TSAXAttributes;
   xReaderToken: PXMLReaderToken;
 begin
-  fParseError := nil;
-  Result := True;
-  fDataRead := False;
-  fStopParsing := False;
+  if fParserState <> spsPaused then
+    raise ESAXParserException.Create(OXmlLng_CannotResumeNotPaused);
 
-  xAttributes := TSAXAttributes.Create;
-  fReader.SetAttributeTokens(xAttributes.fAttributeTokens);
+  fParserState := spsRunning;
+  Result := True;
   try
-    while (not fStopParsing) and fReader.ReadNextToken(xReaderToken{%H-}) do
+    while (fParserState = spsRunning) and fReader.ReadNextToken(xReaderToken{%H-}) do
     begin
       case xReaderToken.TokenType of
         rtText, rtCData, rtEntityReference:
@@ -506,15 +932,15 @@ begin
         case xReaderToken.TokenType of
           rtFinishOpenElementClose, rtFinishOpenElement:
           begin
-            xAttributes.CreateIndex;
-            DoOnStartElement(xReaderToken.TokenName, xAttributes);
+            fAttributes.CreateIndex;
+            DoOnStartElement(xReaderToken.TokenName, fAttributes);
             if xReaderToken.TokenType = rtFinishOpenElementClose then
               DoOnEndElement(xReaderToken.TokenName);
           end;
           rtFinishXMLDeclarationClose:
           begin
-            xAttributes.CreateIndex;
-            DoOnXMLDeclaration(xAttributes);
+            fAttributes.CreateIndex;
+            DoOnXMLDeclaration(fAttributes);
           end;
           rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
           rtComment: DoOnComment(xReaderToken.TokenValue);
@@ -523,34 +949,28 @@ begin
       end;
     end;
 
-    if fDataRead and not fStopParsing then
+    if fDataRead and (fParserState = spsRunning) and not Assigned(fReader.ParseError) then
+    begin
       DoOnEndDocument;
-
+      FinishedParsing;
+    end;
   finally
     if Assigned(fReader.ParseError) then
     begin
       fParseError := fReader.ParseError;
 
       Result := False;
+      FinishedParsing;
     end;
-
-    fReader.SetAttributeTokens(nil);
-    xAttributes.Free;
-
-    fURL := '';
   end;
 end;
 
-function TSAXParser.RefIsChildOfNodePath(
-  const aRefNodePath: TOWideStringList): Boolean;
+procedure TSAXParser.SetHandler(const aHandler: TSAXHandler);
 begin
-  Result := fReader.RefIsChildOfNodePath(aRefNodePath);
-end;
+  if fHandler = aHandler then
+    Exit;
 
-function TSAXParser.RefIsParentOfNodePath(
-  const aRefNodePath: TOWideStringList): Boolean;
-begin
-  Result := fReader.RefIsParentOfNodePath(aRefNodePath);
+  fHandler := aHandler;
 end;
 
 function TSAXParser.RefIsChildOfNodePath(
@@ -567,7 +987,8 @@ end;
 
 procedure TSAXParser.StopParsing;
 begin
-  fStopParsing := True;
+  if fParserState in [spsRunning, spsPaused] then
+    fParserState := spsStopping;
 end;
 
 { TSAXAttributes }

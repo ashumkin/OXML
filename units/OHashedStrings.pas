@@ -125,9 +125,8 @@ type
 
   TOHashedStringObjDictionary = class(TOHashedStrings)
   private
-    {$IFNDEF O_ARC}
     fOwnsObjects: Boolean;
-    {$ENDIF}
+
     {$IFDEF O_GENERICS}
     fObjects: TList<Pointer>;
     {$ELSE}
@@ -149,9 +148,8 @@ type
     procedure SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
 
-    {$IFNDEF O_ARC}
-    property OwnsObjects: Boolean read fOwnsObjects write fOwnsObjects;
-    {$ENDIF}
+    property OwnsObjects: Boolean read fOwnsObjects write fOwnsObjects;//OwnsObjects doesn't have any function in ARC
+
     property Objects[const aIndex: OHashedStringsIndex]: TObject read GetObject write SetObject;
     property PObjects[const aIndex: OHashedStringsIndex]: Pointer read GetPObject write SetPObject;
   end;

@@ -932,7 +932,7 @@ function TOXmlDOMElement.getElementsByTagName(
 var
   xNodeList: IXMLNodeList;
 begin
-  if FOXmlNode.GetElementsByTagName(name, xNodeList) then
+  if FOXmlNode.GetElementsByTagName(name, xNodeList, True) then
     Result := MakeResNodeList(xNodeList)
   else
     Result := nil;
@@ -943,7 +943,7 @@ function TOXmlDOMElement.getElementsByTagNameNS(const namespaceURI,
 var
   xNodeList: IXMLNodeList;
 begin
-  if FOXmlNode.GetElementsByTagNameNS(namespaceURI, localName, xNodeList) then
+  if FOXmlNode.GetElementsByTagNameNS(namespaceURI, localName, xNodeList, True) then
     Result := MakeResNodeList(xNodeList)
   else
     Result := nil;
@@ -1165,7 +1165,7 @@ function TOXmlDOMDocument.getElementsByTagName(
 var
   xNodeList: IXMLNodeList;
 begin
-  if FOXmlDocument.Node.SelectNodes(tagName, xNodeList) then
+  if FOXmlDocument.Node.GetElementsByTagName(tagName, xNodeList, True) then
     Result := MakeResNodeList(xNodeList)
   else
     Result := nil;
@@ -1176,7 +1176,7 @@ function TOXmlDOMDocument.getElementsByTagNameNS(const namespaceURI,
 var
   xNodeList: IXMLNodeList;
 begin
-  if FOXmlDocument.Node.GetElementsByTagNameNS(namespaceURI, localName, xNodeList) then
+  if FOXmlDocument.Node.GetElementsByTagNameNS(namespaceURI, localName, xNodeList, True) then
     Result := MakeResNodeList(xNodeList)
   else
     Result := nil;

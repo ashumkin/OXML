@@ -9,7 +9,8 @@ interface
 uses
   OBufferedStreams, ODictionary, OEncoding, OHashedStrings, OTextReadWrite, 
   OWideSupp, OXmlCDOM, OXmlLng, OXmlPDOM, OXmlReadWrite, OXmlSAX, OXmlUtils, 
-  OXmlXPath, OXmlSerialize, OJSON, OXmlCSeq, OXmlPSeq;
+  OXmlXPath, OXmlSerialize, OXmlCSeq, OXmlPSeq, OJsonReadWrite, 
+  OJsonUtf8ReadWrite, OJsonUtils;
 
 implementation
 

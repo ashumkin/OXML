@@ -241,7 +241,7 @@ type
     //create
     constructor Create; overload;
     //create and init
-    constructor Create(const aStream: TStream); overload;
+    constructor Create(const aStream: TStream; const aOwnsStream: Boolean = False); overload;
 
     destructor Destroy; override;
   public
@@ -2287,13 +2287,14 @@ begin
   RawChar('>');
 end;
 
-constructor TXMLWriter.Create(const aStream: TStream);
+constructor TXMLWriter.Create(const aStream: TStream; const aOwnsStream: Boolean
+  );
 begin
   inherited Create;
 
   DoCreate;
 
-  InitStream(aStream);
+  InitStream(aStream, aOwnsStream);
 end;
 
 constructor TXMLWriter.Create;

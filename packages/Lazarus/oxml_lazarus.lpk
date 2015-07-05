@@ -12,7 +12,7 @@
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Files Count="17">
+    <Files Count="19">
       <Item1>
         <Filename Value="..\..\units\OBufferedStreams.pas"/>
         <UnitName Value="OBufferedStreams"/>
@@ -70,17 +70,25 @@
         <UnitName Value="OXmlSerialize"/>
       </Item14>
       <Item15>
-        <Filename Value="..\..\units\OJSON.pas"/>
-        <UnitName Value="OJSON"/>
-      </Item15>
-      <Item16>
         <Filename Value="..\..\units\OXmlCSeq.pas"/>
         <UnitName Value="OXmlCSeq"/>
+      </Item15>
+      <Item16>
+        <Filename Value="..\..\units\OXmlPSeq.pas"/>
+        <UnitName Value="OXmlPSeq"/>
       </Item16>
       <Item17>
-        <Filename Value="..\..\units\OXmlPSeq.pas"/>
-        <UnitName Value="OXmlSeq"/>
+        <Filename Value="..\..\units\OJsonReadWrite.pas"/>
+        <UnitName Value="OJsonReadWrite"/>
       </Item17>
+      <Item18>
+        <Filename Value="..\..\units\OJsonUtf8ReadWrite.pas"/>
+        <UnitName Value="OJsonUtf8ReadWrite"/>
+      </Item18>
+      <Item19>
+        <Filename Value="..\..\units\OJsonUtils.pas"/>
+        <UnitName Value="OJsonUtils"/>
+      </Item19>
     </Files>
     <RequiredPkgs Count="2">
       <Item1>

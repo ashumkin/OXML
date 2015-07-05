@@ -35,7 +35,8 @@ uses
 
   OWideSupp, OXmlUtils, OEncoding,
   OTextReadWrite, OXmlReadWrite,
-  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlPSeq, OXmlCSeq, OJSON,
+  OXmlPDOM, OXmlCDOM, OHashedStrings, OXmlSAX, OXmlPSeq, OXmlCSeq,
+  OJsonUtils, OJsonUtf8ReadWrite, OJsonReadWrite,
   OXmlSerialize
   {$IFDEF USE_RTTI}, OXmlRTTISerialize, Generics.Collections{$ENDIF}
 
@@ -43,7 +44,7 @@ uses
   ;
 
 const
-  cTestCount = 67;
+  cTestCount = 70;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -130,6 +131,7 @@ type
     procedure Test_TSAXParser_HashIndex_SAXStartElement({%H-}aSaxParser: TSAXParser;
       const {%H-}aName: OWideString; const aAttributes: TSAXAttributes);
     function Test_TSAXParser_HashIndex: Boolean;
+    function Test_TSAXHandler_Test1: Boolean;
   private
     //OXmlPSeq.pas
     function Test_OXmlPSeq_TXMLSeqParser_Test1: Boolean;
@@ -155,9 +157,17 @@ type
     function Test_OXmlRTTISerializer_Test1False: Boolean;
     function Test_OXmlRTTISerializer_Test2: Boolean;
   private
-    //OJSON.pas
+    //OJsonUtils.pas
+    function Test_OJSON_TCustomJSONWriter_Test1(const aWriterClass: TCustomJSONWriterClass): Boolean;
+    function Test_OJSON_TCustomJSONReader_Test1(const aReaderClass: TCustomJSONReaderClass): Boolean;
+  private
+    //OJsonReadWrite.pas
     function Test_OJSON_TJSONWriter_Test1: Boolean;
     function Test_OJSON_TJSONReader_Test1: Boolean;
+  private
+    //OJsonUtf8ReadWrite.pas
+    function Test_OJSON_TJSONWriterUTF8_Test1: Boolean;
+    function Test_OJSON_TJSONReaderUTF8_Test1: Boolean;
   public
     procedure OXmlTestAll(const aStrList: TStrings);
   public
@@ -301,6 +311,167 @@ begin
 end;
 {$ENDIF}
 
+type
+  TSAXHandler_Output = class(TSAXHandler)
+  private
+    fName: OWideString;
+    fOutput: TStringList;
+
+    procedure DoOnFunctionWithAttributes(Sender: TSAXParser;
+      const aFunctionName, aElementName: OWideString;
+      const aAttributes: TSAXAttributes);
+  protected
+    procedure DoOnStartDocument(Sender: TSAXParser); override;
+    procedure DoOnEndDocument(Sender: TSAXParser); override;
+    procedure DoOnXMLDeclaration(Sender: TSAXParser; const aAttributes: TSAXAttributes); override;
+
+    procedure DoOnStartThisElement(Sender: TSAXParser; const aName: OWideString;
+      const aAttributes: TSAXAttributes); override;
+    procedure DoOnEndThisElement(Sender: TSAXParser; const aName: OWideString); override;
+    procedure DoOnThisCharacters(Sender: TSAXParser; const aText: OWideString); override;
+    procedure DoOnThisComment(Sender: TSAXParser; const aText: OWideString); override;
+    procedure DoOnThisProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString); override;
+
+    procedure DoOnStartOtherElement(Sender: TSAXParser; const aName: OWideString;
+      const aAttributes: TSAXAttributes); override;
+    procedure DoOnEndOtherElement(Sender: TSAXParser; const aName: OWideString); override;
+    procedure DoOnOtherCharacters(Sender: TSAXParser; const aText: OWideString); override;
+    procedure DoOnOtherComment(Sender: TSAXParser; const aText: OWideString); override;
+    procedure DoOnOtherProcessingInstruction(Sender: TSAXParser; const aTarget, aContent: OWideString); override;
+  public
+    constructor Create(const aHandlerName: OWideString; const aOutput: TStringList); reintroduce;
+  end;
+
+{ TSAXHandler_Output }
+
+constructor TSAXHandler_Output.Create(const aHandlerName: OWideString;
+  const aOutput: TStringList);
+begin
+  inherited Create;
+
+  fName := aHandlerName;
+  fOutput := aOutput;
+end;
+
+procedure TSAXHandler_Output.DoOnThisCharacters(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  inherited DoOnThisCharacters(Sender, aText);
+
+  fOutput.Add(fName+'.OnThisCharacters("'+aText+'")');
+end;
+
+procedure TSAXHandler_Output.DoOnThisComment(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  inherited DoOnThisComment(Sender, aText);
+
+  fOutput.Add(fName+'.OnThisComment("'+aText+'")');
+end;
+
+procedure TSAXHandler_Output.DoOnEndDocument(Sender: TSAXParser);
+begin
+  inherited DoOnEndDocument(Sender);
+
+  fOutput.Add(fName+'.OnEndDocument()');
+end;
+
+procedure TSAXHandler_Output.DoOnEndOtherElement(Sender: TSAXParser;
+  const aName: OWideString);
+begin
+  inherited DoOnEndOtherElement(Sender, aName);
+
+  fOutput.Add(fName+'.OnEndOtherElement('+aName+')');
+end;
+
+procedure TSAXHandler_Output.DoOnEndThisElement(Sender: TSAXParser;
+  const aName: OWideString);
+begin
+  inherited DoOnEndThisElement(Sender, aName);
+
+  fOutput.Add(fName+'.OnEndThisElement('+aName+')');
+end;
+
+procedure TSAXHandler_Output.DoOnFunctionWithAttributes(Sender: TSAXParser;
+  const aFunctionName, aElementName: OWideString;
+  const aAttributes: TSAXAttributes);
+var
+  xAttributesStr: OWideString;
+  I: Integer;
+begin
+  xAttributesStr := '';
+  for I := 0 to aAttributes.Count-1 do
+  begin
+    if xAttributesStr <> '' then
+      xAttributesStr := xAttributesStr + ', ';
+    xAttributesStr := xAttributesStr + aAttributes.Items[I].NodeName+'="'+aAttributes.Items[I].NodeValue+'"';
+  end;
+  fOutput.Add(fName+'.'+aFunctionName+'('+aElementName+', ['+xAttributesStr+'])');
+end;
+
+procedure TSAXHandler_Output.DoOnOtherCharacters(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  inherited DoOnOtherCharacters(Sender, aText);
+
+  fOutput.Add(fName+'.OnOtherCharacters("'+aText+'")');
+end;
+
+procedure TSAXHandler_Output.DoOnOtherComment(Sender: TSAXParser;
+  const aText: OWideString);
+begin
+  inherited DoOnOtherComment(Sender, aText);
+
+  fOutput.Add(fName+'.OnOtherComment("'+aText+'")');
+end;
+
+procedure TSAXHandler_Output.DoOnOtherProcessingInstruction(Sender: TSAXParser;
+  const aTarget, aContent: OWideString);
+begin
+  inherited DoOnOtherProcessingInstruction(Sender, aTarget, aContent);
+
+  fOutput.Add(fName+'.OnOtherProcessingInstruction('+aTarget+', "'+aContent+'")');
+end;
+
+procedure TSAXHandler_Output.DoOnThisProcessingInstruction(Sender: TSAXParser;
+  const aTarget, aContent: OWideString);
+begin
+  inherited DoOnThisProcessingInstruction(Sender, aTarget, aContent);
+
+  fOutput.Add(fName+'.OnThisProcessingInstruction('+aTarget+', "'+aContent+'")');
+end;
+
+procedure TSAXHandler_Output.DoOnStartDocument(Sender: TSAXParser);
+begin
+  inherited DoOnStartDocument(Sender);
+
+  fOutput.Add(fName+'.OnStartDocument()');
+end;
+
+procedure TSAXHandler_Output.DoOnStartOtherElement(Sender: TSAXParser;
+  const aName: OWideString; const aAttributes: TSAXAttributes);
+begin
+  inherited DoOnStartOtherElement(Sender, aName, aAttributes);
+
+  DoOnFunctionWithAttributes(Sender, 'OnStartOtherElement', aName, aAttributes);
+end;
+
+procedure TSAXHandler_Output.DoOnStartThisElement(Sender: TSAXParser;
+  const aName: OWideString; const aAttributes: TSAXAttributes);
+begin
+  inherited DoOnStartThisElement(Sender, aName, aAttributes);
+
+  DoOnFunctionWithAttributes(Sender, 'OnStartThisElement', aName, aAttributes);
+end;
+
+procedure TSAXHandler_Output.DoOnXMLDeclaration(Sender: TSAXParser;
+  const aAttributes: TSAXAttributes);
+begin
+  inherited DoOnXMLDeclaration(Sender, aAttributes);
+
+  DoOnFunctionWithAttributes(Sender, 'OnXMLDeclaration', '?xml', aAttributes);
+end;
+
 { TOXmlUnitTest }
 
 constructor TOXmlUnitTest.Create;
@@ -319,8 +490,15 @@ end;
 
 procedure TOXmlUnitTest.ExecuteFunction(const aFunction: TObjFunc;
   const aFunctionName: string);
+var
+  xResult: Boolean;
 begin
-  if not aFunction() then
+  try
+    xResult := aFunction();
+  except
+    xResult := False;
+  end;
+  if not xResult then
     fPassNameIfFalse.Add(aFunctionName)
   else
     Inc(fPassedCount);
@@ -400,6 +578,7 @@ begin
   ExecuteFunction(Test_TOHashedStrings_Delete, 'Test_TOHashedStrings_Delete');
   ExecuteFunction(Test_TOHashedStringObjDictinary_Test1, 'Test_TOHashedStringObjDictinary_Test1');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
+  ExecuteFunction(Test_TSAXHandler_Test1, 'Test_TSAXHandler_Test1');
   ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test1, 'Test_OXmlPSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test1, 'Test_OXmlCSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
@@ -411,6 +590,8 @@ begin
   ExecuteFunction(Test_OXmlRTTISerializer_Test2, 'Test_OXmlRTTISerializer_Test2');
   ExecuteFunction(Test_OJSON_TJSONWriter_Test1, 'Test_OJSON_TJSONWriter_Test1');
   ExecuteFunction(Test_OJSON_TJSONReader_Test1, 'Test_OJSON_TJSONReader_Test1');
+  ExecuteFunction(Test_OJSON_TJSONWriterUTF8_Test1, 'Test_OJSON_TJSONWriterUTF8_Test1');
+  ExecuteFunction(Test_OJSON_TJSONReaderUTF8_Test1, 'Test_OJSON_TJSONReaderUTF8_Test1');
 
   if fPassNameIfFalse.Count = 0 then
     aStrList.Add(Format('OXml: all tests from %d passed.', [GetAllTestCount]))
@@ -1814,6 +1995,106 @@ begin
   Result := fTest_TOVirtualHashedStrings_StrL[aIndex];
 end;
 
+function TOXmlUnitTest.Test_TSAXHandler_Test1: Boolean;
+const
+  cXML: OWideString =
+    '<?xml version="1.0"?>'+
+    '<root>'+
+      '<books>'+
+        '<!-- Book list -->'+
+        '<item attr="attrbook 1">Book 1</item>'+
+        '<item>Book 2</item>'+
+      '</books>'+
+      '<libraries>'+
+        '<!-- Library list -->'+
+        '<item>Library 1</item>'+
+        '<item attr="attrlib 2">Library 2</item>'+
+        '<lib_unknown>'+
+          '<lib_unknown_child/>'+
+          'Unknown text in lib_unknown'+
+          '<?php echo "lib_unknown" ?>'+
+        '</lib_unknown>'+
+        'Unknown text in lib'+
+        '<?php echo "lib" ?>'+
+      '</libraries>'+
+      '<unknown>'+
+        '<unknown_child/>'+
+      '</unknown>'+
+    '</root>';
+  cOutput: OWideString =
+    'RootHandler.OnStartDocument()'+sLineBreak+
+    'RootHandler.OnXMLDeclaration(?xml, [version="1.0"])'+sLineBreak+
+    'RootHandler.OnStartOtherElement(root, [])'+sLineBreak+
+    'BooksHandler.OnStartThisElement(books, [])'+sLineBreak+
+    'BooksHandler.OnThisComment(" Book list ")'+sLineBreak+
+    'BookItemsHandler.OnStartThisElement(item, [attr="attrbook 1"])'+sLineBreak+
+    'BookItemsHandler.OnThisCharacters("Book 1")'+sLineBreak+
+    'BookItemsHandler.OnEndThisElement(item)'+sLineBreak+
+    'BookItemsHandler.OnStartThisElement(item, [])'+sLineBreak+
+    'BookItemsHandler.OnThisCharacters("Book 2")'+sLineBreak+
+    'BookItemsHandler.OnEndThisElement(item)'+sLineBreak+
+    'BooksHandler.OnEndThisElement(books)'+sLineBreak+
+    'LibrariesHandler.OnStartThisElement(libraries, [])'+sLineBreak+
+    'LibrariesHandler.OnThisComment(" Library list ")'+sLineBreak+
+    'LibraryItemsHandler.OnStartThisElement(item, [])'+sLineBreak+
+    'LibraryItemsHandler.OnThisCharacters("Library 1")'+sLineBreak+
+    'LibraryItemsHandler.OnEndThisElement(item)'+sLineBreak+
+    'LibraryItemsHandler.OnStartThisElement(item, [attr="attrlib 2"])'+sLineBreak+
+    'LibraryItemsHandler.OnThisCharacters("Library 2")'+sLineBreak+
+    'LibraryItemsHandler.OnEndThisElement(item)'+sLineBreak+
+    'LibrariesHandler.OnStartOtherElement(lib_unknown, [])'+sLineBreak+
+    'LibrariesHandler.OnStartOtherElement(lib_unknown_child, [])'+sLineBreak+
+    'LibrariesHandler.OnEndOtherElement(lib_unknown_child)'+sLineBreak+
+    'LibrariesHandler.OnOtherCharacters("Unknown text in lib_unknown")'+sLineBreak+
+    'LibrariesHandler.OnOtherProcessingInstruction(php, "echo "lib_unknown" ")'+sLineBreak+
+    'LibrariesHandler.OnEndOtherElement(lib_unknown)'+sLineBreak+
+    'LibrariesHandler.OnThisCharacters("Unknown text in lib")'+sLineBreak+
+    'LibrariesHandler.OnThisProcessingInstruction(php, "echo "lib" ")'+sLineBreak+
+    'LibrariesHandler.OnEndThisElement(libraries)'+sLineBreak+
+    'RootHandler.OnStartOtherElement(unknown, [])'+sLineBreak+
+    'RootHandler.OnStartOtherElement(unknown_child, [])'+sLineBreak+
+    'RootHandler.OnEndOtherElement(unknown_child)'+sLineBreak+
+    'RootHandler.OnEndOtherElement(unknown)'+sLineBreak+
+    'RootHandler.OnEndOtherElement(root)'+sLineBreak+
+    'RootHandler.OnEndDocument()';
+
+var
+  xSAX: TSAXParser;
+  xRootHandler, xBooksHandler, xBookItemsHandler, xLibrariesHandler, xLibraryItemsHandler: TSAXHandler_Output;
+  xList: TStringList;
+begin
+  xList := nil;
+  xRootHandler := nil;
+  xSAX := nil;
+  try
+    xList := TStringList.Create;
+    xRootHandler := TSAXHandler_Output.Create('RootHandler', xList);
+    xBooksHandler := TSAXHandler_Output.Create('BooksHandler', xList);
+    xBookItemsHandler := TSAXHandler_Output.Create('BookItemsHandler', xList);
+    xLibrariesHandler := TSAXHandler_Output.Create('LibrariesHandler', xList);
+    xLibraryItemsHandler := TSAXHandler_Output.Create('LibraryItemsHandler', xList);
+
+    xRootHandler.AddChildHandler('books', xBooksHandler);
+    xBooksHandler.AddChildHandler('item', xBookItemsHandler);
+    xRootHandler.AddChildHandler('libraries', xLibrariesHandler);
+    xLibrariesHandler.AddChildHandler('item', xLibraryItemsHandler);
+
+    xSAX := TSAXParser.Create;
+
+    xSAX.Handler := xRootHandler;
+
+    Result := xSAX.ParseXML(cXML);
+    if not Result then
+      Exit;
+
+    Result := Trim(xList.Text) = cOutput;
+  finally
+    xSAX.Free;
+    xList.Free;
+    xRootHandler.Free;
+  end;
+end;
+
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_AttributeIndex: Boolean;
   procedure _TestNode(const bNode: OXmlPDOM.PXMLNode);
   var
@@ -2186,9 +2467,10 @@ function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_GetElementsByTagNameNS_FindAttribu
 const
   inXml: OWideString =
     '<h:table xmlns:h="http://www.w3.org/TR/html4/" xmlns:x="http://www.w3.org/TR/html4/">'+
-    '<h:tr h:id="tr0" />'+
+    '<h:tr h:id="tr0">'+
     '<h:tr x:id="tr1" />'+
     '<x:tr h:id="tr2" />'+
+    '</h:tr>'+
     '</h:table>';
 var
   xXML: OXmlPDOM.IXMLDocument;
@@ -2211,6 +2493,9 @@ begin
     Result := xAttrValue = 'tr'+IntToStr(I);
     if not Result then Exit;
   end;
+
+  xXML.DocumentElement.GetElementsByTagName('h:tr', {%H-}xNodeList, False);
+  Result := xNodeList.Count = 1;
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_Normalize: Boolean;
@@ -2529,16 +2814,17 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_OJSON_TJSONReader_Test1: Boolean;
+function TOXmlUnitTest.Test_OJSON_TCustomJSONReader_Test1(
+  const aReaderClass: TCustomJSONReaderClass): Boolean;
 var
-  xJSONReader: TJSONReader;
-  xToken: TJSONReaderToken;
+  xToken: TCustomJSONReaderToken;
+  xJSONReader: TCustomJSONReader;
 const
-  inJSON: OWideString = '[{"double": 3.14, "integer": 777, "boolean": true, "null": null, "object": {"name": "value"}}, "value \"my\"\\\n"]';
+  inJSON: OWideString = '[{"double":3.14, "integer": 777, "boolean": true, "null": null, "object": {"name": "value"}}, "value \"my\"\\\n"]';
 begin
   Result := False;
 
-  xJSONReader := TJSONReader.Create;
+  xJSONReader := aReaderClass.Create;
   try
     xJSONReader.InitString(inJSON);
 
@@ -2606,32 +2892,64 @@ begin
   end;
 end;
 
-function TOXmlUnitTest.Test_OJSON_TJSONWriter_Test1: Boolean;
+function TOXmlUnitTest.Test_OJSON_TCustomJSONWriter_Test1(
+  const aWriterClass: TCustomJSONWriterClass): Boolean;
 var
-  xJSONWriter: TJSONWriter;
+  xMS: TMemoryStream;
+  xJSONWriter: TCustomJSONWriter;
+  xBytes: TEncodingBuffer;
 const
   outJSON: OWideString = '[{"double": 3.14, "integer": 777, "boolean": true, "null": null, "object": {"name": "value"}}, "value \"my\"\\\n"]';
 begin
-  xJSONWriter := TJSONWriter.Create;
+  xMS := nil;
+  xJSONWriter := nil;
   try
+    xMS := TMemoryStream.Create;
+    xJSONWriter := aWriterClass.Create(xMS);
     xJSONWriter.
       OpenArray.
         OpenObject.
-          Number('double', 3.14).
-          Number('integer', 777).
-          Boolean('boolean', True).
-          Null('null').
-          OpenObject('object').
-            Text('name', 'value').
+          Number(OWideToUTF8Container('double'), 3.14).
+          Number(OWideToUTF8Container('integer'), 777).
+          Boolean(OWideToUTF8Container('boolean'), True).
+          Null(OWideToUTF8Container('null')).
+          OpenObject(OWideToUTF8Container('object')).
+            Text(OWideToUTF8Container('name'), OWideToUTF8Container('value')).
           CloseObject.
         CloseObject.
-        Text('value "my"\'#10).
+        Text(OWideToUTF8Container('value "my"\'#10)).
       CloseArray;
 
-    Result := (xJSONWriter.AsString = outJSON);
+    FreeAndNil(xJSONWriter);
+    xMS.Position := 0;
+    SetLength(xBytes, xMS.Size);
+    xMS.Read(xBytes[TEncodingBuffer_FirstElement], xMS.Size);
+
+    Result := (TEncoding.UTF8.BufferToString(xBytes) = outJSON);
   finally
     xJSONWriter.Free;
+    xMS.Free;
   end;
+end;
+
+function TOXmlUnitTest.Test_OJSON_TJSONReaderUTF8_Test1: Boolean;
+begin
+  Result := Test_OJSON_TCustomJSONReader_Test1(TJSONReaderUTF8);
+end;
+
+function TOXmlUnitTest.Test_OJSON_TJSONReader_Test1: Boolean;
+begin
+  Result := Test_OJSON_TCustomJSONReader_Test1(TJSONReader);
+end;
+
+function TOXmlUnitTest.Test_OJSON_TJSONWriterUTF8_Test1: Boolean;
+begin
+  Result := Test_OJSON_TCustomJSONWriter_Test1(TJSONWriterUTF8);
+end;
+
+function TOXmlUnitTest.Test_OJSON_TJSONWriter_Test1: Boolean;
+begin
+  Result := Test_OJSON_TCustomJSONWriter_Test1(TJSONWriter);
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_ChildCount: Boolean;

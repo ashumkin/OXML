@@ -358,8 +358,12 @@ type
     function SelectNodes(const aXPath: OWideString;
       const aMaxNodeCount: Integer = 0): IXMLNodeList; overload;
     //get child elements by tag name
-    function GetElementsByTagName(const aName: OWideString; var outNodeList: IXMLNodeList): Boolean;
-    function GetElementsByTagNameNS(const aNameSpaceURI, aLocalName: OWideString; var outNodeList: IXMLNodeList): Boolean;
+    //  aRecoursive = True: search in the whole subtree
+    //  aRecoursive = False: search only in the children of the current element
+    function GetElementsByTagName(const aName: OWideString; var outNodeList: IXMLNodeList;
+      const aRecoursive: Boolean = True): Boolean;
+    function GetElementsByTagNameNS(const aNameSpaceURI, aLocalName: OWideString;
+      var outNodeList: IXMLNodeList; const aRecoursive: Boolean = True): Boolean;
   public
     //load document with custom reader
     //  outReaderToken -> the token enumerator
@@ -1803,17 +1807,15 @@ begin
 end;
 
 function TXMLNode.GetElementsByTagName(const aName: OWideString;
-  var outNodeList: IXMLNodeList): Boolean;
+  var outNodeList: IXMLNodeList; const aRecoursive: Boolean): Boolean;
 var
   xNodeNameId: OHashedStringsIndex;
-  xNode: PXMLNode;
-begin
-  outNodeList := nil;
 
-  xNodeNameId := fOwnerDocument.IndexOfString(aName);
-  if xNodeNameId >= 0 then
+  procedure _GetElementsByTagName(_ParentNode: PXMLNode);
+  var
+    xNode: PXMLNode;
   begin
-    xNode := FirstChild;
+    xNode := _ParentNode.FirstChild;
     while Assigned(xNode) do
     begin
       if xNode.fNodeNameId = xNodeNameId then
@@ -1822,9 +1824,17 @@ begin
           outNodeList := TXMLResNodeList.Create;
         outNodeList.Add(xNode);
       end;
+      if aRecoursive then
+        _GetElementsByTagName(xNode);
       xNode := xNode.fNextSibling;
     end;
   end;
+begin
+  outNodeList := nil;
+
+  xNodeNameId := fOwnerDocument.IndexOfString(aName);
+  if xNodeNameId >= 0 then
+    _GetElementsByTagName(@Self);
 
   Result := Assigned(outNodeList);
   if not Result then
@@ -1832,20 +1842,17 @@ begin
 end;
 
 function TXMLNode.GetElementsByTagNameNS(const aNameSpaceURI,
-  aLocalName: OWideString; var outNodeList: IXMLNodeList): Boolean;
+  aLocalName: OWideString; var outNodeList: IXMLNodeList;
+  const aRecoursive: Boolean): Boolean;
 var
-  xNode: PXMLNode;
   xQualifiedNameIds: TXMLIntArray;
-  I: Integer;
-begin
-  outNodeList := nil;
 
-  SetLength(xQualifiedNameIds, 0);
-  FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
-
-  if Length(xQualifiedNameIds) > 0 then
+  procedure _GetElementsByTagNameNS(_ParentNode: PXMLNode);
+  var
+    xNode: PXMLNode;
+    I: Integer;
   begin
-    xNode := FirstChild;
+    xNode := _ParentNode.FirstChild;
     while Assigned(xNode) do
     begin
       for I := Low(xQualifiedNameIds) to High(xQualifiedNameIds) do
@@ -1856,9 +1863,19 @@ begin
         outNodeList.Add(xNode);
         Break;
       end;
+      if aRecoursive then
+        _GetElementsByTagNameNS(xNode);
       xNode := xNode.fNextSibling;
     end;
   end;
+begin
+  outNodeList := nil;
+
+  SetLength(xQualifiedNameIds, 0);
+  FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
+
+  if Length(xQualifiedNameIds) > 0 then
+    _GetElementsByTagNameNS(@Self);
 
   Result := Assigned(outNodeList);
   if not Result then

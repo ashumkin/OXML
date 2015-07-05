@@ -104,7 +104,7 @@ type
     POWideChar = PAnsiChar;
     OUnicodeChar = UnicodeChar;
     POUnicodeChar = PWideChar;
-    ORawByteString = AnsiString;
+    ORawByteString = RawByteString;
     ONativeInt = NativeInt;
     ONativeUInt = NativeUInt;
   {$ELSE}
@@ -492,6 +492,7 @@ procedure OWideToFast(const aSourceWide: OWideString; var outDestFast: OFastStri
 function OWideToUTF8Container(const aSourceWide: OWideString): OUTF8Container; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OUnicodeToUTF8Container(const aSourceUnicode: OUnicodeString): OUTF8Container; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OUTF8ContainerToWide(const aSourceUTF8: OUTF8Container): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
+function OUTF8ContainerToUnicode(const aSourceUTF8: OUTF8Container): OUnicodeString; {$IFDEF O_INLINE}inline;{$ENDIF}
 
 function OWideToUnicode(const aSourceWide: OWideString): OUnicodeString; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 function OUnicodeToWide(const aSourceUnicode: OUnicodeString): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -915,6 +916,17 @@ function OUTF8ContainerToWide(const aSourceUTF8: OUTF8Container): OWideString;
 begin
   {$IFDEF FPC}
   Result := aSourceUTF8;
+  {$ELSE}{$IFDEF O_HASBYTESTRINGS}
+  Result := {$IFDEF O_DELPHI_2009_UP}UTF8ToString(RawByteString({$ELSE}UTF8Decode(({$ENDIF}aSourceUTF8));//IMPORTANT there is a bug in UTF8ToString(S: array of Byte)
+  {$ELSE}
+  Result := TEncoding.UTF8.GetString(aSourceUTF8);
+  {$ENDIF}{$ENDIF}
+end;
+
+function OUTF8ContainerToUnicode(const aSourceUTF8: OUTF8Container): OUnicodeString; {$IFDEF O_INLINE}inline;{$ENDIF}
+begin
+  {$IFDEF FPC}
+  Result := UTF8Decode(aSourceUTF8);
   {$ELSE}{$IFDEF O_HASBYTESTRINGS}
   Result := {$IFDEF O_DELPHI_2009_UP}UTF8ToString(RawByteString({$ELSE}UTF8Decode(({$ENDIF}aSourceUTF8));//IMPORTANT there is a bug in UTF8ToString(S: array of Byte)
   {$ELSE}

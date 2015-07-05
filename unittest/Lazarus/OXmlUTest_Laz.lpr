@@ -8,7 +8,8 @@ uses
   {$ENDIF}{$ENDIF}
   Classes, SysUtils, OXmlUnitTests, OXmlXPath, OBufferedStreams, ODictionary,
   OEncoding, OHashedStrings, OTextReadWrite, OWideSupp, OXmlLng, OXmlReadWrite,
-  OXmlSAX, OXmlUtils, OXmlPDOM, OXmlCDOM, OXmlSerialize, OJSON;
+  OXmlSAX, OXmlUtils, OXmlPDOM, OXmlCDOM, OXmlSerialize, OJsonUtf8ReadWrite,
+  OJsonUtils;
 
 var
   xTest: TOXmlUnitTest;
