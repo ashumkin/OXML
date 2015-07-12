@@ -196,8 +196,8 @@ type
     property LinePosition: OStreamInt read fLinePosition;//current character in line, 1-based
     property Line: OStreamInt read fLine;//current line, 1-based
     property TempStringPosition: Integer read GetTempStringPosition;//Position in current TempStream, 1-based
-    //size of original stream
-    property StreamSize: OStreamInt read fStreamSize;
+    property StreamPosition: OStreamInt read fStreamPosition;//position of original stream
+    property StreamSize: OStreamInt read fStreamSize;//size of original stream
 
     property ParseError: IOTextParseError read fParseError;
     property ErrorHandling: TOTextReaderErrorHandling read fErrorHandling write fErrorHandling;

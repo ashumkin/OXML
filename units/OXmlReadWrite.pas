@@ -638,6 +638,12 @@ type
 
   XMLNodeId = ONativeUInt;
 
+  {$IFDEF O_ANONYMOUS_METHODS}
+  TDOMProgressEvent = reference to procedure(aXMLDocument: TObject; const aPosition, aMax: OStreamInt; const aSave: Boolean);
+  {$ELSE}
+  TDOMProgressEvent = procedure(aXMLDocument: TObject; const aPosition, aMax: OStreamInt; const aSave: Boolean) of object;
+  {$ENDIF}
+
   ICustomXMLDocument = interface
     ['{7FA934A1-B42A-4D68-8B59-E33818836D6E}']
 
@@ -657,6 +663,8 @@ type
     function GetWriterSettings: TXMLDocumentWriterSettings;
     function GetReaderSettings: TXMLReaderSettings;
     function GetAbsoluteNodeCount: XMLNodeId;
+    function GetOnProgress: TDOMProgressEvent;
+    procedure SetOnProgress(const aOnProgress: TDOMProgressEvent);
 
   //public
     function IndexOfString(const aString: OWideString): OHashedStringsIndex;
@@ -736,6 +744,9 @@ type
 
     //get node count that are created in the document - also those that are created but don't have any parent!
     property AbsoluteNodeCount: XMLNodeId read GetAbsoluteNodeCount;
+
+    //you can use this event to show a progress when loading/saving
+    property OnProgress: TDOMProgressEvent read GetOnProgress write SetOnProgress;
   end;
 
   EXMLReaderInvalidCharacter = class(EOTextReaderException)

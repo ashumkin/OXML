@@ -2909,15 +2909,15 @@ begin
     xJSONWriter.
       OpenArray.
         OpenObject.
-          Number(OWideToUTF8Container('double'), 3.14).
-          Number(OWideToUTF8Container('integer'), 777).
-          Boolean(OWideToUTF8Container('boolean'), True).
-          Null(OWideToUTF8Container('null')).
-          OpenObject(OWideToUTF8Container('object')).
-            Text(OWideToUTF8Container('name'), OWideToUTF8Container('value')).
+          Number('double', 3.14).
+          Number('integer', 777).
+          Boolean('boolean', True).
+          Null('null').
+          OpenObject('object').
+            Text('name', 'value').
           CloseObject.
         CloseObject.
-        Text(OWideToUTF8Container('value "my"\'#10)).
+        Text('value "my"\'#10).
       CloseArray;
 
     FreeAndNil(xJSONWriter);

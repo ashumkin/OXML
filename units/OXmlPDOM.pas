@@ -164,8 +164,8 @@ type
       const aChildNodeList: IXMLNodeList);
   private
     //methods for direct reading/writing
-    procedure WriteChildrenXML(const aWriter: TXMLWriter);
-    procedure WriteAttributesXML(const aWriter: TXMLWriter);
+    procedure WriteChildrenXML(const aWriter: TXMLWriter; var ioCounter: XMLNodeId);
+    procedure WriteAttributesXML(const aWriter: TXMLWriter; var ioCounter: XMLNodeId);
   private
     procedure Init(const aNodeType: TXMLNodeType;
       const aNodeNameId, aNodeValueId: OHashedStringsIndex;
@@ -389,8 +389,8 @@ type
     function LoadFromBuffer(const aBuffer: TBytes; const aForceEncoding: TEncoding = nil): Boolean; overload;
     function LoadFromBuffer(const aBuffer; const aBufferLength: Integer; const aForceEncoding: TEncoding = nil): Boolean; overload;
 
-    //save document with custom writer
-    procedure SaveToWriter(const aWriter: TXMLWriter);
+    //save document with custom writer; ioCounter - used for progress event
+    procedure SaveToWriter(const aWriter: TXMLWriter; var ioCounter: XMLNodeId);
     //save document to file in encoding specified by the document
     procedure SaveToFile(const aFileName: OWideString);
     //save document to stream in encoding specified by the document
@@ -540,6 +540,7 @@ type
     fWhiteSpaceHandling: TXMLWhiteSpaceHandling;
     fWriterSettings: TXMLDocumentWriterSettings;
     fReaderSettings: TXMLReaderSettings;
+    fOnProgress: TDOMProgressEvent;
 
     fParseError: IOTextParseError;
 
@@ -569,6 +570,8 @@ type
     function GetReaderSettings: TXMLReaderSettings;
     function GetParseError: IOTextParseError;
     function GetAbsoluteNodeCount: XMLNodeId;
+    function GetOnProgress: TDOMProgressEvent;
+    procedure SetOnProgress(const aOnProgress: TDOMProgressEvent);
   protected
     procedure FreeNode(const aNode: PXMLNode); virtual;
     procedure ClearNodes(const aFullClear: Boolean); virtual;
@@ -653,6 +656,7 @@ type
     property Node: PXMLNode read fBlankDocumentNode;//GetDocumentNode; performance
     property DocumentElement: PXMLNode read GetDocumentElement write SetDocumentElement;
     property AbsoluteNodeCount: XMLNodeId read GetAbsoluteNodeCount;
+    property OnProgress: TDOMProgressEvent read GetOnProgress write SetOnProgress;
 
     property WhiteSpaceHandling: TXMLWhiteSpaceHandling read fWhiteSpaceHandling write fWhiteSpaceHandling;//Get/Set; performance
 
@@ -2358,6 +2362,9 @@ begin
           Break;//This is not an error -> it may happen in the sequential reader (error would be raised already in TXMLReader!)
         end;
       end;
+
+      if Assigned(fOwnerDocument.fOnProgress) then
+        fOwnerDocument.fOnProgress(fOwnerDocument, aReader.ApproxStreamPosition, aReader.StreamSize, False);
     end;
 
     if Assigned(aReader.ParseError) then
@@ -2706,6 +2713,7 @@ end;
 procedure TXMLNode.SaveToStream(const aStream: TStream);
 var
   xWriter: TXMLWriter;
+  xCounter: XMLNodeId;
 begin
   xWriter := TXMLWriter.Create;
   try
@@ -2713,7 +2721,8 @@ begin
     xWriter.WriterSettings.Assign(OwnerDocument.fWriterSettings);
     xWriter.Encoding := TEncoding.EncodingFromCodePage(OwnerDocument.CodePage);
 
-    SaveToWriter(xWriter);
+    xCounter := 0;
+    SaveToWriter(xWriter, xCounter);
   finally
     xWriter.Free;
   end;
@@ -2723,6 +2732,7 @@ procedure TXMLNode.SaveToXML(var outXML: OWideString);
 var
   xStream: TMemoryStream;
   xWriter: TXMLWriter;
+  xCounter: XMLNodeId;
 begin
   xStream := TMemoryStream.Create;
   try
@@ -2734,7 +2744,8 @@ begin
       xWriter.WriterSettings.WriteBOM := False;
       xWriter.WriterSettings.LineBreak := XMLDefaultLineBreak;
 
-      SaveToWriter(xWriter);
+      xCounter := 0;
+      SaveToWriter(xWriter, xCounter);
     finally
       xWriter.Free;
     end;
@@ -2767,6 +2778,7 @@ procedure TXMLNode.SaveToXML_UTF8(var outXML: OUTF8Container);
 var
   xStream: TMemoryStream;
   xWriter: TXMLWriter;
+  xCounter: XMLNodeId;
 begin
   xStream := TMemoryStream.Create;
   try
@@ -2778,7 +2790,8 @@ begin
       xWriter.WriterSettings.WriteBOM := False;
       xWriter.WriterSettings.LineBreak := XMLDefaultLineBreak;
 
-      SaveToWriter(xWriter);
+      xCounter := 0;
+      SaveToWriter(xWriter, xCounter);
     finally
       xWriter.Free;
     end;
@@ -3022,19 +3035,19 @@ begin
 end;
 
 procedure TXMLNode.WriteChildrenXML(
-  const aWriter: TXMLWriter);
+  const aWriter: TXMLWriter; var ioCounter: XMLNodeId);
 var
   xChild: PXMLNode;
 begin
   xChild := fFirstCChild[ctChild];
   while Assigned(xChild) do
   begin
-    xChild.SaveToWriter(aWriter);
+    xChild.SaveToWriter(aWriter, ioCounter);
     xChild := xChild.fNextSibling;
   end;
 end;
 
-procedure TXMLNode.WriteAttributesXML(const aWriter: TXMLWriter);
+procedure TXMLNode.WriteAttributesXML(const aWriter: TXMLWriter; var ioCounter: XMLNodeId);
 var
   xAttr: PXMLNode;
 begin
@@ -3043,6 +3056,12 @@ begin
   begin
     aWriter.Attribute(xAttr.NodeName, xAttr.NodeValue);
     xAttr := xAttr.fNextSibling;
+
+    if Assigned(fOwnerDocument.fOnProgress) then
+    begin
+      fOwnerDocument.fOnProgress(fOwnerDocument, ioCounter, fOwnerDocument.AbsoluteNodeCount, True);
+      Inc(ioCounter);
+    end;
   end;
 
   if (fOwnerDocument.WhiteSpaceHandling = wsAutoTag) and
@@ -3053,20 +3072,26 @@ begin
     aWriter.Attribute(XML_XML_SPACE, OXmlPreserveToStr(Self.fPreserveWhiteSpace));
 end;
 
-procedure TXMLNode.SaveToWriter(const aWriter: TXMLWriter);
+procedure TXMLNode.SaveToWriter(const aWriter: TXMLWriter; var ioCounter: XMLNodeId);
 var
   xDict: TOHashedStrings;
 begin
+  if Assigned(fOwnerDocument.fOnProgress) then
+  begin
+    fOwnerDocument.fOnProgress(fOwnerDocument, ioCounter, fOwnerDocument.AbsoluteNodeCount, True);
+    Inc(ioCounter);
+  end;
+
   xDict := fOwnerDocument.fDictionary;
   case fNodeType of
-    ntDocument: WriteChildrenXML(aWriter);
+    ntDocument: WriteChildrenXML(aWriter, ioCounter);
     ntElement: begin
       aWriter.OpenElement(xDict.GetItem(fNodeNameId).Text);
-      WriteAttributesXML(aWriter);
+      WriteAttributesXML(aWriter, ioCounter);
       if HasChildNodes then
       begin
         aWriter.FinishOpenElement;
-        WriteChildrenXML(aWriter);
+        WriteChildrenXML(aWriter, ioCounter);
         aWriter.CloseElement(xDict.GetItem(fNodeNameId).Text,
           (aWriter.WriterSettings.IndentType <> itNone) and//speed optimization
           not (//IsTextElement
@@ -3079,7 +3104,7 @@ begin
     end;
     ntXMLDeclaration: begin
       aWriter.OpenXMLDeclaration;
-      WriteAttributesXML(aWriter);
+      WriteAttributesXML(aWriter, ioCounter);
       aWriter.FinishOpenXMLDeclaration;
     end;
     ntAttribute: aWriter.Attribute(
@@ -3141,8 +3166,8 @@ begin
   Result := CreateNode(ntAttribute, aName, aValue);
 end;
 
-function TXMLDocument.CreateAttributeNS(const aNameSpaceURI, aQualifiedName,
-  aValue: OWideString): PXMLNode;
+function TXMLDocument.CreateAttributeNS(const aNameSpaceURI,
+  aQualifiedName: OWideString; const aValue: OWideString): PXMLNode;
 begin
   Result := CreateAttribute(aQualifiedName, aValue);
   if aNameSpaceURI <> '' then
@@ -3487,6 +3512,11 @@ begin
   raise EXmlDOMException.Create(OXmlLng_NodeNotFound);
 end;
 
+function TXMLDocument.GetOnProgress: TDOMProgressEvent;
+begin
+  Result := fOnProgress;
+end;
+
 function TXMLDocument.GetParseError: IOTextParseError;
 begin
   Result := fParseError;
@@ -3683,8 +3713,11 @@ begin
 end;
 
 procedure TXMLDocument.SaveToWriter(const aWriter: TXMLWriter);
+var
+  xCounter: XMLNodeId;
 begin
-  Node.SaveToWriter(aWriter);
+  xCounter := 0;
+  Node.SaveToWriter(aWriter, xCounter);
 end;
 
 procedure TXMLDocument.SetCodePage(const aCodePage: Word);
@@ -3734,6 +3767,11 @@ end;
 procedure TXMLDocument.SetLoading(const aLoading: Boolean);
 begin
   fLoading := aLoading;
+end;
+
+procedure TXMLDocument.SetOnProgress(const aOnProgress: TDOMProgressEvent);
+begin
+  fOnProgress := aOnProgress;
 end;
 
 procedure TXMLDocument.SetStandAlone(const aStandAlone: OWideString);
