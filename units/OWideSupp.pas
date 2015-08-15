@@ -104,7 +104,11 @@ type
     POWideChar = PAnsiChar;
     OUnicodeChar = UnicodeChar;
     POUnicodeChar = PWideChar;
+    {$IF FPC_FULLVERSION<30000}
+    ORawByteString = AnsiString;
+    {$ELSE}
     ORawByteString = RawByteString;
+    {$ENDIF}
     ONativeInt = NativeInt;
     ONativeUInt = NativeUInt;
   {$ELSE}
