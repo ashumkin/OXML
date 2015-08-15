@@ -104,7 +104,7 @@ type
     POWideChar = PAnsiChar;
     OUnicodeChar = UnicodeChar;
     POUnicodeChar = PWideChar;
-    {$IF FPC_FULLVERSION<30000}
+    {$IFDEF O_FPC_2_DOWN}
     ORawByteString = AnsiString;
     {$ELSE}
     ORawByteString = RawByteString;
@@ -527,7 +527,7 @@ implementation
 
 uses
 {$IFDEF FPC}
-  LazUTF8,
+  LazUTF8, LazFileUtils,
 {$ELSE}
   {$IFNDEF O_DELPHI_2009_UP}
     {$IFDEF O_DELPHI_6_UP}

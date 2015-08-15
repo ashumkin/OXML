@@ -18,6 +18,15 @@
     {$DEFINE O_EXTENDEDTYPE}//e.g. Windows CE doesn't have Extended type (Extended = Double)
   {$ENDIF}
   {$DEFINE O_UTF8}
+  {$IFDEF ver1}
+    {$DEFINE O_FPC_2_DOWN}
+  {$ENDIF}
+  {$IFDEF ver2}
+    {$DEFINE O_FPC_2_DOWN}
+  {$ENDIF}
+  {$IFNDEF O_FPC_2_DOWN}
+    {$DEFINE O_FPC_3_UP}
+  {$ENDIF}
 {$ELSE}
   //DELPHI
   {$DEFINE O_EXTENDEDTYPE}
