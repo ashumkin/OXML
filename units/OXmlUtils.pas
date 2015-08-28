@@ -81,20 +81,20 @@ const
   {$ELSE}
   XMLDefaultLineBreak = lbLF;
   {$ENDIF}
-  XML_XML: OWideString = 'xml';
-  XML_XMLNS: OWideString = 'xmlns';
-  XML_XML_SPACE: OWideString = 'xml:space';
+  XML_XML = 'xml';
+  XML_XMLNS = 'xmlns';
+  XML_XML_SPACE = 'xml:space';
 
-  XML_ENTITY_AMP: OWideString = '&amp;';
-  XML_ENTITY_LT: OWideString = '&lt;';
-  XML_ENTITY_GT: OWideString = '&gt;';
-  XML_ENTITY_QUOT: OWideString = '&quot;';
-  XML_ENTITY_APOS: OWideString = '&apos;';
-  XML_ENTITY_TAB: OWideString = '&#9;';
-  XML_ENTITY_LF: OWideString = '&#xA;';
-  XML_ENTITY_CR: OWideString = '&#xD;';
-  XML_BOOLEAN_TRUE: string = 'true';
-  XML_BOOLEAN_FALSE: string = 'false';
+  XML_ENTITY_AMP = '&amp;';
+  XML_ENTITY_LT = '&lt;';
+  XML_ENTITY_GT = '&gt;';
+  XML_ENTITY_QUOT = '&quot;';
+  XML_ENTITY_APOS = '&apos;';
+  XML_ENTITY_TAB = '&#9;';
+  XML_ENTITY_LF = '&#xA;';
+  XML_ENTITY_CR = '&#xD;';
+  XML_BOOLEAN_TRUE = 'true';
+  XML_BOOLEAN_FALSE = 'false';
 
   XMLLineBreak: array[TXMLLineBreak] of OWideString = (#10, #13, #13#10, sLineBreak);
 
@@ -121,6 +121,10 @@ const
   NOT_SUPPORTED_ERR = 9;
   // an attempt is made to add an attribute that is already in use elsewhere
   INUSE_ATTRIBUTE_ERR = 10;
+
+  ISO_BOOL_CONST: array[False..True {aValue}, False..True {aWritten}] of string =
+    (('0', XML_BOOLEAN_FALSE), ('1', XML_BOOLEAN_TRUE));
+
 type
 
   //virtual MS above some custom buffer (may be string, array of byte etc.)
@@ -310,19 +314,7 @@ end;
 
 function ISOBoolToStr(const aValue: Boolean; const aWritten: Boolean = False): string;
 begin
-  if aWritten then
-  begin
-    if aValue then
-      Result := XML_BOOLEAN_TRUE
-    else
-      Result := XML_BOOLEAN_FALSE;
-  end else
-  begin
-    if aValue then
-      Result := '1'
-    else
-      Result := '0';
-  end;
+  Result := ISO_BOOL_CONST[aValue, aWritten];
 end;
 
 function ISOFloatToStr(const aValue: Extended): string;

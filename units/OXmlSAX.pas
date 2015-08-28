@@ -409,7 +409,7 @@ begin
     raise ESAXHandlerInputException.CreateFmt(OXmlLng_ElementNameAlreadyRegistered, [aElementName]);
 
   fChildHandlers.Objects[xIndex] := aHandler;
-  aHandler.fThisElementName := aElementName;
+  {%H-}aHandler.fThisElementName := aElementName;
 end;
 
 constructor TSAXHandler.Create;

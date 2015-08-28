@@ -131,21 +131,16 @@ type
     // document is reached or you call ReleaseDocument!
 
     //aDefaultEncoding - if no BOM is found, use this encoding,
-    //  if BOM is found, always the correct encoding from the BOM is used
+    //  if BOM is found, always the correct encoding from the used BOM
 
     //load document from file
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitFile(const aFileName: OWideString; const aDefaultEncoding: TEncoding = nil);
     //load document from file
-    // if aForceEncoding = nil: in encoding specified by the document
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitStream(const aStream: TStream; const aDefaultEncoding: TEncoding = nil);
-    //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
+    //loads document in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitString(const aString: OWideString);
     procedure InitString_UTF8(const aString: OUTF8Container);
     //load document from TBytes buffer
-    // if aForceEncoding = nil: in encoding specified by the document
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitBuffer(const aBuffer: TBytes; const aDefaultEncoding: TEncoding = nil); overload;
     procedure InitBuffer(const aBuffer; const aBufferLength: Integer; const aDefaultEncoding: TEncoding = nil); overload;
 
@@ -298,22 +293,14 @@ type
     // Please note that the file/stream/... is locked until the end of the
     // document is reached or you call ReleaseDocument!
 
-    //aDefaultEncoding - if no BOM is found, use this encoding,
-    //  if BOM is found, always the correct encoding from the BOM is used
-
     //load document from file
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitFile(const aFileName: OWideString);
     //load document from file
-    // if aForceEncoding = nil: in encoding specified by the document
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitStream(const aStream: TStream; const aOwnsStream: Boolean = False);
     //loads XML in default unicode encoding: UTF-16 for DELPHI, UTF-8 for FPC
     procedure InitString(const aString: OWideString);
     procedure InitString_UTF8(const aString: OUTF8Container);
     //load document from TBytes buffer
-    // if aForceEncoding = nil: in encoding specified by the document
-    // if aForceEncoding<>nil : enforce encoding (<?xml encoding=".."?> is ignored)
     procedure InitBuffer(const aBuffer: TBytes); overload;
     procedure InitBuffer(const aBuffer; const aBufferLength: Integer); overload;
 
