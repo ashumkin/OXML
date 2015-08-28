@@ -74,7 +74,9 @@ type
   private
     fContext: TRttiContext;
 
-    fVisibility: TMemberVisibilitySet;
+    fObjectVisibility: TMemberVisibilitySet;
+    fRecordVisibility: TMemberVisibilitySet;
+
     fUseRoot: Boolean;
     fCollectionStyle: TXMLSerializeCollectionStyle;
   protected
@@ -86,8 +88,10 @@ type
     constructor Create;
     destructor Destroy; override;
   public
-    //write properties only from a specific visibility
-    property Visibility: TMemberVisibilitySet read fVisibility write fVisibility;
+    //write properties only from a specific visibility (within objects)
+    property ObjectVisibility: TMemberVisibilitySet read fObjectVisibility write fObjectVisibility;
+    //write properties only from a specific visibility (within records) - be aware that records only support private and public!
+    property RecordVisibility: TMemberVisibilitySet read fRecordVisibility write fRecordVisibility;
     //use root
     property UseRoot: Boolean read fUseRoot write SetUseRoot;
     //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
@@ -163,8 +167,10 @@ type
     //csOXml:    <MyCollection><_oxmlcollection><i>...</i><i>...</i></_oxmlcollection></MyCollection>
     //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
     property CollectionStyle;
-    //write properties only from a specific visibility
-    property Visibility;
+    //write properties only from a specific visibility (within objects)
+    property ObjectVisibility;
+    //write properties only from a specific visibility (within records) - be aware that records only support private and public!
+    property RecordVisibility;
 
     //XML writer settings
     property WriterSettings: TXMLWriterSettings read GetWriterSettings;
@@ -273,8 +279,10 @@ type
     //ParseError has information about the error that occured when parsing a document
     property ParseError: IOTextParseError read GetParseError;
 
-    //write properties only from a specific visibility
-    property Visibility;
+    //write properties only from a specific visibility (within objects)
+    property ObjectVisibility;
+    //write properties only from a specific visibility (within records) - be aware that records only support private and public!
+    property RecordVisibility;
   end;
 
   TRttiContextHelper = record helper for TRttiContext
@@ -523,6 +531,7 @@ var
   xElementType: TRttiType;
   I: Integer;
   xClassName: string;
+  xVisibility: TMemberVisibilitySet;
 begin
   aTagName := OXmlNameToXML(aTagName);
   aType := Context.GetRealObjectType(aValue, aType);
@@ -558,15 +567,28 @@ begin
     tkClass, tkRecord, tkInterface:
     begin
       case aType.TypeKind of
-        tkClass: xInstance := aValue.AsObject;
-        tkRecord: xInstance := aValue.GetReferenceToRawData;
-        tkInterface: xInstance := Pointer(aValue.AsInterface);
+        tkClass:
+        begin
+          xInstance := aValue.AsObject;
+          xVisibility := ObjectVisibility;
+        end;
+        tkRecord:
+        begin
+          xInstance := aValue.GetReferenceToRawData;
+          xVisibility := RecordVisibility;
+        end;
+        tkInterface:
+        begin
+          xInstance := Pointer(aValue.AsInterface);
+          xVisibility := [mvPrivate, mvProtected, mvPublic, mvPublished];
+        end;
       else
         xInstance := nil;
+        xVisibility := [];
       end;
 
       fWriter.OpenElement(aTagName, stOpenOnly);
-      if (aType.TypeKind = tkClass) then
+      if (aType.TypeKind = tkClass) and Assigned(xInstance) then
       begin
         xClassName := OXmlNameToXML(TObject(xInstance).ClassName);
         if aWriteObjectType and (aTagName <> xClassName) then
@@ -575,11 +597,11 @@ begin
       fWriter.FinishOpenElement;
 
       for xField in aType.GetFields do
-      if (xField.Visibility in fVisibility) then
+      if (xField.Visibility in xVisibility) then
         WriteObjectProperty(xField.Name, xField.FieldType, xField.GetValue(xInstance), False, True);
 
       for xProperty in aType.GetProperties do
-      if (xProperty.Visibility in fVisibility) and
+      if (xProperty.Visibility in xVisibility) and
          (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
       then
       begin
@@ -997,15 +1019,24 @@ var
   xProperty: TRttiProperty;
   xEnumerationNode: PXMLNode;
   xPropNameIndex: TXMLNodeIndex;
+  xVisibility: TMemberVisibilitySet;
 begin
   xPropNameIndex := nil;
   try
+    case aType.TypeKind of
+      tkClass: xVisibility := ObjectVisibility;
+      tkRecord: xVisibility := RecordVisibility;
+      tkInterface: xVisibility := [mvPrivate, mvProtected, mvPublic, mvPublished];
+    else
+      xVisibility := [];
+    end;
+
     for xField in aType.GetFields do
-    if (xField.Visibility in fVisibility) then
+    if (xField.Visibility in xVisibility) then
       ReadObjectProperty(aInstance, xField, xField.FieldType, xField.GetValue(aInstance), aElementNode, xPropNameIndex);
 
     for xProperty in aType.GetProperties do
-    if (xProperty.Visibility in fVisibility) and
+    if (xProperty.Visibility in xVisibility) and
       (xProperty.IsWritable or xProperty.PropertyType.IsInstance)
     then
       ReadObjectProperty(aInstance, xProperty, xProperty.PropertyType, xProperty.GetValue(aInstance), aElementNode, xPropNameIndex);
@@ -1242,7 +1273,8 @@ end;
 procedure TCustomXMLRTTISerDes.DoCreate;
 begin
   fContext := TRttiContext.Create;
-  fVisibility := [mvPublic, mvPublished];
+  fObjectVisibility := [mvPublic, mvPublished];
+  fRecordVisibility := [mvPublic, mvPublished];
   fUseRoot := True;
 end;
 

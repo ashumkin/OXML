@@ -108,6 +108,8 @@ type
       var ioElement: TXMLWriterElement);
     procedure WriteCollectionItems(const aCollection: TCollection;
       var ioElement: TXMLWriterElement);
+    procedure WriteStringsItems(const aStrings: TStrings;
+      var ioElement: TXMLWriterElement);
   public
     //create
     constructor Create; overload;
@@ -174,6 +176,8 @@ type
       const aElementNode: PXMLNode; var ioPropNameIndex: TXMLNodeIndex);
     procedure ReadCollectionItems(const aCollection: TCollection;
       const aEnumerationNode: PXMLNode; const aChildName: OWideString);
+    procedure ReadStringItems(const aStrings: TStrings;
+      const aEnumerationNode: PXMLNode);
   public
     destructor Destroy; override;
   public
@@ -441,7 +445,10 @@ procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
       ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), xPropElement{%H-});
       WriteObjectProperties(TPersistent(bObject), xPropElement);
       if bObject is TCollection then
-        WriteCollectionItems(TCollection(bObject), xPropElement);
+        WriteCollectionItems(TCollection(bObject), xPropElement)
+      else
+      if bObject is TStrings then
+        WriteStringsItems(TStrings(bObject), xPropElement);
       xPropElement.CloseElement;
     end;
   end;
@@ -515,6 +522,33 @@ begin
 
     fRootElementWritten := True;
   end;
+end;
+
+procedure TXMLSerializer.WriteStringsItems(const aStrings: TStrings;
+  var ioElement: TXMLWriterElement);
+var
+  xStringsElem, xStrElem: TXMLWriterElement;
+  I: Integer;
+begin
+  if aStrings.Count = 0 then
+    Exit;
+
+  ioElement.FinishOpenElement;
+  if CollectionStyle = csOXml then
+    ioElement.OpenElementR('_oxmlstrings', xStringsElem{%H-}, stFinish);
+
+  for I := 0 to aStrings.Count-1 do
+  begin
+    case CollectionStyle of
+      csOXml: ioElement.OpenElementR('i', xStrElem{%H-}, stFinish);
+      csOmniXML: ioElement.OpenElementR('l'+IntToStr(I), xStrElem{%H-}, stFinish);
+    end;
+    xStrElem.Text(aStrings[I], False);
+    xStrElem.CloseElement(False);
+  end;
+
+  if CollectionStyle = csOXml then
+    xStringsElem.CloseElement;
 end;
 
 { TXMLDeserializer }
@@ -737,6 +771,16 @@ procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
           csOmniXML:
             ReadCollectionItems(TCollection(xPropObject), bPropElement, TCollection(xPropObject).ItemClass.ClassName);
         end;
+      end else
+      if (xPropObject is TStrings) then
+      begin
+        case CollectionStyle of
+          csOXml:
+            if bPropElement.SelectNode('_oxmlstrings', xEnumerationNode{%H-}) then
+              ReadStringItems(TStrings(xPropObject), xEnumerationNode);
+          csOmniXML:
+            ReadStringItems(TStrings(xPropObject), bPropElement);
+        end;
       end;
     end;
   end;
@@ -806,6 +850,39 @@ begin
         _ReadClass(xPropElement);
     end;
   end;
+end;
+
+procedure TXMLDeserializer.ReadStringItems(const aStrings: TStrings;
+  const aEnumerationNode: PXMLNode);
+var
+  xItemNode: PXMLNode;
+  xChildNameId: OHashedStringsIndex;
+begin
+  aStrings.BeginUpdate;
+  aStrings.Clear;
+
+  if CollectionStyle = csOXml then
+  begin
+    xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString('i');
+    if xChildNameId < 0 then
+      Exit;
+  end;
+
+  xItemNode := aEnumerationNode.FirstChild;
+  while Assigned(xItemNode) do
+  begin
+    case CollectionStyle of
+      csOXml:
+        if (xItemNode.NodeNameId = xChildNameId) then//OXml style: <i>string</i>
+          aStrings.Add(xItemNode.Text);
+      csOmniXML:
+        if (xItemNode.NodeName = 'l'+IntToStr(aStrings.Count)) then//OmniXml style: <lxxx>string</lxxx> (xxx is counter)
+          aStrings.Add(xItemNode.Text);
+    end;
+
+    xItemNode := xItemNode.NextSibling;
+  end;
+  aStrings.EndUpdate;
 end;
 
 procedure TXMLDeserializer.ReleaseDocument;
