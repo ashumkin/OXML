@@ -125,6 +125,7 @@ type
   private
     function GetNodeName: OWideString;
     function GetNodeValue: OWideString;
+    function GetNodePath: OWideString;
     function GetLocalName: OWideString;
     function GetNameSpacePrefix: OWideString;
     function GetNameSpaceURI: OWideString;
@@ -1752,6 +1753,23 @@ end;
 function TXMLNode.GetNodeName: OWideString;
 begin
   Result := fOwnerDocument.GetString(NodeNameId);
+end;
+
+function TXMLNode.GetNodePath: OWideString;
+var
+  xIter: TXMLNode;
+  xName: OWideString;
+begin
+  Result := '';
+  xIter := Self;
+  while Assigned(xIter) do
+  begin
+    xName := xIter.NodeName;
+    if xName = '' then
+      Break;
+    Result := '/'+xName+Result;
+    xIter := xIter.ParentNode;
+  end;
 end;
 
 function TXMLNode.GetNameSpacePrefix: OWideString;

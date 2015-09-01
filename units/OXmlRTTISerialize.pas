@@ -180,6 +180,7 @@ type
   private
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
+    fErrorHandling: TXMLDeserializeErrorHandling;
 
     fCreateClasses: TDictionary<string,TClass>;
 
@@ -283,6 +284,9 @@ type
     property ObjectVisibility;
     //write properties only from a specific visibility (within records) - be aware that records only support private and public!
     property RecordVisibility;
+
+    //What happens when an invalid XML value is found
+    property ErrorHandling: TXMLDeserializeErrorHandling read fErrorHandling write fErrorHandling;
   end;
 
   TRttiContextHelper = record helper for TRttiContext
@@ -803,6 +807,7 @@ begin
 
   fXMLParser := TXMLSeqParser.Create;
   fCreateClasses := TDictionary<string,TClass>.Create;
+  fErrorHandling := dehRaiseException;
 end;
 
 procedure TXMLRTTIDeserializer.DoInit;
@@ -1096,13 +1101,27 @@ procedure TXMLRTTIDeserializer.ReadObjectPropertyValue(
 var
   xStrValue: OWideString;
   xOrdValue: Integer;
-  xFloatValue: Extended;
+  xDoubleValue: Double;
+  xExtendedValue: Extended;
   xNewValue: TValue;
   xItemType: TRttiType;
   xItemNode: PXMLNode;
   xArrayLength: ONativeInt;
   I: Integer;
   xNewValueAllocatedMemory: Pointer;
+  xResult: Boolean;
+
+  procedure _Raise;
+  begin
+    raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_InvalidValue, [xStrValue, aElementValueNode.NodePath, aType.Name]);
+  end;
+  procedure _RaiseOrd;
+  begin
+    case fErrorHandling of
+      dehRaiseException: _Raise;
+      dehUseDefaultValue: xOrdValue := 0;
+    end;
+  end;
 begin
   aType := Context.GetRealObjectType(ioValue, aType);
 
@@ -1160,10 +1179,21 @@ begin
       tkInteger, tkChar, tkWChar, tkEnumeration, tkSet:
       begin
         case aType.TypeKind of
-          tkInteger: xOrdValue := StrToInt(xStrValue);
-          tkChar, tkWChar: xOrdValue := Integer(xStrValue[1]);
-          tkEnumeration: xOrdValue := GetEnumValue(aType.Handle, xStrValue);
-          tkSet: xOrdValue := StringToSet(aType.Handle, xStrValue);
+          tkInteger:
+            if not TryStrToInt(xStrValue, xOrdValue) then
+              _RaiseOrd;
+          tkChar, tkWChar:
+            if (Length(xStrValue) = 1) then
+              xOrdValue := Integer(xStrValue[1])
+            else
+              _RaiseOrd;
+          tkEnumeration:
+            begin
+              xOrdValue := GetEnumValue(aType.Handle, xStrValue);
+              if xOrdValue < GetTypeData(aType.Handle)^.MinValue then
+                _RaiseOrd;
+            end;
+          tkSet: xOrdValue := StringToSet(aType.Handle, xStrValue);//TODO: maybe some kind of check as well?
         else
           xOrdValue := 0;
         end;
@@ -1179,14 +1209,27 @@ begin
       tkFloat:
       begin
         if (aType = System.TypeInfo(TDateTime)) then
-          xFloatValue := ISOStrToDateTime(xStrValue)
-        else if (aType = System.TypeInfo(TTime)) then
-          xFloatValue := ISOStrToTime(xStrValue)
-        else if (aType = System.TypeInfo(TDate)) then
-          xFloatValue := ISOStrToDate(xStrValue)
-        else
-          xFloatValue := ISOStrToFloat(xStrValue);
-        ioValue := TValue.From(xFloatValue);
+        begin
+          xResult := ISOTryStrToDateTime(xStrValue, TDateTime(xDoubleValue));
+          xExtendedValue := xDoubleValue;
+        end else if (aType = System.TypeInfo(TTime)) then
+        begin
+          xResult := ISOTryStrToTime(xStrValue, TDateTime(xDoubleValue));
+          xExtendedValue := xDoubleValue;
+        end else if (aType = System.TypeInfo(TDate)) then
+        begin
+          xResult := ISOTryStrToDate(xStrValue, TDateTime(xDoubleValue));
+          xExtendedValue := xDoubleValue;
+        end else
+          xResult := ISOTryStrToFloat(xStrValue, xExtendedValue);
+
+        if not xResult then
+          case fErrorHandling of
+            dehRaiseException: _Raise;
+            dehUseDefaultValue: xExtendedValue := 0;
+          end;
+
+        ioValue := TValue.From(xExtendedValue);
         outValueDataChanged := True;
       end;
     end;

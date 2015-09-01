@@ -160,6 +160,7 @@ type
   private
     fXMLParser: TXMLSeqParser;
     fRootNode, fCurrentElementNode: PXMLNode;
+    fErrorHandling: TXMLDeserializeErrorHandling;
 
     function GetApproxStreamPosition: OStreamInt;
     function GetStreamSize: OStreamInt;
@@ -235,6 +236,9 @@ type
 
     //ParseError has information about the error that occured when parsing a document
     property ParseError: IOTextParseError read GetParseError;
+
+    //What happens when an invalid XML value is found
+    property ErrorHandling: TXMLDeserializeErrorHandling read fErrorHandling write fErrorHandling;
   end;
 
   EXMLSerializer = class(Exception);
@@ -292,6 +296,8 @@ end;
 
 procedure TXMLSerializer.DoCreate;
 begin
+  inherited DoCreate;
+
   fWriter := TXMLWriter.Create;
   fXMLDeclaration := TXMLWriterDeclaration.Create;
 
@@ -562,7 +568,11 @@ end;
 
 procedure TXMLDeserializer.DoCreate;
 begin
+  inherited DoCreate;
+
   fXMLParser := TXMLSeqParser.Create;
+
+  fErrorHandling := dehRaiseException;
 end;
 
 procedure TXMLDeserializer.DoInit;
@@ -788,8 +798,26 @@ var
   xPropType: PTypeInfo;
   xPropElement: PXMLNode;
   xStrValue: OWideString;
+  {$IFDEF FPC}
+  xUStrValue: UnicodeString;
+  {$ENDIF}
   xOrdValue: Integer;
-  xFloatValue: Double;
+  xDoubleValue: Double;
+  xExtendedValue: Extended;
+  xResult: Boolean;
+  xInt64Value: int64;
+
+  procedure _Raise;
+  begin
+    raise EXMLDeserializer.CreateFmt(OXmlLng_InvalidValue, [xStrValue, xPropElement.NodePath, xPropType^.Name]);
+  end;
+  procedure _RaiseOrd;
+  begin
+    case fErrorHandling of
+      dehRaiseException: _Raise;
+      dehUseDefaultValue: xOrdValue := 0;
+    end;
+  end;
 begin
   if not Assigned(aPropInfo^.GetProc) then
     Exit;
@@ -811,17 +839,37 @@ begin
       tkInteger, tkChar, tkWChar, {$IFDEF FPC}tkUChar, tkBool,{$ENDIF} tkEnumeration:
       begin
         case xPropType^.Kind of
-          tkInteger {$IFDEF FPC}, tkBool{$ENDIF}: xOrdValue := StrToInt(xStrValue);//save boolean values as integer
-          tkChar {$IFNDEF FPC}, tkWChar{$ENDIF}: xOrdValue := Integer(xStrValue[1]);
-          {$IFDEF FPC}tkWChar, tkUChar: xOrdValue := Integer(UTF8Decode(xStrValue)[1]);{$ENDIF}
-          tkEnumeration: xOrdValue := GetEnumValue(xPropType, xStrValue);
+          tkInteger {$IFDEF FPC}, tkBool{$ENDIF}://save boolean values as integer
+            if not TryStrToInt(xStrValue, xOrdValue) then
+              _RaiseOrd;
+          tkChar {$IFNDEF FPC}, tkWChar{$ENDIF}:
+            if (Length(xStrValue) = 1) then
+              xOrdValue := Integer(xStrValue[1])
+            else
+              _RaiseOrd;
+          {$IFDEF FPC}
+          tkWChar, tkUChar:
+            begin
+              xUStrValue := UTF8Decode(xStrValue)[1];
+              if (Length(xUStrValue) = 1) then
+                xOrdValue := Integer(xUStrValue[1])
+              else
+                _RaiseOrd;
+            end;
+          {$ENDIF}
+          tkEnumeration:
+            begin
+              xOrdValue := GetEnumValue(xPropType, xStrValue);
+              if xOrdValue < GetTypeData(xPropType)^.MinValue then
+                _RaiseOrd;
+            end;
         else
           xOrdValue := 0;
         end;
         SetOrdProp(aObject, aPropInfo, xOrdValue);
       end;
       tkSet:
-        SetSetProp(aObject, aPropInfo, xStrValue);
+        SetSetProp(aObject, aPropInfo, xStrValue);//TODO: maybe some kind of check as well?
       tkString, tkLString
       {$IFDEF FPC}, tkAString{$ENDIF}
       {$IFDEF O_DELPHI_5_DOWN}, tkWString{$ENDIF}
@@ -835,17 +883,37 @@ begin
       tkFloat:
       begin
         if (xPropType = System.TypeInfo(TDateTime)) then
-          xFloatValue := ISOStrToDateTime(xStrValue)
-        else if (xPropType = System.TypeInfo(TTime)) then
-          xFloatValue := ISOStrToTime(xStrValue)
-        else if (xPropType = System.TypeInfo(TDate)) then
-          xFloatValue := ISOStrToDate(xStrValue)
-        else
-          xFloatValue := ISOStrToFloat(xStrValue);
-        SetFloatProp(aObject, aPropInfo, xFloatValue);
+        begin
+          xResult := ISOTryStrToDateTime(xStrValue, TDateTime(xDoubleValue){%H-});
+          xExtendedValue := xDoubleValue;
+        end else if (xPropType = System.TypeInfo(TTime)) then
+        begin
+          xResult := ISOTryStrToTime(xStrValue, TDateTime(xDoubleValue){%H-});
+          xExtendedValue := xDoubleValue;
+        end else if (xPropType = System.TypeInfo(TDate)) then
+        begin
+          xResult := ISOTryStrToDate(xStrValue, TDateTime(xDoubleValue){%H-});
+          xExtendedValue := xDoubleValue;
+        end else
+          xResult := ISOTryStrToFloat(xStrValue, xExtendedValue{%H-});
+
+        if not xResult then
+          case fErrorHandling of
+            dehRaiseException: _Raise;
+            dehUseDefaultValue: xExtendedValue := 0;
+          end;
+
+        SetFloatProp(aObject, aPropInfo, xExtendedValue)
       end;
       tkInt64:
-        SetInt64Prop(aObject, aPropInfo, StrToInt64(xStrValue));
+        begin
+          if not TryStrToInt64(xStrValue, xInt64Value) then
+            case fErrorHandling of
+              dehRaiseException: _Raise;
+              dehUseDefaultValue: xInt64Value := 0;
+            end;
+          SetInt64Prop(aObject, aPropInfo, xInt64Value);
+        end;
       tkClass:
         _ReadClass(xPropElement);
     end;
@@ -866,7 +934,8 @@ begin
     xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString('i');
     if xChildNameId < 0 then
       Exit;
-  end;
+  end else
+    xChildNameId := Low(xChildNameId);
 
   xItemNode := aEnumerationNode.FirstChild;
   while Assigned(xItemNode) do
@@ -876,7 +945,7 @@ begin
         if (xItemNode.NodeNameId = xChildNameId) then//OXml style: <i>string</i>
           aStrings.Add(xItemNode.Text);
       csOmniXML:
-        if (xItemNode.NodeName = 'l'+IntToStr(aStrings.Count)) then//OmniXml style: <lxxx>string</lxxx> (xxx is counter)
+        if (xItemNode.NodeName = 'l'+IntToStr(aStrings.Count)) then//OmniXml style: <l???>string</l???> (??? is counter)
           aStrings.Add(xItemNode.Text);
     end;
 

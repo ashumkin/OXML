@@ -92,6 +92,7 @@ var
   OXmlLng_RTTIInternalError: string = 'RTTI Internal Error';
   OXmlLng_DeserializerNotSupportedListItemType: string = 'TXMLRTTIDeserializer: the type %s is not supported for TList<T> or array enumeration.';
   OXmlLng_DeserializerRegisterClass: string = 'TXMLRTTIDeserializer: you have to register the class %s with the RegisterClass method.';
+  OXmlLng_InvalidValue: string = 'The value "%s" in path "%s" is invalid. Expected: %s';
 
   OXmlLng_CannotUndo2Times: string = 'Unsupported: you tried to run the undo function two times in a row.';
   OXmlLng_ReadingAt: string = 'Reading at:';
@@ -115,6 +116,10 @@ var
   OXmlLng_JSON_CannotCloseArray: string = 'You cannot close array in this state.';
   OXmlLng_JSON_CannotWriteValue: string = 'You cannot write a value in this state.';
   OXmlLng_JSON_CannotWritePair: string = 'You cannot write a name-value pair in this state.';
+  OXmlLng_JSON_PairValueWrongType: string = 'The value of pair name %s has an invalid type.';
+  OXmlLng_JSON_ValueCannotBeConvertedToString: string = 'The value cannot be converted to string.';
+  OXmlLng_JSON_InvalidObjectName: string = '"%s" is not a valid object name.';
+  OXmlLng_JSON_ObjectNameAlreadyRegistered: string = 'The object name "%s" is already registered.';
 
 implementation
 

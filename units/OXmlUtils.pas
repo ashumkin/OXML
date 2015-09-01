@@ -69,6 +69,11 @@ type
   //csOmniXML: <MyCollection><TColItem>...</TColItem><TColItem>...</TColItem></MyCollection>
   TXMLSerializeCollectionStyle = (csOXml, csOmniXML);
 
+  //TXMLDeserializeErrorHandling - what happens when there is invalid value in the XML
+  //dehRaiseException: an EXMLDeserializer exception is called
+  //dehUseDefaultValue: the default value is used (e.g. 0 for numbers, #0 for chars etc.)
+  TXMLDeserializeErrorHandling = (dehRaiseException, dehUseDefaultValue);
+
   {$IFDEF O_GENERICARRAY}
   TXMLIntArray = TArray<Integer>;
   {$ELSE}
@@ -482,11 +487,12 @@ function ISOTryStrToDate(const aString: string; var outDate: TDateTime): Boolean
 var
   xYear, xMonth, xDay: Integer;
 begin
-  xYear := StrToIntDef(Copy(aString, 1, 4), 0);
-  xMonth := StrToIntDef(Copy(aString, 6, 2), 0);
-  xDay := StrToIntDef(Copy(aString, 9, 2), 0);
+  Result :=
+    TryStrToInt(Copy(aString, 1, 4), xYear) and
+    TryStrToInt(Copy(aString, 6, 2), xMonth) and
+    TryStrToInt(Copy(aString, 9, 2), xDay) and
+    TryEncodeDate(xYear, xMonth, xDay, outDate);
 
-  Result := TryEncodeDate(xYear, xMonth, xDay, outDate);
   if not Result then
     outDate := 0;
 end;
@@ -495,15 +501,15 @@ function ISOTryStrToDateTime(const aString: string; var outDateTime: TDateTime):
 var
   xYear, xMonth, xDay, xHour, xMinute, xSecond: Integer;
 begin
-  xYear := StrToIntDef(Copy(aString, 1, 4), 0);
-  xMonth := StrToIntDef(Copy(aString, 6, 2), 0);
-  xDay := StrToIntDef(Copy(aString, 9, 2), 0);
+  Result :=
+    TryStrToInt(Copy(aString, 1, 4), xYear) and
+    TryStrToInt(Copy(aString, 6, 2), xMonth) and
+    TryStrToInt(Copy(aString, 9, 2), xDay) and
+    TryStrToInt(Copy(aString, 12, 2), xHour) and
+    TryStrToInt(Copy(aString, 15, 2), xMinute) and
+    TryStrToInt(Copy(aString, 18, 2), xSecond) and
+    TryEncodeDateTime(xYear, xMonth, xDay, xHour, xMinute, xSecond, 0, outDateTime);
 
-  xHour := StrToIntDef(Copy(aString, 12, 2), 0);
-  xMinute := StrToIntDef(Copy(aString, 15, 2), 0);
-  xSecond := StrToIntDef(Copy(aString, 18, 2), 0);
-
-  Result := TryEncodeDateTime(xYear, xMonth, xDay, xHour, xMinute, xSecond, 0, outDateTime);
   if not Result then
     outDateTime := 0;
 end;
@@ -512,11 +518,12 @@ function ISOTryStrToTime(const aString: string; var outTime: TDateTime): Boolean
 var
   xHour, xMinute, xSecond: Integer;
 begin
-  xHour := StrToIntDef(Copy(aString, 1, 2), 0);
-  xMinute := StrToIntDef(Copy(aString, 4, 2), 0);
-  xSecond := StrToIntDef(Copy(aString, 7, 2), 0);
+  Result :=
+    TryStrToInt(Copy(aString, 1, 2), xHour) and
+    TryStrToInt(Copy(aString, 4, 2), xMinute) and
+    TryStrToInt(Copy(aString, 7, 2), xSecond) and
+    TryEncodeTime(xHour, xMinute, xSecond, 0, outTime);
 
-  Result := TryEncodeTime(xHour, xMinute, xSecond, 0, outTime);
   if not Result then
     outTime := 0;
 end;

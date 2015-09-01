@@ -130,6 +130,7 @@ type
     function GetId: XMLNodeId;
     function GetNodeName: OWideString;
     function GetNodeValue: OWideString;
+    function GetNodePath: OWideString;
     function GetLocalName: OWideString;
     function GetNameSpacePrefix: OWideString;
     function GetNameSpaceURI: OWideString;
@@ -417,6 +418,7 @@ type
     property NodeType: TXMLNodeType read fNodeType;
     property NodeName: OWideString read GetNodeName write SetNodeName;
     property NodeValue: OWideString read GetNodeValue write SetNodeValue;
+    property NodePath: OWideString read GetNodePath;
     property LocalName: OWideString read GetLocalName;
     property NameSpaceURI: OWideString read GetNameSpaceURI;
     property NameSpacePrefix: OWideString read GetNameSpacePrefix;
@@ -1163,7 +1165,7 @@ begin
   DeleteCChildren(aDestroyList, ctAttribute);
 end;
 
-procedure TXMLNode.DeleteChildren;
+procedure TXMLNode.DeleteChildren(const aDestroyList: Boolean);
 begin
   DeleteCChildren(aDestroyList, ctChild);
 end;
@@ -1938,6 +1940,23 @@ end;
 function TXMLNode.GetNodeName: OWideString;
 begin
   Result := fOwnerDocument.GetString(fNodeNameId);
+end;
+
+function TXMLNode.GetNodePath: OWideString;
+var
+  xIter: PXMLNode;
+  xName: OWideString;
+begin
+  Result := '';
+  xIter := @Self;
+  while Assigned(xIter) do
+  begin
+    xName := xIter^.NodeName;
+    if xName = '' then
+      Break;
+    Result := '/'+xName+Result;
+    xIter := xIter^.ParentNode;
+  end;
 end;
 
 function TXMLNode.GetNameSpacePrefix: OWideString;
