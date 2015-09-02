@@ -58,7 +58,7 @@ interface
 uses
   {$IFDEF O_NAMESPACES}
   System.SysUtils, System.Classes, System.TypInfo, System.RTTI,
-  System.Generics.Collections,
+  System.Generics.Collections, System.DateUtils,
   {$ELSE}
   SysUtils, Classes, TypInfo, RTTI, Generics.Collections,
   {$ENDIF}
@@ -1101,6 +1101,7 @@ procedure TXMLRTTIDeserializer.ReadObjectPropertyValue(
 var
   xStrValue: OWideString;
   xOrdValue: Integer;
+  xInt64Value: Int64;
   xDoubleValue: Double;
   xExtendedValue: Extended;
   xNewValue: TValue;
@@ -1115,8 +1116,9 @@ var
   begin
     raise EXMLRTTIDeserializer.CreateFmt(OXmlLng_InvalidValue, [xStrValue, aElementValueNode.NodePath, aType.Name]);
   end;
-  procedure _RaiseOrd;
+  function _RaiseOrd: Boolean;
   begin
+    Result := fErrorHandling <> dehIgnore;
     case fErrorHandling of
       dehRaiseException: _Raise;
       dehUseDefaultValue: xOrdValue := 0;
@@ -1181,17 +1183,20 @@ begin
         case aType.TypeKind of
           tkInteger:
             if not TryStrToInt(xStrValue, xOrdValue) then
-              _RaiseOrd;
+            if not _RaiseOrd then
+              Exit;
           tkChar, tkWChar:
             if (Length(xStrValue) = 1) then
               xOrdValue := Integer(xStrValue[1])
             else
-              _RaiseOrd;
+            if not _RaiseOrd then
+              Exit;
           tkEnumeration:
             begin
               xOrdValue := GetEnumValue(aType.Handle, xStrValue);
               if xOrdValue < GetTypeData(aType.Handle)^.MinValue then
-                _RaiseOrd;
+              if not _RaiseOrd then
+                Exit;
             end;
           tkSet: xOrdValue := StringToSet(aType.Handle, xStrValue);//TODO: maybe some kind of check as well?
         else
@@ -1227,10 +1232,21 @@ begin
           case fErrorHandling of
             dehRaiseException: _Raise;
             dehUseDefaultValue: xExtendedValue := 0;
+            dehIgnore: Exit;
           end;
 
         ioValue := TValue.From(xExtendedValue);
         outValueDataChanged := True;
+      end;
+      tkInt64:
+      begin
+        if not TryStrToInt64(xStrValue, xInt64Value) then
+          case fErrorHandling of
+            dehRaiseException: _Raise;
+            dehUseDefaultValue: xInt64Value := 0;
+            dehIgnore: Exit;
+          end;
+        ioValue := TValue.From<Int64>(xInt64Value);
       end;
     end;
   end;

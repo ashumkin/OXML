@@ -72,7 +72,8 @@ type
   //TXMLDeserializeErrorHandling - what happens when there is invalid value in the XML
   //dehRaiseException: an EXMLDeserializer exception is called
   //dehUseDefaultValue: the default value is used (e.g. 0 for numbers, #0 for chars etc.)
-  TXMLDeserializeErrorHandling = (dehRaiseException, dehUseDefaultValue);
+  //dehIgnore: the value is not overwritten
+  TXMLDeserializeErrorHandling = (dehRaiseException, dehUseDefaultValue, dehIgnore);
 
   {$IFDEF O_GENERICARRAY}
   TXMLIntArray = TArray<Integer>;

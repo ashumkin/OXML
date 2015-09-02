@@ -47,7 +47,7 @@ interface
 
 uses
   {$IFDEF O_NAMESPACES}
-  System.SysUtils, System.Classes, System.TypInfo,
+  System.SysUtils, System.Classes, System.TypInfo, System.DateUtils,
     {$IFDEF O_GENERICS}
     System.Generics.Collections,
     {$ENDIF}
@@ -811,8 +811,9 @@ var
   begin
     raise EXMLDeserializer.CreateFmt(OXmlLng_InvalidValue, [xStrValue, xPropElement.NodePath, xPropType^.Name]);
   end;
-  procedure _RaiseOrd;
+  function _RaiseOrd: Boolean;
   begin
+    Result := fErrorHandling <> dehIgnore;
     case fErrorHandling of
       dehRaiseException: _Raise;
       dehUseDefaultValue: xOrdValue := 0;
@@ -841,12 +842,14 @@ begin
         case xPropType^.Kind of
           tkInteger {$IFDEF FPC}, tkBool{$ENDIF}://save boolean values as integer
             if not TryStrToInt(xStrValue, xOrdValue) then
-              _RaiseOrd;
+            if not _RaiseOrd then
+              Exit;
           tkChar {$IFNDEF FPC}, tkWChar{$ENDIF}:
             if (Length(xStrValue) = 1) then
               xOrdValue := Integer(xStrValue[1])
             else
-              _RaiseOrd;
+            if not _RaiseOrd then
+              Exit;
           {$IFDEF FPC}
           tkWChar, tkUChar:
             begin
@@ -854,14 +857,16 @@ begin
               if (Length(xUStrValue) = 1) then
                 xOrdValue := Integer(xUStrValue[1])
               else
-                _RaiseOrd;
+              if not _RaiseOrd then
+                Exit;
             end;
           {$ENDIF}
           tkEnumeration:
             begin
               xOrdValue := GetEnumValue(xPropType, xStrValue);
               if xOrdValue < GetTypeData(xPropType)^.MinValue then
-                _RaiseOrd;
+              if not _RaiseOrd then
+                Exit;
             end;
         else
           xOrdValue := 0;
@@ -901,19 +906,21 @@ begin
           case fErrorHandling of
             dehRaiseException: _Raise;
             dehUseDefaultValue: xExtendedValue := 0;
+            dehIgnore: Exit;
           end;
 
         SetFloatProp(aObject, aPropInfo, xExtendedValue)
       end;
       tkInt64:
-        begin
-          if not TryStrToInt64(xStrValue, xInt64Value) then
-            case fErrorHandling of
-              dehRaiseException: _Raise;
-              dehUseDefaultValue: xInt64Value := 0;
-            end;
-          SetInt64Prop(aObject, aPropInfo, xInt64Value);
-        end;
+      begin
+        if not TryStrToInt64(xStrValue, xInt64Value) then
+          case fErrorHandling of
+            dehRaiseException: _Raise;
+            dehUseDefaultValue: xInt64Value := 0;
+            dehIgnore: Exit;
+          end;
+        SetInt64Prop(aObject, aPropInfo, xInt64Value);
+      end;
       tkClass:
         _ReadClass(xPropElement);
     end;
