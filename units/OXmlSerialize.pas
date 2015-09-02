@@ -391,7 +391,10 @@ var
 begin
   WriteRootStartElement;
 
-  if GetTypeData(aObject.ClassInfo)^.PropCount = 0 then
+  if (GetTypeData(aObject.ClassInfo)^.PropCount = 0) and
+     not (aObject is TCollection) and//always write TCollection
+     not (aObject is TStrings)//always write TStrings
+  then
     Exit;
 
   fWriter.OpenElementR(aElementName, xElement{%H-});
@@ -410,21 +413,27 @@ var
   xPropInfo: PPropInfo;
 begin
   xPropCount := GetTypeData(aObject.ClassInfo)^.PropCount;
-  if xPropCount = 0 then
-    Exit;
-
-  GetMem(xPropList, xPropCount*SizeOf(Pointer));
-  try
-    GetPropInfos(aObject.ClassInfo, xPropList);
-    for I := 0 to xPropCount-1 do
-    begin
-      xPropInfo := xPropList^[I];
-      if Assigned(xPropInfo) and IsStoredProp(aObject, xPropInfo) then
-        WriteObjectProperty(aObject, xPropInfo, ioElement);
+  if xPropCount > 0 then
+  begin
+    GetMem(xPropList, xPropCount*SizeOf(Pointer));
+    try
+      GetPropInfos(aObject.ClassInfo, xPropList);
+      for I := 0 to xPropCount-1 do
+      begin
+        xPropInfo := xPropList^[I];
+        if Assigned(xPropInfo) and IsStoredProp(aObject, xPropInfo) then
+          WriteObjectProperty(aObject, xPropInfo, ioElement);
+      end;
+    finally
+      FreeMem(xPropList, xPropCount*SizeOf(Pointer));
     end;
-  finally
-    FreeMem(xPropList, xPropCount*SizeOf(Pointer));
   end;
+
+  if aObject is TCollection then
+    WriteCollectionItems(TCollection(aObject), ioElement)
+  else
+  if aObject is TStrings then
+    WriteStringsItems(TStrings(aObject), ioElement);
 end;
 
 procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
@@ -450,11 +459,6 @@ procedure TXMLSerializer.WriteObjectProperty(const aObject: TPersistent;
 
       ioElement.OpenElementR(SymbolNameToString(@aPropInfo^.Name), xPropElement{%H-});
       WriteObjectProperties(TPersistent(bObject), xPropElement);
-      if bObject is TCollection then
-        WriteCollectionItems(TCollection(bObject), xPropElement)
-      else
-      if bObject is TStrings then
-        WriteStringsItems(TStrings(bObject), xPropElement);
       xPropElement.CloseElement;
     end;
   end;
@@ -648,22 +652,27 @@ var
   xNewItem: TCollectionItem;
   xChildNameId: OHashedStringsIndex;
 begin
-  aCollection.Clear;
+  aCollection.BeginUpdate;
+  try
+    aCollection.Clear;
 
-  xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString(aChildName);
-  if xChildNameId < 0 then
-    Exit;
+    xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString(aChildName);
+    if xChildNameId < 0 then
+      Exit;
 
-  xItemNode := aEnumerationNode.FirstChild;
-  while Assigned(xItemNode) do
-  begin
-    if xItemNode.NodeNameId = xChildNameId then
+    xItemNode := aEnumerationNode.FirstChild;
+    while Assigned(xItemNode) do
     begin
-      xNewItem := aCollection.Add;
+      if xItemNode.NodeNameId = xChildNameId then
+      begin
+        xNewItem := aCollection.Add;
 
-      ReadObjectFromNode(xNewItem, xItemNode);
+        ReadObjectFromNode(xNewItem, xItemNode);
+      end;
+      xItemNode := xItemNode.NextSibling;
     end;
-    xItemNode := xItemNode.NextSibling;
+  finally
+    aCollection.EndUpdate;
   end;
 end;
 
@@ -734,6 +743,7 @@ var
   xPropList: PPropList;
   xPropInfo: PPropInfo;
   xPropNameIndex: TXMLNodeIndex;
+  xEnumerationNode: PXMLNode;
 begin
   xPropNameIndex := nil;
   try
@@ -756,6 +766,27 @@ begin
   finally
     xPropNameIndex.Free;
   end;
+
+  if (aObject is TCollection) then
+  begin
+    case CollectionStyle of
+      csOXml:
+        if aElementNode.SelectNode('_oxmlcollection', xEnumerationNode{%H-}) then
+          ReadCollectionItems(TCollection(aObject), xEnumerationNode, 'i');
+      csOmniXML:
+        ReadCollectionItems(TCollection(aObject), aElementNode, TCollection(aObject).ItemClass.ClassName);
+    end;
+  end else
+  if (aObject is TStrings) then
+  begin
+    case CollectionStyle of
+      csOXml:
+        if aElementNode.SelectNode('_oxmlstrings', xEnumerationNode{%H-}) then
+          ReadStringItems(TStrings(aObject), xEnumerationNode);
+      csOmniXML:
+        ReadStringItems(TStrings(aObject), aElementNode);
+    end;
+  end;
 end;
 
 procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
@@ -765,34 +796,10 @@ procedure TXMLDeserializer.ReadObjectProperty(const aObject: TPersistent;
   procedure _ReadClass(const bPropElement: PXMLNode);
   var
     xPropObject: TObject;
-    xEnumerationNode: PXMLNode;
   begin
     xPropObject := GetObjectProp(aObject, aPropInfo);
     if Assigned(xPropObject) and (xPropObject is TPersistent) then
-    begin
       ReadObjectProperties(TPersistent(xPropObject), bPropElement);
-
-      if (xPropObject is TCollection) then
-      begin
-        case CollectionStyle of
-          csOXml:
-            if bPropElement.SelectNode('_oxmlcollection', xEnumerationNode{%H-}) then
-              ReadCollectionItems(TCollection(xPropObject), xEnumerationNode, 'i');
-          csOmniXML:
-            ReadCollectionItems(TCollection(xPropObject), bPropElement, TCollection(xPropObject).ItemClass.ClassName);
-        end;
-      end else
-      if (xPropObject is TStrings) then
-      begin
-        case CollectionStyle of
-          csOXml:
-            if bPropElement.SelectNode('_oxmlstrings', xEnumerationNode{%H-}) then
-              ReadStringItems(TStrings(xPropObject), xEnumerationNode);
-          csOmniXML:
-            ReadStringItems(TStrings(xPropObject), bPropElement);
-        end;
-      end;
-    end;
   end;
 var
   xPropType: PTypeInfo;
@@ -934,31 +941,34 @@ var
   xChildNameId: OHashedStringsIndex;
 begin
   aStrings.BeginUpdate;
-  aStrings.Clear;
+  try
+    aStrings.Clear;
 
-  if CollectionStyle = csOXml then
-  begin
-    xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString('i');
-    if xChildNameId < 0 then
-      Exit;
-  end else
-    xChildNameId := Low(xChildNameId);
+    if CollectionStyle = csOXml then
+    begin
+      xChildNameId := aEnumerationNode.OwnerDocument.IndexOfString('i');
+      if xChildNameId < 0 then
+        Exit;
+    end else
+      xChildNameId := Low(xChildNameId);
 
-  xItemNode := aEnumerationNode.FirstChild;
-  while Assigned(xItemNode) do
-  begin
-    case CollectionStyle of
-      csOXml:
-        if (xItemNode.NodeNameId = xChildNameId) then//OXml style: <i>string</i>
-          aStrings.Add(xItemNode.Text);
-      csOmniXML:
-        if (xItemNode.NodeName = 'l'+IntToStr(aStrings.Count)) then//OmniXml style: <l???>string</l???> (??? is counter)
-          aStrings.Add(xItemNode.Text);
+    xItemNode := aEnumerationNode.FirstChild;
+    while Assigned(xItemNode) do
+    begin
+      case CollectionStyle of
+        csOXml:
+          if (xItemNode.NodeNameId = xChildNameId) then//OXml style: <i>string</i>
+            aStrings.Add(xItemNode.Text);
+        csOmniXML:
+          if (xItemNode.NodeName = 'l'+IntToStr(aStrings.Count)) then//OmniXml style: <l???>string</l???> (??? is counter)
+            aStrings.Add(xItemNode.Text);
+      end;
+
+      xItemNode := xItemNode.NextSibling;
     end;
-
-    xItemNode := xItemNode.NextSibling;
+  finally
+    aStrings.EndUpdate;
   end;
-  aStrings.EndUpdate;
 end;
 
 procedure TXMLDeserializer.ReleaseDocument;

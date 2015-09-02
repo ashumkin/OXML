@@ -414,6 +414,7 @@ type
     property NodeType: TXMLNodeType read fNodeType;
     property NodeName: OWideString read GetNodeName write SetNodeName;
     property NodeValue: OWideString read GetNodeValue write SetNodeValue;
+    property NodePath: OWideString read GetNodePath;
     property LocalName: OWideString read GetLocalName;
     property NameSpaceURI: OWideString read GetNameSpaceURI;
     property NameSpacePrefix: OWideString read GetNameSpacePrefix;
