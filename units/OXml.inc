@@ -48,6 +48,12 @@
   {$ELSE}
     {$DEFINE O_DELPHI_5_UP}
 
+    {$IFDEF LINUX}
+      {$IF RTLVersion = 14.5}
+        {$DEFINE O_KYLIX}
+      {$IFEND}
+    {$ENDIF}
+
     //DELPHI 6+
     {$IF (CompilerVersion >= 25)}
       {$LEGACYIFEND ON}

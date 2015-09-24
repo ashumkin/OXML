@@ -75,9 +75,9 @@ uses
   {$IFNDEF O_DELPHI_5_DOWN}{$IF DEFINED(O_DELPHI_2006_UP) AND DEFINED(O_DELPHI_2007_DOWN)}
   , WideStrUtils
   {$IFEND}{$ENDIF}
-  {$IFNDEF O_UNICODE}
+  {$IFNDEF O_UNICODE}{$IFDEF MSWINDOWS}
   , Windows
-  {$ENDIF}
+  {$ENDIF}{$ENDIF}
 
   {$IFDEF O_DELPHI_XE3_UP}
   , Character
@@ -694,15 +694,32 @@ function OFastLowerCase(const aStr: OFastString): OFastString;
 {$IFNDEF O_UNICODE}
 var
   xLength: Integer;
+  {$IFDEF O_KYLIX}
+  xStr, xResult: POUnicodeChar;
+  I: Integer;
+  {$ENDIF}
 {$ENDIF}
 begin
   {$IFDEF O_UNICODE}
   Result := OLowerCase(aStr);
   {$ELSE}
-  xLength := Length(aStr);
-  SetString(Result, POFastChar(aStr), xLength);
-  if xLength > 0 then
-    CharLowerBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
+    xLength := Length(aStr);
+    {$IFDEF O_KYLIX}
+    if xLength = 0 then
+      Result := ''
+    else
+    begin
+      SetLength(Result, xLength);
+      xStr := POUnicodeChar(@aStr[1]);
+      xResult := POUnicodeChar(@Result[1]);
+      for I := 0 to (xLength div SizeOf(OWideChar))-1 do
+        xResult[I] := OUnicodeChar(towlower(UCS4Char(xStr[I])));
+    end;
+    {$ELSE}
+    SetString(Result, POFastChar(aStr), xLength);
+    if xLength > 0 then
+      CharLowerBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -723,15 +740,32 @@ function OFastUpperCase(const aStr: OFastString): OFastString;
 {$IFNDEF O_UNICODE}
 var
   xLength: Integer;
+  {$IFDEF O_KYLIX}
+  xStr, xResult: POUnicodeChar;
+  I: Integer;
+  {$ENDIF}
 {$ENDIF}
 begin
   {$IFDEF O_UNICODE}
   Result := OUpperCase(aStr);
   {$ELSE}
-  xLength := Length(aStr);
-  SetString(Result, POFastChar(aStr), xLength);
-  if xLength > 0 then
-    CharUpperBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
+    xLength := Length(aStr);
+    {$IFDEF O_KYLIX}
+    if xLength = 0 then
+      Result := ''
+    else
+    begin
+      SetLength(Result, xLength);
+      xStr := POUnicodeChar(@aStr[1]);
+      xResult := POUnicodeChar(@Result[1]);
+      for I := 0 to (xLength div SizeOf(OWideChar))-1 do
+        xResult[I] := OUnicodeChar(towupper(UCS4Char(xStr[I])));
+    end;
+    {$ELSE}
+    SetString(Result, POFastChar(aStr), xLength);
+    if xLength > 0 then
+      CharUpperBuffW(Pointer(Result), xLength div SizeOf(OWideChar));
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -1499,13 +1533,17 @@ begin
   Result := O_INVALID_FILE_HANDLE;
   if (aMode and $F0) <= fmShareDenyNone then
   begin
-    Result := Integer(CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
-      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0));
+    Result := CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
+      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0);
   end;
 end;
 {$ELSE}
 begin
+  {$IFDEF FPC}
   Result := FileCreate(UTF8Encode(aFileName), aMode, aRights);
+  {$ELSE}
+  Result := FileCreate(UTF8Encode(aFileName), aRights);
+  {$ENDIF FPC}
 end;
 {$ENDIF MSWINDOWS}
 
@@ -1526,9 +1564,9 @@ begin
   Result := O_INVALID_FILE_HANDLE;
   if ((aMode and 3) <= fmOpenReadWrite) and
     ((aMode and $F0) <= fmShareDenyNone) then
-    Result := Integer(CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
+    Result := CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
       cShareMode[(aMode and $F0) shr 4], nil, OPEN_EXISTING,
-      FILE_ATTRIBUTE_NORMAL, 0));
+      FILE_ATTRIBUTE_NORMAL, 0);
 end;
 {$ELSE !MSWINDOWS}
 begin

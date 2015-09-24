@@ -265,6 +265,10 @@ uses Windows;
 {$ELSE}
 {$IFDEF FPC}
 uses LConvEncoding, Math;
+{$ELSE}
+{$IFDEF O_USE_SYNAPSE}
+uses SynCommons, Math;
+{$ENDIF}
 {$ENDIF}
 {$ENDIF}
 
@@ -605,6 +609,11 @@ procedure TMBCSEncoding.StringToBuffer(const S: OWideString; var outBuffer: TEnc
 var
   xUS: UnicodeString;
 {$ENDIF}
+{$ELSE}
+  {$IFNDEF FPC}{$IFDEF O_USE_SYNAPSE}
+  var
+    xConvert: TSynAnsiConvert;
+  {$ENDIF}{$ENDIF}
 {$ENDIF}
 begin
   if S = '' then
@@ -621,7 +630,20 @@ begin
     _Convert(@S[1]);
     {$ENDIF}
   {$ELSE}
-  outBuffer := UTF8ToCodePage(S, fCodePage);
+    {$IFDEF FPC}
+      outBuffer := UTF8ToCodePage(S, fCodePage);
+    {$ELSE}
+      {$IFDEF O_USE_SYNAPSE}
+      xConvert := TSynAnsiConvert.Create(fCodePage);
+      try
+        Result := Convert.UnicodeBufferToAnsi(@S[1], Length(S));
+      finally
+        xConvert.Free;
+      end;
+      {$ELSE}
+      raise Exception.Create('TMBCSEncoding.StringToBuffer: you have to compile OXml with O_USE_SYNAPSE if you want to use this function.');
+      {$ENDIF}
+    {$ENDIF}
   {$ENDIF}
 end;
 
@@ -647,6 +669,11 @@ function TMBCSEncoding.BufferToString(const aBytes: TEncodingBuffer; var outStri
 var
   xUS: UnicodeString;
 {$ENDIF}
+{$ELSE}
+  {$IFNDEF FPC}{$IFDEF O_USE_SYNAPSE}
+  var
+    xConvert: TSynAnsiConvert;
+  {$ENDIF}{$ENDIF}
 {$ENDIF}
 begin
   if Length(aBytes) = 0 then
@@ -664,7 +691,20 @@ begin
     _Convert(outString);
     {$ENDIF}
   {$ELSE}
-  outString := CodePageToUTF8(aBytes, fCodePage);
+    {$IFDEF FPC}
+      outString := CodePageToUTF8(aBytes, fCodePage);
+    {$ELSE}
+      {$IFDEF O_USE_SYNAPSE}
+      xConvert := TSynAnsiConvert.Create(fCodePage);
+      try
+        Result := Convert.AnsiToUnicodeString(PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), Length(aBytes));
+      finally
+        xConvert.Free;
+      end;
+      {$ELSE}
+      raise Exception.Create('TMBCSEncoding.BufferToString: you have to compile OXml with O_USE_SYNAPSE if you want to use this function.');
+      {$ENDIF}
+    {$ENDIF}
   {$ENDIF}
   Result := outString <> '';
 end;

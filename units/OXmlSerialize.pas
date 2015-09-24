@@ -249,7 +249,9 @@ implementation
 uses
   OXmlLng, OHashedStrings
   {$IFDEF O_DELPHI_2007_DOWN}
+  {$IFNDEF O_KYLIX}
   , Controls//definition of TTime and TDate
+  {$ENDIF}
   {$ENDIF};
 
 { TCustomXMLSerDes }
@@ -500,10 +502,12 @@ begin
         xFloatValue := GetFloatProp(aObject, aPropInfo);
         if (xPropType = System.TypeInfo(TDateTime)) then
           _Write(ISODateTimeToStr(xFloatValue))
+        {$IFNDEF O_KYLIX}
         else if (xPropType = System.TypeInfo(TTime)) then
           _Write(ISOTimeToStr(xFloatValue))
         else if (xPropType = System.TypeInfo(TDate)) then
           _Write(ISODateToStr(xFloatValue))
+        {$ENDIF}
         else
           _Write(ISOFloatToStr(xFloatValue));
       end;
@@ -898,6 +902,7 @@ begin
         begin
           xResult := ISOTryStrToDateTime(xStrValue, TDateTime(xDoubleValue){%H-});
           xExtendedValue := xDoubleValue;
+        {$IFNDEF O_KYLIX}
         end else if (xPropType = System.TypeInfo(TTime)) then
         begin
           xResult := ISOTryStrToTime(xStrValue, TDateTime(xDoubleValue){%H-});
@@ -906,6 +911,7 @@ begin
         begin
           xResult := ISOTryStrToDate(xStrValue, TDateTime(xDoubleValue){%H-});
           xExtendedValue := xDoubleValue;
+        {$ENDIF}
         end else
           xResult := ISOTryStrToFloat(xStrValue, xExtendedValue{%H-});
 
