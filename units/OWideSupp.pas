@@ -1533,16 +1533,16 @@ begin
   Result := O_INVALID_FILE_HANDLE;
   if (aMode and $F0) <= fmShareDenyNone then
   begin
-    Result := CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
-      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0);
+    Result := Integer(CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
+      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0));
   end;
 end;
 {$ELSE}
 begin
   {$IFDEF FPC}
-  Result := FileCreate(UTF8Encode(aFileName), aMode, aRights);
+  Result := Integer(FileCreate(UTF8Encode(aFileName), aMode, aRights));
   {$ELSE}
-  Result := FileCreate(UTF8Encode(aFileName), aRights);
+  Result := Integer(FileCreate(UTF8Encode(aFileName), aRights));
   {$ENDIF FPC}
 end;
 {$ENDIF MSWINDOWS}
@@ -1564,13 +1564,13 @@ begin
   Result := O_INVALID_FILE_HANDLE;
   if ((aMode and 3) <= fmOpenReadWrite) and
     ((aMode and $F0) <= fmShareDenyNone) then
-    Result := CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
+    Result := Integer(CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
       cShareMode[(aMode and $F0) shr 4], nil, OPEN_EXISTING,
-      FILE_ATTRIBUTE_NORMAL, 0);
+      FILE_ATTRIBUTE_NORMAL, 0));
 end;
 {$ELSE !MSWINDOWS}
 begin
-  Result := FileOpen(UTF8Encode(aFileName), aMode);
+  Result := Integer(FileOpen(UTF8Encode(aFileName), aMode));
 end;
 {$ENDIF MSWINDOWS}
 
