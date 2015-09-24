@@ -1499,8 +1499,8 @@ begin
   Result := O_INVALID_FILE_HANDLE;
   if (aMode and $F0) <= fmShareDenyNone then
   begin
-    Result := CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
-      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0);
+    Result := Integer(CreateFileW(PWideChar(aFileName), GENERIC_READ or GENERIC_WRITE,
+      cShareMode[(aMode and $F0) shr 4], nil, cExclusive[(aMode and $0004) shr 2], FILE_ATTRIBUTE_NORMAL, 0));
   end;
 end;
 {$ELSE}
@@ -1526,9 +1526,9 @@ begin
   Result := O_INVALID_FILE_HANDLE;
   if ((aMode and 3) <= fmOpenReadWrite) and
     ((aMode and $F0) <= fmShareDenyNone) then
-    Result := CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
+    Result := Integer(CreateFileW(PWideChar(aFileName), cAccessMode[aMode and 3],
       cShareMode[(aMode and $F0) shr 4], nil, OPEN_EXISTING,
-      FILE_ATTRIBUTE_NORMAL, 0);
+      FILE_ATTRIBUTE_NORMAL, 0));
 end;
 {$ELSE !MSWINDOWS}
 begin
