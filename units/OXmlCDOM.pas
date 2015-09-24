@@ -2178,6 +2178,12 @@ var
   xIdURI: OHashedStringsIndex;
   xNameSpacePrefix: OWideString;
 begin
+  if (aNameSpacePrefix = 'xmlns') or (aNameSpacePrefix = 'xml') then
+  begin//xmlns and xml namespaces are defined in XML standard and exist per definition
+    Result := True;
+    Exit;
+  end;
+
   xIdURI := fOwnerDocument.IndexOfString(aNameSpaceURI);
   if xIdURI >= 0 then
   begin
