@@ -2651,11 +2651,14 @@ var
 begin
   Result := SetAttribute(aQualifiedName, aValue);
 
-  OXmlResolveNameSpace(aQualifiedName, xNSPrefix{%H-}, xLocalName{%H-});
-  if not NameSpaceExists(aNameSpaceURI, xNSPrefix) then
+  if not(aQualifiedName = XML_XMLNS) then//setting the xmlns attribute itself
   begin
-    //namespace not found, add namespace URI attribute
-    SetAttribute(OXmlApplyNameSpace(XML_XMLNS, xNSPrefix), aNameSpaceURI);
+    OXmlResolveNameSpace(aQualifiedName, xNSPrefix{%H-}, xLocalName{%H-});
+    if not NameSpaceExists(aNameSpaceURI, xNSPrefix) then//namespace exists
+    begin
+      //namespace not found, add namespace URI attribute
+      SetAttribute(OXmlApplyNameSpace(XML_XMLNS, xNSPrefix), aNameSpaceURI);
+    end;
   end;
 end;
 
