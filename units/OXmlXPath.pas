@@ -728,7 +728,7 @@ begin
   xAttributeName := '';
   xAttributeValue := '';
 
-  {%H-}aString := Trim(aString);
+  {%H-}aString := OTrim(aString);
 
   if (aString <> '') and (aString[1] = '@') then
   begin
@@ -767,12 +767,12 @@ begin
     if xPredicatePos = 0 then
     begin
       //no predicate
-      xElementName := Trim(aString);
+      xElementName := OTrim(aString);
     end else if (aString[Length(aString)] = ']') then
     begin
       //predicate
-      xElementName := Trim(Copy(aString, 1, xPredicatePos-1));
-      xPredicate := Trim(Copy(aString, xPredicatePos+1, Length(aString)-xPredicatePos-1));
+      xElementName := OTrim(Copy(aString, 1, xPredicatePos-1));
+      xPredicate := OTrim(Copy(aString, xPredicatePos+1, Length(aString)-xPredicatePos-1));
 
       if xPredicate = '' then
       begin
@@ -786,7 +786,7 @@ begin
       begin
         //number predicate with last() "book[last()-1]"
         Delete(xPredicate, 1, 6);//delete "last()"
-        xPredicate := Trim(xPredicate);
+        xPredicate := OTrim(xPredicate);
         if xPredicate = '' then
         begin
           CheckIndexFromEnd := True;
@@ -811,7 +811,7 @@ begin
         begin
           //attr value
           xAttributeName := Copy(xPredicate, 2, xPredicatePos-2);
-          xPredicate := Trim(Copy(xPredicate, xPredicatePos+1, Length(xPredicate)-xPredicatePos));
+          xPredicate := OTrim(Copy(xPredicate, xPredicatePos+1, Length(xPredicate)-xPredicatePos));
           if (xPredicate <> '') then
           begin
             if (xPredicate[1] = '"') or (xPredicate[1] = '''') then

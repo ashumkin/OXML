@@ -2205,7 +2205,7 @@ begin
     case xChild.NodeType of
       ntText:
       begin
-        xText := Trim(xChild.Text);
+        xText := OTrim(xChild.Text);
         if xText = '' then
         begin
           xNextChild := xChild.NextSibling;
@@ -4113,7 +4113,7 @@ begin
       (OwnerDocument.WhiteSpaceHandling = wsTrim) or
       ((OwnerDocument.WhiteSpaceHandling = wsAutoTag) and not GetDoPreserveWhiteSpace)
     then begin
-      xText := Trim(aText);
+      xText := OTrim(aText);
     end else
     begin
       xText := aText;
@@ -4126,7 +4126,7 @@ begin
       xText := '';
     end else if (OwnerDocument.WhiteSpaceHandling = wsTrim) then
     begin
-      xText := Trim(aText);
+      xText := OTrim(aText);
     end else
     begin
       xText := aText;
