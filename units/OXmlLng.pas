@@ -88,6 +88,7 @@ var
   OXmlLng_CannotChangeRootNodeName: string = 'Cannot change RootNodeName after data has been written.';
   OXmlLng_CannotChangeUseRootDataWritten: string = 'Cannot change UseRoot after data has been written.';
   OXmlLng_CannotChangeUseRootDataRead: string = 'Cannot change UseRoot after data has been read.';
+  OXmlLng_CannotChangeWhiteSpaceHandlingDataRead: string = 'Cannot change WhiteSpaceHandling after data has been read.';
   OXmlLng_WrongDeserializerSequence: string = 'TXMLDeserializer: wrong ReadObjectInfo/ReadObject call sequence.';
   OXmlLng_RTTIInternalError: string = 'RTTI Internal Error';
   OXmlLng_DeserializerNotSupportedListItemType: string = 'TXMLRTTIDeserializer: the type %s is not supported for TList<T> or array enumeration.';

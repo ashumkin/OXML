@@ -272,6 +272,8 @@ type
     fOnEndElement: TSAXEndElementEvent;
 
     fParseError: IOTextParseError;
+    fWhiteSpaceHandling: TXMLWhiteSpaceHandling;
+    fPreserveWhiteSpaceTree: array of TXMLPreserveWhiteSpace;
 
   private
     function GetNodePath(const aIndex: Integer): OWideString;
@@ -281,7 +283,10 @@ type
     function GetStreamSize: OStreamInt;
     function GetReaderSettings: TXMLReaderSettings;
     procedure SetHandler(const aHandler: TSAXHandler);
+    procedure SetWhiteSpaceHandling(
+      const aWhiteSpaceHandling: TXMLWhiteSpaceHandling);
 
+    function GetDoPreserveWhiteSpace: Boolean;
   protected
     procedure DoOnStartDocument; virtual;
     procedure DoOnEndDocument; virtual;
@@ -348,6 +353,9 @@ type
 
     //XML reader settings
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
+
+    //document whitespace handling
+    property WhiteSpaceHandling: TXMLWhiteSpaceHandling read fWhiteSpaceHandling write SetWhiteSpaceHandling;
   public
     //following functions and properties can be called only from events or anonymous methods during parsing
 
@@ -741,6 +749,26 @@ begin
   Result := fReader.ApproxStreamPosition;
 end;
 
+function TSAXParser.GetDoPreserveWhiteSpace: Boolean;
+var
+  I: Integer;
+begin
+  for I := fReader.NodePathCount-1 downto 0 do
+  begin
+    case fPreserveWhiteSpaceTree[I] of
+      pwPreserve: begin
+        Result := True;
+        Exit;
+      end;
+      pwDefault: begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  end;
+  Result := False;
+end;
+
 function TSAXParser.GetNodePath(const aIndex: Integer): OWideString;
 begin
   Result := fReader.NodePath[aIndex];
@@ -916,6 +944,7 @@ function TSAXParser.ResumeParsing: Boolean;
   end;
 var
   xReaderToken: PXMLReaderToken;
+  xValue: OWideString;
 begin
   if fParserState <> spsPaused then
     raise ESAXParserException.Create(OXmlLng_CannotResumeNotPaused);
@@ -932,7 +961,20 @@ begin
           begin
             if not fDataRead then
               _StartDocument;
-            DoOnCharacters(xReaderToken.TokenValue);
+
+            xValue := xReaderToken.TokenValue;
+            if (fWhiteSpaceHandling = wsPreserveInTextOnly) and OXmlIsWhiteSpace(xValue)
+            then begin
+              xValue := '';
+            end else if
+              (fWhiteSpaceHandling = wsTrim) or
+              ((fWhiteSpaceHandling = wsAutoTag) and not GetDoPreserveWhiteSpace)
+            then begin
+              xValue := OTrim(xValue);
+            end;
+
+            if xValue <> '' then
+              DoOnCharacters(xValue);
           end;
       else//case
         if not fDataRead then
@@ -941,6 +983,16 @@ begin
           rtFinishOpenElementClose, rtFinishOpenElement:
           begin
             fAttributes.CreateIndex;
+            if (fWhiteSpaceHandling = wsAutoTag) then
+            begin
+              if (fReader.NodePathCount-1) > High(fPreserveWhiteSpaceTree) then
+                SetLength(fPreserveWhiteSpaceTree, Length(fPreserveWhiteSpaceTree)+20);
+
+              if fAttributes.Find(XML_XML_SPACE, xValue{%H-}) then
+                fPreserveWhiteSpaceTree[fReader.NodePathCount-1] := OXmlStrToPreserve(xValue)
+              else
+                fPreserveWhiteSpaceTree[fReader.NodePathCount-1] := pwInherit;
+            end;
             DoOnStartElement(xReaderToken.TokenName, fAttributes);
             if xReaderToken.TokenType = rtFinishOpenElementClose then
               DoOnEndElement(xReaderToken.TokenName);
@@ -979,6 +1031,16 @@ begin
     Exit;
 
   fHandler := aHandler;
+end;
+
+procedure TSAXParser.SetWhiteSpaceHandling(
+  const aWhiteSpaceHandling: TXMLWhiteSpaceHandling);
+begin
+  if fDataRead then
+    raise ESAXParserException.Create(OXmlLng_CannotChangeWhiteSpaceHandlingDataRead);
+
+  if fWhiteSpaceHandling = aWhiteSpaceHandling then Exit;
+  fWhiteSpaceHandling := aWhiteSpaceHandling;
 end;
 
 function TSAXParser.RefIsChildOfNodePath(

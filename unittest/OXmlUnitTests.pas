@@ -44,7 +44,7 @@ uses
   ;
 
 const
-  cTestCount = 70;
+  cTestCount = 71;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -128,9 +128,13 @@ type
     function Test_TOHashedStringObjDictinary_Test1: Boolean;
   private
     //OXmlSAX.pas
+    fTest_TSAXParser_StrL: TStringList;
     procedure Test_TSAXParser_HashIndex_SAXStartElement({%H-}aSaxParser: TSAXParser;
       const {%H-}aName: OWideString; const aAttributes: TSAXAttributes);
     function Test_TSAXParser_HashIndex: Boolean;
+    procedure Test_TSAXParser_WhiteSpaceHandling_OnCharacters(
+      {%H-}Sender: TSAXParser; const aText: OWideString);
+    function Test_TSAXParser_WhiteSpaceHandling: Boolean;
     function Test_TSAXHandler_Test1: Boolean;
   private
     //OXmlPSeq.pas
@@ -578,6 +582,7 @@ begin
   ExecuteFunction(Test_TOHashedStrings_Delete, 'Test_TOHashedStrings_Delete');
   ExecuteFunction(Test_TOHashedStringObjDictinary_Test1, 'Test_TOHashedStringObjDictinary_Test1');
   ExecuteFunction(Test_TSAXParser_HashIndex, 'Test_TSAXParser_HashIndex');
+  ExecuteFunction(Test_TSAXParser_WhiteSpaceHandling, 'Test_TSAXParser_WhiteSpaceHandling');
   ExecuteFunction(Test_TSAXHandler_Test1, 'Test_TSAXHandler_Test1');
   ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test1, 'Test_OXmlPSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test1, 'Test_OXmlCSeq_TXMLSeqParser_Test1');
@@ -955,6 +960,43 @@ begin
     aAttributes.Find(xAttrName, {%H-}xAttrValue);
     Assert(xAttrName = xAttrValue);
   end;
+end;
+
+function TOXmlUnitTest.Test_TSAXParser_WhiteSpaceHandling: Boolean;
+const
+  inXML: OWideString =  '<root xml:space="preserve">'+sLineBreak+'<text xml:space="default"> default <p xml:space="preserve"> text <b> hello <br/> </b>  my text'+sLineBreak+'</p>  </text>  </root>';
+  outText: array [0..6] of OWideString = (sLineBreak, 'default', ' text ', ' hello ', ' ', '  my text'+sLineBreak, '  ');
+var
+  xSAX: TSAXParser;
+  I: Integer;
+begin
+  fTest_TSAXParser_StrL := TStringList.Create;
+  xSAX := TSAXParser.Create;
+  try
+    xSAX.WhiteSpaceHandling := wsAutoTag;
+    xSAX.OnCharacters := Test_TSAXParser_WhiteSpaceHandling_OnCharacters;
+    xSAX.ParseXML(inXML);
+
+    Result := fTest_TSAXParser_StrL.Count = Length(outText);
+    if not Result then Exit;
+    for I := 0 to fTest_TSAXParser_StrL.Count-1 do
+    if fTest_TSAXParser_StrL[I] <> outText[I] then
+    begin
+      Result := False;
+      Exit;
+    end;
+  finally
+    xSAX.Free;
+    fTest_TSAXParser_StrL.Free;
+  end;
+
+  Result := True;
+end;
+
+procedure TOXmlUnitTest.Test_TSAXParser_WhiteSpaceHandling_OnCharacters(
+  Sender: TSAXParser; const aText: OWideString);
+begin
+  fTest_TSAXParser_StrL.Add(aText);
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_ChildCount: Boolean;
@@ -2087,7 +2129,7 @@ begin
     if not Result then
       Exit;
 
-    Result := Trim(xList.Text) = cOutput;
+    Result := OTrim(xList.Text) = cOutput;
   finally
     xSAX.Free;
     xList.Free;
