@@ -139,7 +139,6 @@
         <DCCReference Include="..\..\units\ODictionary.pas"/>
         <DCCReference Include="..\..\units\OEncoding.pas"/>
         <DCCReference Include="..\..\units\OHashedStrings.pas"/>
-        <DCCReference Include="..\..\units\OJSON.pas"/>
         <DCCReference Include="..\..\units\OTextReadWrite.pas"/>
         <DCCReference Include="..\..\units\OWideSupp.pas"/>
         <DCCReference Include="..\..\units\OXmlCDOM.pas"/>

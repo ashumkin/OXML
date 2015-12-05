@@ -38,7 +38,6 @@ contains
   ODictionary in '..\..\units\ODictionary.pas',
   OEncoding in '..\..\units\OEncoding.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
-  OJSON in '..\..\units\OJSON.pas',
   OTextReadWrite in '..\..\units\OTextReadWrite.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',

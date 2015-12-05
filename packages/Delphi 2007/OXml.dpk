@@ -33,7 +33,6 @@ requires
 
 contains
   ODictionary in '..\..\units\ODictionary.pas',
-  OJSON in '..\..\units\OJSON.pas',
   OEncoding in '..\..\units\OEncoding.pas',
   OHashedStrings in '..\..\units\OHashedStrings.pas',
   OWideSupp in '..\..\units\OWideSupp.pas',
