@@ -97,7 +97,7 @@ type
   TXMLXPathResNodeList = TList;
   TXMLXPathResNodeDictionary = TODictionary;
   {$ENDIF}
-  TXMLXPathCheckedParent = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}//MUST BE PACKED RECORD! -> SEE QC: 122791
+  TXMLXPathCheckedParent = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}//MUST BE PACKED RECORD! -> SEE QC: 122791
     ParentNodeId: XMLXPathId;
     SelectorLevel: Integer;
   {$IFNDEF O_GENERICS}

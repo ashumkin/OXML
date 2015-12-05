@@ -65,7 +65,7 @@ type
   OStringIndex = Integer;
 
   POHashItem = ^TOHashItem;
-  TOHashItem = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  TOHashItem = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fNext: POHashItem;
     fTextFast: OFastString;

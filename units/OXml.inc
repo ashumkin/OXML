@@ -65,6 +65,9 @@
     {$IF CompilerVersion >= 15}
       {$DEFINE O_DELPHI_7_UP}
     {$IFEND}
+    {$IF CompilerVersion = 17}
+      {$DEFINE O_DELPHI_2005}
+    {$IFEND}
     {$IF CompilerVersion >= 17}
       {$DEFINE O_DELPHI_2005_UP}
     {$IFEND}
@@ -124,6 +127,10 @@
   {$DEFINE O_ARC}
 {$ELSE}
   {$DEFINE O_HASBYTESTRINGS}
+{$ENDIF}
+
+{$IFNDEF O_DELPHI_2005}
+  {$DEFINE O_PACKED}
 {$ENDIF}
 
 {$IFDEF CONDITIONALEXPRESSIONS}

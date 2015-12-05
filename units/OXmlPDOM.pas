@@ -87,7 +87,7 @@ type
   TXMLNodeCompare = function(const aNode1, aNode2: PXMLNode): Integer;
   {$ENDIF}
 
-  TXMLNode = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  TXMLNode = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fNodeType: TXMLNodeType;
     fNodeNameId: OHashedStringsIndex;

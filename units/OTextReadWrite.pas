@@ -394,6 +394,8 @@ type
     fLine: OStreamInt;
     fSrcText: OWideString;
     fSrcTextPos: Integer;
+
+    function _GetErrorCode: Integer; {$IFDEF O_INLINE}inline;{$ENDIF}
   protected
     procedure DoCreate(const aError: TOTextParseError; const aReason: string);
   public
@@ -407,7 +409,7 @@ type
     //url of the document
     property URL: OWideString read fURL;
     //error code
-    property ErrorCode: Integer read GetErrorCode;
+    property ErrorCode: Integer read _GetErrorCode;
     //reason
     property Reason: string read fReason;
     //Character position in text (when error was detected)
@@ -1762,6 +1764,11 @@ procedure TOUTF8StreamReader.UnblockFlushTempBuffer;
 begin
   if fStream is TOBufferedReadStream then
     TOBufferedReadStream(fStream).UnblockFlushTempBuffer;
+end;
+
+function EOTextReaderException._GetErrorCode: Integer;
+begin
+  Result := GetErrorCode;
 end;
 
 end.
