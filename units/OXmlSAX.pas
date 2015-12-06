@@ -70,7 +70,7 @@ type
   //The clue of TSAXAttribute is to reduce string operations to an minimum.
   // -> therefore TSAXAttribute just uses TXMLReaderToken.TokenName and .TokenValue.
   //    You can explicitely cast TXMLReaderToken to TSAXAttribute and back!
-  TSAXAttribute = packed {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  TSAXAttribute = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fToken: TXMLReaderToken;
   public
