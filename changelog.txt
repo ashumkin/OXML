@@ -1,6 +1,31 @@
 OXml Change Log
 ---------------
 
+Version 1.9 2015-12-07 [SVN commit: 112, https://sourceforge.net/p/oxml/code/112/]
+  ! Breaking change: TXMLNode.GetElementsByTagName (OXmlPDOM.pas and OXmlCDOM.pas) now uses recoursive search by default to comply with XML standards.
+  ! Breaking change: Fixed bug in TXMLSerializer and TXMLDeserializer: UseRoot is True now by default !
+  - Added OTrim in OWideSupp.pas.
+  - Fixed missing Math unit under non-Win FPC.
+  - Fixed bug in OXmlDOMVendor.pas: TOXmlDOMElement.getElementsByTagName and TOXmlDOMDocument.getElementsByTagName
+  - OXmlSAX.pas: added support for an external class handler that can be nestable.
+  - JSON code reworked: deleted JSON.pas, added OJsonUtils.pas, OJsonReadWrite.pas and OJsonUtf8ReadWrite.pas
+  - Added OnProgress event handlers to OXmlCDOM.pas and OXmlPDOM.pas
+  - Lazarus 1.2/FPC 2.x compatibility issues solved
+  - OXmlRTTISerialize.pas: splitted TCustomXMLRTTISerDes.Visibility into ObjectVisibility and RecordVisibility.
+  - OXmlSerialize.pas: added support for TStrings.
+  - Added TXMLNode.NodePath property (OXmlCDOM.pas, OXmlPDOM.pas).
+  - Added TXMLDeserializer.ErrorHandling property (OXmlSerialize.pas).
+  - Added TXMLRTTIDeserializer.ErrorHandling property (OXmlRTTISerialize.pas).
+  - Added TXMLDeserializeErrorHandling.dehIgnore
+  - OXmlSerialize: added support for SerDes of TCollection and TStrings when used as root object.
+  - OXmlCDOM: added TXMLNode.NodePath property
+  - Fixed xml and xmlns namespaces. They cannot be defined in an XML document.
+  - With this change, OXml should be able to be used as vendor for SOAP in Delphi.
+  - Fixed setting the xmlns attribute with SetAttributeNS.
+  - Added TSAXParser.WhiteSpaceHandling
+  - Fixed Delphi 2005 compilation
+
+
 Version 1.8 2015-05-28 [SVN commit: 86, https://sourceforge.net/p/oxml/code/86/]
   - Added OXmlCSeq.pas (sequential parser based on OXmlCDOM).
   ! File OXmlSeq.pas renamed to OXmlPSeq.pas to have te same format with OXmlPDOM.
