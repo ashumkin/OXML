@@ -792,16 +792,6 @@ begin
     aCustomBuffer.WriteOWideChar(aLastChar);
 end;
 
-{$IFDEF O_DELPHI_5_DOWN}
-function TryStrToInt(const S: string; out Value: Integer): Boolean;
-var
-  xError: Integer;
-begin
-  Val(S, Value, xError);
-  Result := (xError = 0);
-end;
-{$ENDIF}
-
 function ProcessEntity(
   const aReaderSettings: TXMLReaderSettings;
   const aCustomReader: TOTextReader;

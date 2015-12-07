@@ -230,7 +230,8 @@ function ISOTryStrToTime(const aString: string; var outTime: TDateTime): Boolean
 
 {$IFDEF O_DELPHI_5_DOWN}
 //Delphi 5 compatibility functions
-function TryStrToInt(const aStr: string; var outValue: Integer): Boolean; overload;
+function TryStrToInt(const aStr: string; var outValue: Integer): Boolean;
+function TryStrToInt64(const S: string; out Value: Int64): Boolean;
 function TryStrToFloat(const aStr: string; var outValue: Extended): Boolean; overload;
 function TryStrToFloat(const aStr: string; var outValue: Double): Boolean; overload;
 function TryEncodeDate(aYear, aMonth, aDay: Word; var outDate: TDateTime): Boolean;
@@ -1001,6 +1002,14 @@ var
 begin
   Val(aStr, outValue, E);
   Result := (E = 0);
+end;
+
+function TryStrToInt64(const S: string; out Value: Int64): Boolean;
+var
+  xError: Integer;
+begin
+  Val(S, Value, xError);
+  Result := (xError = 0);
 end;
 
 function TryStrToFloat(const aStr: string; var outValue: Extended): Boolean;
