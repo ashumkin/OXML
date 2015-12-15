@@ -1589,7 +1589,7 @@ begin
       {$IFDEF O_DELPHI_7_UP}
       raise EFCreateError.CreateResFmt(@SFCreateErrorEx, [ExpandFileName(aFileName), SysErrorMessage(GetLastError)]);
       {$ELSE}
-      raise EFCreateError.CreateResFmt(@SFCreateError, [ExpandFileName(aFileName)]);
+      raise EFCreateError.CreateResFmt({$IFDEF O_DELPHI_4_DOWN}ONativeInt{$ENDIF}(@SFCreateError), [ExpandFileName(aFileName)]);
       {$ENDIF}
     end;
   end else
@@ -1600,7 +1600,7 @@ begin
       {$IFDEF O_DELPHI_7_UP}
       raise EFOpenError.CreateResFmt(@SFOpenErrorEx, [ExpandFileName(aFileName), SysErrorMessage(GetLastError)]);
       {$ELSE}
-      raise EFOpenError.CreateResFmt(@SFOpenError, [ExpandFileName(aFileName)]);
+      raise EFOpenError.CreateResFmt({$IFDEF O_DELPHI_4_DOWN}ONativeInt{$ENDIF}(@SFOpenError), [ExpandFileName(aFileName)]);
       {$ENDIF}
     end;
   end;
