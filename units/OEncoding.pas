@@ -599,7 +599,8 @@ procedure TMBCSEncoding.StringToBuffer(const S: OWideString; var outBuffer: TEnc
       0,//Delphi uses 0. (It's needed for UTF-7); OLD CODE: WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
       PWideChar(aWS), -1, nil, 0, nil, nil);
 
-    SetLength(outBuffer, xLength-1);
+    if Length(outBuffer) <> xLength-1 then
+      SetLength(outBuffer, xLength-1);
     if xLength > 1 then
       WideCharToMultiByte(codePage,
         0,//Delphi uses 0. (It's needed for UTF-7); OLD CODE: WC_COMPOSITECHECK or WC_DISCARDNS or WC_SEPCHARS or WC_DEFAULTCHAR,
@@ -742,7 +743,8 @@ begin
   SetLength(outBuffer, Max(0, (I-1)*2));
   {$ELSE}
   //DELPHI
-  SetLength(outBuffer, xCharCount*2);
+  if Length(outBuffer) <> xCharCount*2 then
+    SetLength(outBuffer, xCharCount*2);
   Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount*2);
   {$ENDIF}
 end;
@@ -775,7 +777,8 @@ begin
   SetLength(outString, Max(0, I-1));
   {$ELSE}
   //DELPHI
-  SetLength(outString, xByteCount div 2);
+  if Length(outString) <> xByteCount div 2 then
+    SetLength(outString, xByteCount div 2);
   Move(aBytes[TEncodingBuffer_FirstElement], outString[1], xByteCount);
   {$ENDIF}
   Result := outString <> '';
@@ -863,7 +866,8 @@ var
 begin
   {$IFDEF FPC}
   xCharCount := Length(S);
-  SetLength(outBuffer, xCharCount);
+  if Length(outBuffer) <> xCharCount then
+    SetLength(outBuffer, xCharCount);
   if xCharCount > 0 then
     Move(S[1], outBuffer[TEncodingBuffer_FirstElement], xCharCount);
   {$ELSE}
@@ -872,7 +876,8 @@ begin
     xCharCount := WideCharToMultiByte(CP_UTF_8, 0,
       PWideChar(S), -1, nil, 0, nil, nil);
 
-    SetLength(outBuffer, xCharCount-1);
+    if Length(outBuffer) <> xCharCount-1 then
+      SetLength(outBuffer, xCharCount-1);
     if xCharCount > 1 then
       WideCharToMultiByte(CP_UTF_8, 0,
         PWideChar(S), -1, PAnsiChar(@outBuffer[TEncodingBuffer_FirstElement]), xCharCount-1, nil, nil);
@@ -918,14 +923,16 @@ begin
 
   {$IFDEF FPC}
   //FPC
-  SetLength(outString, xByteCount);
+  if Length(outString) <> xByteCount then
+    SetLength(outString, xByteCount);
   Move(aBytes[TEncodingBuffer_FirstElement], outString[1], xByteCount);
   {$ELSE}
   //DELPHI
     {$IFDEF MSWINDOWS}
     //IMPORTANT: xByteCount is WITHOUT the NULL character -> xCharCount is ALSO WITHOUT the NULL CHARACTER!!!
     xCharCount := MultiByteToWideChar(CP_UTF_8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, nil, 0);
-    SetLength(outString, xCharCount);
+    if Length(outString) <> xCharCount then
+      SetLength(outString, xCharCount);
     if xCharCount > 0 then           
       MultiByteToWideChar(CP_UTF_8, 0, PAnsiChar(@aBytes[TEncodingBuffer_FirstElement]), xByteCount, PWideChar(outString), xCharCount);
     {$ELSE}
