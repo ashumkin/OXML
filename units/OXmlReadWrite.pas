@@ -127,6 +127,7 @@ type
     fLineBreak: TXMLLineBreak;
     fUseTabCRLFEntitiesInAttributes: Boolean;
     fUseGreaterThanEntity: Boolean;
+    fEscapeQuotes: Boolean;
     fStrictXML: Boolean;
   protected
     procedure AssignTo(Dest: TPersistent); override;
@@ -148,6 +149,8 @@ type
     property UseTabCRLFEntitiesInAttributes: Boolean read fUseTabCRLFEntitiesInAttributes write fUseTabCRLFEntitiesInAttributes;
     //should the '>' character be saved as an entity? (it's completely fine according to XML spec to use the '>' character in text; Default = True
     property UseGreaterThanEntity: Boolean read fUseGreaterThanEntity write fUseGreaterThanEntity;
+    //should single quote (') and double quote (") characters be escaped? Default = False
+    property EscapeQuotes: Boolean read fEscapeQuotes write fEscapeQuotes;
 
     //StrictXML: document must be valid XML
     //   = true: element names & values checking
@@ -2362,12 +2365,15 @@ begin
         else
           RawChar(xC);
       ckDoubleQuote:
-        if aInAttributeValue then
+        if aInAttributeValue or fWriterSettings.fEscapeQuotes then
           RawText(XML_ENTITY_QUOT)
         else
           RawChar(xC);
       ckSingleQuote:
-        RawChar(xC);
+        if fWriterSettings.fEscapeQuotes then
+          RawText(XML_ENTITY_APOS)
+        else
+          RawChar(xC);
       ckNewLine10:
         if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
         begin
@@ -2432,12 +2438,15 @@ begin
         else
           RawChar(OWideChar(Ord(xC) and $FF));
       ckDoubleQuote:
-        if aInAttributeValue then
+        if aInAttributeValue or fWriterSettings.fEscapeQuotes then
           RawText(XML_ENTITY_QUOT)
         else
           RawChar(OWideChar(Ord(xC) and $FF));
       ckSingleQuote:
-        RawChar(OWideChar(Ord(xC) and $FF));
+        if fWriterSettings.fEscapeQuotes then
+          RawText(XML_ENTITY_APOS)
+        else
+          RawChar(OWideChar(Ord(xC) and $FF));
       ckNewLine10:
         if (fWriterSettings.fLineBreak = lbDoNotProcess) then//no line break handling
         begin
@@ -2843,6 +2852,7 @@ begin
     xDest.LineBreak := Self.LineBreak;
     xDest.UseTabCRLFEntitiesInAttributes := Self.UseTabCRLFEntitiesInAttributes;
     xDest.UseGreaterThanEntity := Self.UseGreaterThanEntity;
+    xDest.EscapeQuotes := Self.EscapeQuotes;
     xDest.StrictXML := Self.StrictXML;
     xDest.WriteBOM := Self.WriteBOM;
   end else
