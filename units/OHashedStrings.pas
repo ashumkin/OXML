@@ -422,6 +422,7 @@ begin
   begin
     SetObject(aIndex, nil);//free or nil when ARC or OwnsObjects!
   end;
+  fObjects.Delete(aIndex);
 
   inherited Delete(aIndex);
 end;
