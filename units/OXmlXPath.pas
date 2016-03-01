@@ -893,10 +893,9 @@ begin
 
   aAdapter.GetNodeInfo(aNode, xNodeInfo{%H-});
 
+  SetLength(xQualifiedNameIds, 0);
   if fOwner.fNameSpaceURI <> '' then
-    aAdapter.NodeFindQualifiedNames(aNode, fOwner.fNameSpaceURI, ElementName, xQualifiedNameIds)
-  else
-    SetLength(xQualifiedNameIds, 0);
+    aAdapter.NodeFindQualifiedNames(aNode, fOwner.fNameSpaceURI, ElementName, xQualifiedNameIds);
 
   if
     ((NodeType = xntAllLevelsElement) and (xNodeInfo.NodeType = ntElement)) or
