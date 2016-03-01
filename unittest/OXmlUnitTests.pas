@@ -44,7 +44,7 @@ uses
   ;
 
 const
-  cTestCount = 71;
+  cTestCount = 73;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -91,6 +91,7 @@ type
     function Test_OXmlPDOM_ExternalDTD: Boolean;
     function Test_OXmlPDOM_RussianANSI: Boolean;
     function Test_OXmlPDOM_LastCR: Boolean;
+    function Test_OXmlPDOM_SelectNodesNS: Boolean;
     function Test_OXmlPDOM_OASIS: Boolean;
   private
     //OXmlCDOM.pas
@@ -113,6 +114,7 @@ type
     function Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlCDOM_EntityTest1: Boolean;
     function Test_OXmlCDOM_ExternalDTD: Boolean;
+    function Test_OXmlCDOM_SelectNodesNS: Boolean;
     function Test_OXmlCDOM_OASIS: Boolean;
   private
     //OWideSupp.pas
@@ -554,6 +556,7 @@ begin
   ExecuteFunction(Test_OXmlPDOM_ExternalDTD, 'Test_OXmlPDOM_ExternalDTD');
   ExecuteFunction(Test_OXmlPDOM_RussianANSI, 'Test_OXmlPDOM_RussianANSI');
   ExecuteFunction(Test_OXmlPDOM_LastCR, 'Test_OXmlPDOM_LastCR');
+  ExecuteFunction(Test_OXmlPDOM_SelectNodesNS, 'Test_OXmlPDOM_SelectNodesNS');
 
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate');
   ExecuteFunction(Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute, 'Test_OXmlCDOM_TXMLNode_SelectNodeCreate_Attribute');
@@ -574,6 +577,7 @@ begin
   ExecuteFunction(Test_OXmlCDOM_DoctypeEntityTest1, 'Test_OXmlCDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlCDOM_EntityTest1, 'Test_OXmlCDOM_EntityTest1');
   ExecuteFunction(Test_OXmlCDOM_ExternalDTD, 'Test_OXmlCDOM_ExternalDTD');
+  ExecuteFunction(Test_OXmlCDOM_SelectNodesNS, 'Test_OXmlCDOM_SelectNodesNS');
 
   ExecuteFunction(Test_TOByteBuffer, 'Test_TOByteBuffer');
   ExecuteFunction(Test_TOHashedStrings_Grow, 'Test_TOHashedStrings_Grow');
@@ -1363,6 +1367,28 @@ begin
     (Length(xOutBuffer1) = Length(xOutBuffer2)) and
     (Length(xOutBuffer1) > 0) and
     CompareMem(@xOutBuffer1[0], @xOutBuffer2[0], Length(xOutBuffer1));
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_SelectNodesNS: Boolean;
+const
+  inXML: OWideString =
+    '<x:root xmlns:x="myns">'+
+      '<x:child attr="attrvalue" x:attr2="attr2value" />'+
+    '</x:root>';
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xNodeList: OXmlPDOM.IXMLNodeList;
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.LoadFromXML(inXML);
+
+  Result :=
+    xXML.DocumentElement.SelectNodesNS('myns', 'child/@attr', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'attrvalue');
+  if not Result then Exit;
+  Result :=
+    xXML.DocumentElement.SelectNodesNS('myns', 'child/@attr2', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'attr2value');
 end;
 
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLNode_SelectNodeCreate: Boolean;
@@ -3249,6 +3275,28 @@ end;
 function TOXmlUnitTest.Test_OXmlCDOM_OASIS: Boolean;
 begin
   Result := Test_OASIS(False);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_SelectNodesNS: Boolean;
+const
+  inXML: OWideString =
+    '<x:root xmlns:x="myns">'+
+      '<x:child attr="attrvalue" x:attr2="attr2value" />'+
+    '</x:root>';
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xNodeList: OXmlCDOM.IXMLNodeList;
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.LoadFromXML(inXML);
+
+  Result :=
+    xXML.DocumentElement.SelectNodesNS('myns', 'child/@attr', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'attrvalue');
+  if not Result then Exit;
+  Result :=
+    xXML.DocumentElement.SelectNodesNS('myns', 'child/@attr2', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'attr2value');
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLNode_SelectNodeCreate: Boolean;

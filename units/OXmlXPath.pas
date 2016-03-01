@@ -87,6 +87,7 @@ type
   TXMLXPathNodeType = (xntNode, xntElement, xntAttribute, xntText,
     xntParentElement, xntRootElement, xntCurrentElement, xntAllLevelsElement);
 
+  TXMLXPathList = class;
   TXMLXPathNode = Pointer;
   TXMLXPathNodeList = Pointer;
   XMLXPathId = ONativeUInt;
@@ -130,23 +131,30 @@ type
     function GetNodeType(const aNode: TXMLXPathNode): TXmlNodeType; virtual; abstract;
     procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); virtual; abstract;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; virtual; abstract;
-    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; virtual; abstract;
+    function NodeFindAttributeNS(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+      const aAttrName: OWideString; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; virtual; abstract;
     procedure GetNodeAttributes(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); virtual; abstract;
     function GetNodeParent(const aNode: TXMLXPathNode): TXMLXPathNode; virtual; abstract;
     function GetNodeDOMDocument(const aNode: TXMLXPathNode): TXMLXPathNode; virtual; abstract;
     function NodeHasChildNodes(const aNode: TXMLXPathNode): Boolean; virtual; abstract;
     procedure GetNodeChildren(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); virtual; abstract;
+    procedure NodeFindQualifiedNames(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+      const aLocalName: OWideString; var ioQualifiedNameIds: TXMLIntArray); virtual; abstract;
   end;
 
   TXMLXPathSelector = class(TObject)
   private
+    fOwner: TXMLXPathList;
+
     fLevel: Integer;
     fNodeType: TXMLXPathNodeType;
 
     fCheckElementName: Boolean;
+    fElementName: OWideString;
     fElementNameId: OHashedStringsIndex;
 
     fCheckAttributeName: Boolean;
+    fAttributeName: OWideString;
     fAttributeNameId: OHashedStringsIndex;
     fCheckAttributeValue: Boolean;
     fAttributeValueId: OHashedStringsIndex;
@@ -183,6 +191,7 @@ type
       const aAdapter: TXMLXPathAdapter;
       var ioList: TXMLXPathNodeList);
   public
+    constructor Create(aOwner: TXMLXPathList);
     destructor Destroy; override;
   public
     procedure LoadFromString(aString: OWideString; const aIsFirst: Boolean;
@@ -193,14 +202,21 @@ type
       const aAdapter: TXMLXPathAdapter): Boolean;
     function MatchesNodeIndex(const {%H-}aNode: TXMLXPathNode;
       const aNodeIndexInParent, aNodeCountInParent: Integer): Boolean;
+
+    procedure SetAttributeName(const aAttributeName: OWideString;
+      const aAdapter: TXMLXPathAdapter);
+    procedure SetElementName(const aElementName: OWideString;
+      const aAdapter: TXMLXPathAdapter);
   public
     property NodeType: TXMLXPathNodeType read fNodeType;
 
     property CheckElementName: Boolean read fCheckElementName write fCheckElementName;
-    property ElementNameId: OHashedStringsIndex read fElementNameId write fElementNameId;
+    property ElementName: OWideString read fElementName;
+    property ElementNameId: OHashedStringsIndex read fElementNameId;
 
     property CheckAttributeName: Boolean read fCheckAttributeName write fCheckAttributeName;
-    property AttributeNameId: OHashedStringsIndex read fAttributeNameId write fAttributeNameId;
+    property AttributeName: OWideString read fAttributeName;
+    property AttributeNameId: OHashedStringsIndex read fAttributeNameId;
     property CheckAttributeValue: Boolean read fCheckAttributeValue write fCheckAttributeValue;
     property AttributeValueId: OHashedStringsIndex read fAttributeValueId write fAttributeValueId;
 
@@ -215,6 +231,7 @@ type
 
   TXMLXPath = class(TObject)
   private
+    fOwner: TXMLXPathList;
     fFirst: TXMLXPathSelector;
   private
     function GetFirst: TXMLXPathSelector;
@@ -224,6 +241,7 @@ type
       const aReferenceLevel: Integer;
       var outStartLevel, outEndLevel: Integer);
   public
+    constructor Create(aOwner: TXMLXPathList);
     destructor Destroy; override;
   public
     property First: TXMLXPathSelector read GetFirst;
@@ -242,6 +260,8 @@ type
     {$ELSE}
     fList: TList;//Delphi 4 does not have TObjectList
     {$ENDIF}
+    fNameSpaceURI: OWideString;
+
     procedure ClearList;
   private
     function GetI(const Index: Integer): TXMLXPath;
@@ -259,7 +279,7 @@ type
     property Items[const Index: Integer]: TXMLXPath read GetI; default;
     property Count: Integer read GetCount;
   public
-    procedure LoadFromString(const aString: OWideString);
+    procedure LoadFromString(const aString: OWideString; const aNameSpace: OWideString = '');
 
     function SelectNodes(
       const aParentNode: TXMLXPathNode;
@@ -316,6 +336,13 @@ begin
 end;
 
 { TXMLXPath }
+
+constructor TXMLXPath.Create(aOwner: TXMLXPathList);
+begin
+  inherited Create;
+
+  fOwner := aOwner;
+end;
 
 destructor TXMLXPath.Destroy;
 begin
@@ -409,7 +436,7 @@ begin
     begin
       if I = 0 then
       begin
-        fFirst := TXMLXPathSelector.Create;
+        fFirst := TXMLXPathSelector.Create(fOwner);
         xNewSelector := fFirst;
       end else
       begin
@@ -547,7 +574,8 @@ begin
     outLevelsDeep := 0;
 end;
 
-procedure TXMLXPathList.LoadFromString(const aString: OWideString);
+procedure TXMLXPathList.LoadFromString(const aString: OWideString;
+  const aNameSpace: OWideString);
 var
   xStrL: TOWideStringList;
   I: Integer;
@@ -556,6 +584,7 @@ begin
   if aString = '' then
     raise EXmlXPathInvalidString.Create(OXmlLng_XPathCannotBeEmpty);
 
+  fNameSpaceURI := aNameSpace;
   ClearList;
 
   xStrL := TOWideStringList.Create;
@@ -564,7 +593,7 @@ begin
 
     for I := 0 to xStrL.Count-1 do
     begin
-      xNewXPath := TXMLXPath.Create;
+      xNewXPath := TXMLXPath.Create(Self);
       fList.Add(xNewXPath);
       xNewXPath.LoadFromString(xStrL[I], fAdapter);
     end;
@@ -573,10 +602,8 @@ begin
   end;
 end;
 
-function TXMLXPathList.SelectNodes(
-  const aParentNode: TXMLXPathNode;
-  var outList: TXMLXPathNodeList;
-  const aMaxNodeCount: Integer): Boolean;
+function TXMLXPathList.SelectNodes(const aParentNode: TXMLXPathNode;
+  var outList: TXMLXPathNodeList; const aMaxNodeCount: Integer): Boolean;
 var
   I: Integer;
   xCheckedParents: TXMLXPathCheckedParents;
@@ -693,11 +720,18 @@ end;
 
 { TXMLXPathSelector }
 
+constructor TXMLXPathSelector.Create(aOwner: TXMLXPathList);
+begin
+  inherited Create;
+
+  fOwner := aOwner;
+end;
+
 function TXMLXPathSelector.CreateNext: TXMLXPathSelector;
 begin
   if not Assigned(fNext) then
   begin
-    fNext := TXMLXPathSelector.Create;
+    fNext := TXMLXPathSelector.Create(fOwner);
     fNext.fLevel := Self.fLevel+1;
   end;
   Result := fNext;
@@ -737,7 +771,7 @@ begin
     xAttributeName := Copy(aString, 2, High(Integer));
     CheckAttributeName := xAttributeName <> '*';
     if CheckAttributeName then
-      fAttributeNameId := aAdapter.GetStringId(xAttributeName);
+      SetAttributeName(xAttributeName, aAdapter);
   end else if OSameText(aString, 'node()') then
   begin
     //any node
@@ -832,7 +866,7 @@ begin
 
       CheckAttributeName := (xAttributeName <> '');
       if CheckAttributeName then
-        AttributeNameId := aAdapter.GetStringId(xAttributeName);
+        SetAttributeName(xAttributeName, aAdapter);
       CheckAttributeValue := (xAttributeValue <> '');
       if CheckAttributeValue then
         AttributeValueId := aAdapter.GetStringId(xAttributeValue);
@@ -843,7 +877,7 @@ begin
     end;
     CheckElementName := (xElementName <> '*');
     if CheckElementName then
-      ElementNameId := aAdapter.GetStringId(xElementName);
+      SetElementName(xElementName, aAdapter);
   end;
 end;
 
@@ -852,10 +886,17 @@ function TXMLXPathSelector.MatchesNode(const aNode: TXMLXPathNode;
 var
   xNodeInfo: TXMLXPathNodeInfo;
   xAttr: TXMLXPathNode;
+  xQualifiedNameIds: TXMLIntArray;
+  I: Integer;
 begin
   Result := False;
 
   aAdapter.GetNodeInfo(aNode, xNodeInfo{%H-});
+
+  if fOwner.fNameSpaceURI <> '' then
+    aAdapter.NodeFindQualifiedNames(aNode, fOwner.fNameSpaceURI, ElementName, xQualifiedNameIds)
+  else
+    SetLength(xQualifiedNameIds, 0);
 
   if
     ((NodeType = xntAllLevelsElement) and (xNodeInfo.NodeType = ntElement)) or
@@ -868,8 +909,21 @@ begin
   if (NodeType = xntElement) and (xNodeInfo.NodeType = ntElement) then
   begin
     //check element name
-    Result :=
-      (not CheckElementName or (ElementNameId = xNodeInfo.NodeNameId));
+    if not CheckElementName then
+      Result := True
+    else
+    if Length(xQualifiedNameIds) = 0 then
+      Result := (ElementNameId = xNodeInfo.NodeNameId)
+    else
+    begin
+      Result := False;
+      for I := 0 to High(xQualifiedNameIds) do
+        if xQualifiedNameIds[I] = xNodeInfo.NodeNameId then
+        begin
+          Result := True;
+          Break;
+        end;
+    end;
 
     if Result and CheckAttributeName then
     begin
@@ -879,7 +933,7 @@ begin
       if Result then
       begin
         //find attribute by name
-        xAttr := aAdapter.NodeFindAttribute(aNode, AttributeNameId);
+        xAttr := aAdapter.NodeFindAttributeNS(aNode, fOwner.fNameSpaceURI, AttributeName, AttributeNameId);
         Result := Assigned(xAttr);
 
         if Result then
@@ -970,7 +1024,7 @@ begin
     end;
   end else
   begin
-    xAttr := aAdapter.NodeFindAttribute(aParentNode, AttributeNameId);
+    xAttr := aAdapter.NodeFindAttributeNS(aParentNode, fOwner.fNameSpaceURI, AttributeName, AttributeNameId);
     if Assigned(xAttr) then
     begin
       _AddAttribute(xAttr);
@@ -978,12 +1032,10 @@ begin
   end;
 end;
 
-procedure TXMLXPathSelector.SelectElements(
-  const aParentNode: TXMLXPathNode;
+procedure TXMLXPathSelector.SelectElements(const aParentNode: Pointer;
   const aCheckedParents: TXMLXPathCheckedParents;
   const aAddedNodes: TXMLXPathResNodeDictionary;
-  const aIdTree: TXMLXPathIdTree;
-  const aAdapter: TXMLXPathAdapter);
+  const aIdTree: TXMLXPathIdTree; const aAdapter: TXMLXPathAdapter);
 
   procedure _SelectWithNode(const bNode: TXMLXPathNode; bSelector: TXMLXPathSelector = nil);
   begin
@@ -1094,6 +1146,22 @@ begin
       aCheckedParents, aAddedNodes, aIdTree, aAdapter);
 end;
 
+procedure TXMLXPathSelector.SetAttributeName(const aAttributeName: OWideString;
+  const aAdapter: TXMLXPathAdapter);
+begin
+  if fAttributeName = aAttributeName then Exit;
+  fAttributeName := aAttributeName;
+  fAttributeNameId := aAdapter.GetStringId(fAttributeName);
+end;
+
+procedure TXMLXPathSelector.SetElementName(const aElementName: OWideString;
+  const aAdapter: TXMLXPathAdapter);
+begin
+  if fElementName = aElementName then Exit;
+  fElementName := aElementName;
+  fElementNameId := aAdapter.GetStringId(fElementName);
+end;
+
 procedure TXMLXPathSelector.SimpleSelectNodes(const aParentNode: TXMLXPathNode;
   const aAdapter: TXMLXPathAdapter; var ioList: TXMLXPathNodeList);
 
@@ -1160,11 +1228,9 @@ begin
       end;
     end else
     begin
-      xAttr := aAdapter.NodeFindAttribute(aParentNode, AttributeNameId);
+      xAttr := aAdapter.NodeFindAttributeNS(aParentNode, fOwner.fNameSpaceURI, AttributeName, AttributeNameId);
       if Assigned(xAttr) then
-      begin
         _AddAttribute(xAttr);
-      end;
     end;
   end;
 

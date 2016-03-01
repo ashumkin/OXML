@@ -351,9 +351,14 @@ type
     function SelectNodes(const aXPath: OWideString;
       var outNodeList: IXMLNodeList;
       const aMaxNodeCount: Integer = 0): Boolean; overload;
+    function SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
+      var outNodeList: IXMLNodeList;
+      const aMaxNodeCount: Integer = 0): Boolean; overload;
     //select all nodes by XPath, return maximum of aMaxNodeCount nodes
     //  if nothing found return a list with no items (count = 0)
     function SelectNodes(const aXPath: OWideString;
+      const aMaxNodeCount: Integer = 0): IXMLNodeList; overload;
+    function SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
       const aMaxNodeCount: Integer = 0): IXMLNodeList; overload;
     //get child elements by tag name
     //  aRecoursive = True: search in the whole subtree
@@ -432,15 +437,15 @@ type
 
     {$IFDEF BCB}
     //C++ Builder compatibility
-    property ChildFromBegin[const aIndex: Integer]: TXMLNode read GetChildFromBegin;
-    property ChildFromEnd[const aIndex: Integer]: TXMLNode read GetChildFromEnd;
-    property AttributeFromBegin[const aIndex: Integer]: TXMLNode read GetAttributeFromBegin;
-    property AttributeFromEnd[const aIndex: Integer]: TXMLNode read GetAttributeFromEnd;
+    property ChildFromBegin[const aChildIndex: Integer]: TXMLNode read GetChildFromBegin;
+    property ChildFromEnd[const aChildIndex: Integer]: TXMLNode read GetChildFromEnd;
+    property AttributeFromBegin[const aChildIndex: Integer]: TXMLNode read GetAttributeFromBegin;
+    property AttributeFromEnd[const aChildIndex: Integer]: TXMLNode read GetAttributeFromEnd;
     {$ELSE}
-    property ChildFromBegin[const aIndex: Integer]: TXMLNode index ctChild read GetCChildFromBegin;
-    property ChildFromEnd[const aIndex: Integer]: TXMLNode index ctChild read GetCChildFromEnd;
-    property AttributeFromBegin[const aIndex: Integer]: TXMLNode index ctAttribute read GetCChildFromBegin;
-    property AttributeFromEnd[const aIndex: Integer]: TXMLNode index ctAttribute read GetCChildFromEnd;
+    property ChildFromBegin[const aChildIndex: Integer]: TXMLNode index ctChild read GetCChildFromBegin;
+    property ChildFromEnd[const aChildIndex: Integer]: TXMLNode index ctChild read GetCChildFromEnd;
+    property AttributeFromBegin[const aChildIndex: Integer]: TXMLNode index ctAttribute read GetCChildFromBegin;
+    property AttributeFromEnd[const aChildIndex: Integer]: TXMLNode index ctAttribute read GetCChildFromEnd;
     {$ENDIF}
 
     property IsTextElement: Boolean read GetIsTextElement;
@@ -856,12 +861,15 @@ type
     function GetNodeType(const aNode: TXMLXPathNode): TXMLNodeType; override;
     procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); override;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; override;
-    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
+    function NodeFindAttributeNS(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+      const aAttrName: OWideString; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
     procedure GetNodeAttributes(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
     function GetNodeParent(const aNode: TXMLXPathNode): TXMLXPathNode; override;
     function GetNodeDOMDocument(const aNode: TXMLXPathNode): TXMLXPathNode; override;
     function NodeHasChildNodes(const aNode: TXMLXPathNode): Boolean; override;
     procedure GetNodeChildren(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
+    procedure NodeFindQualifiedNames(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+      const aLocalName: OWideString; var ioQualifiedNameIds: TXMLIntArray); override;
   end;
 
   TXMLAttributeIndex = class(TObject)
@@ -1243,6 +1251,13 @@ var
   xQualifiedNameIds: TODictionary;
   I: Integer;
 begin
+  if (NameSpaceURI = aNameSpaceURI) then
+  begin
+    // current node has ns defined, find attribute without namespace: <x:node attr="value">
+    Result := FindAttribute(aLocalName, outAttr);
+    if Result then
+      Exit;
+  end;
   xQualifiedNameIds := TODictionary.Create;
   try
     FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
@@ -2622,6 +2637,33 @@ begin
   end;
 end;
 
+function TXMLNode.SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
+  const aMaxNodeCount: Integer): IXMLNodeList;
+begin
+  SelectNodesNS(aNameSpaceURI, aXPath, Result{%H-}, aMaxNodeCount);
+end;
+
+function TXMLNode.SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
+  var outNodeList: IXMLNodeList; const aMaxNodeCount: Integer): Boolean;
+var
+  xXPaths: TXMLXPathList;
+  xCustomList: TXMLXPathNodeList;
+begin
+  xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
+  try
+    xXPaths.LoadFromString(aXPath, aNameSpaceURI);
+
+    xCustomList := nil;//must be here -> list will be created in SelectNodes
+    Result := xXPaths.SelectNodes(Self, xCustomList, aMaxNodeCount);
+    if Result then
+      outNodeList := (IInterface(xCustomList) as IXMLNodeList)
+    else
+      outNodeList := OwnerDocument.DummyResNodeList;
+  finally
+    xXPaths.Free;
+  end;
+end;
+
 function TXMLNode.SetAttribute(const aName, aValue: OWideString): TXMLNode;
 begin
   AddAttribute(aName, aValue);
@@ -3731,15 +3773,39 @@ begin
   Result := fOwnerDocument.IndexOfString(aString);
 end;
 
-function TXMLXPathDOMAdapter.NodeFindAttribute(const aNode: TXMLXPathNode;
+function TXMLXPathDOMAdapter.NodeFindAttributeNS(const aNode: TXMLXPathNode;
+  const aNameSpaceURI: OWideString; const aAttrName: OWideString;
   const aAttrNameId: OHashedStringsIndex): TXMLXPathNode;
 var
   xAttr: TXMLNode;
+  xRes: Boolean;
 begin
-  if TXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-}) then
+  if aNameSpaceURI = '' then
+    xRes := TXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-})
+  else
+    xRes := TXMLNode(aNode).FindAttributeNS(aNameSpaceURI, aAttrName, xAttr{%H-});
+  if xRes then
     Result := xAttr
   else
     Result := nil;
+end;
+
+procedure TXMLXPathDOMAdapter.NodeFindQualifiedNames(
+  const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+  const aLocalName: OWideString; var ioQualifiedNameIds: TXMLIntArray);
+var
+  xQualifiedNameIds: TODictionary;
+  I: Integer;
+begin
+  xQualifiedNameIds := TODictionary.Create;
+  try
+    TXMLNode(aNode).FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
+    SetLength(ioQualifiedNameIds, xQualifiedNameIds.Count);
+    for I := 0 to xQualifiedNameIds.Count-1 do
+      ioQualifiedNameIds[I] := xQualifiedNameIds[I];
+  finally
+    xQualifiedNameIds.Free;
+  end;
 end;
 
 function TXMLXPathDOMAdapter.NodeHasAttributes(

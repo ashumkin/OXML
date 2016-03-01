@@ -141,7 +141,7 @@ type
     function GetText: OWideString;
     procedure SetText(const aText: OWideString);
     function _AddAttribute(const aAttrName, aAttrValue: OWideString): PXMLNode;
-    procedure _SetAttribute(const aAttrName, aAttrValue: OWideString);
+    procedure _SetAttribute(const aAttrName: OWideString; const aAttrValue: OWideString);
 
     function AddCustomChild(const aType: TXMLNodeType; const aName, aValue: OWideString): PXMLNode;
     function InsertCustomChild(const aType: TXMLNodeType; const aName, aValue: OWideString;
@@ -354,9 +354,14 @@ type
     function SelectNodes(const aXPath: OWideString;
       var outNodeList: IXMLNodeList;
       const aMaxNodeCount: Integer = 0): Boolean; overload;
+    function SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
+      var outNodeList: IXMLNodeList;
+      const aMaxNodeCount: Integer = 0): Boolean; overload;
     //select all nodes by XPath, return maximum of aMaxNodeCount nodes
     //  if nothing found return a list with no items (count = 0)
     function SelectNodes(const aXPath: OWideString;
+      const aMaxNodeCount: Integer = 0): IXMLNodeList; overload;
+    function SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
       const aMaxNodeCount: Integer = 0): IXMLNodeList; overload;
     //get child elements by tag name
     //  aRecoursive = True: search in the whole subtree
@@ -437,15 +442,15 @@ type
 
     {$IFDEF BCB}
     //C++ Builder compatibility
-    property ChildFromBegin[const aIndex: Integer]: PXMLNode read GetChildFromBegin;
-    property ChildFromEnd[const aIndex: Integer]: PXMLNode read GetChildFromEnd;
-    property AttributeFromBegin[const aIndex: Integer]: PXMLNode read GetAttributeFromBegin;
-    property AttributeFromEnd[const aIndex: Integer]: PXMLNode read GetAttributeFromEnd;
+    property ChildFromBegin[const aChildIndex: Integer]: PXMLNode read GetChildFromBegin;
+    property ChildFromEnd[const aChildIndex: Integer]: PXMLNode read GetChildFromEnd;
+    property AttributeFromBegin[const aChildIndex: Integer]: PXMLNode read GetAttributeFromBegin;
+    property AttributeFromEnd[const aChildIndex: Integer]: PXMLNode read GetAttributeFromEnd;
     {$ELSE}
-    property ChildFromBegin[const aIndex: Integer]: PXMLNode index ctChild read GetCChildFromBegin;
-    property ChildFromEnd[const aIndex: Integer]: PXMLNode index ctChild read GetCChildFromEnd;
-    property AttributeFromBegin[const aIndex: Integer]: PXMLNode index ctAttribute read GetCChildFromBegin;
-    property AttributeFromEnd[const aIndex: Integer]: PXMLNode index ctAttribute read GetCChildFromEnd;
+    property ChildFromBegin[const aChildIndex: Integer]: PXMLNode index ctChild read GetCChildFromBegin;
+    property ChildFromEnd[const aChildIndex: Integer]: PXMLNode index ctChild read GetCChildFromEnd;
+    property AttributeFromBegin[const aChildIndex: Integer]: PXMLNode index ctAttribute read GetCChildFromBegin;
+    property AttributeFromEnd[const aChildIndex: Integer]: PXMLNode index ctAttribute read GetCChildFromEnd;
     {$ENDIF}
 
     property IsTextElement: Boolean read GetIsTextElement;
@@ -851,12 +856,15 @@ type
     function GetNodeType(const aNode: TXMLXPathNode): TXMLNodeType; override;
     procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); override;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; override;
-    function NodeFindAttribute(const aNode: TXMLXPathNode; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
+    function NodeFindAttributeNS(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+      const aAttrName: OWideString; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
     procedure GetNodeAttributes(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
     function GetNodeParent(const aNode: TXMLXPathNode): TXMLXPathNode; override;
     function GetNodeDOMDocument(const aNode: TXMLXPathNode): TXMLXPathNode; override;
     function NodeHasChildNodes(const aNode: TXMLXPathNode): Boolean; override;
     procedure GetNodeChildren(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
+    procedure NodeFindQualifiedNames(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+      const aLocalName: OWideString; var ioQualifiedNameIds: TXMLIntArray); override;
   end;
 
   TXMLAttributeIndex = class(TObject)
@@ -1342,6 +1350,13 @@ var
   xQualifiedNameIds: TXMLIntArray;
   I: Integer;
 begin
+  if (NameSpaceURI = aNameSpaceURI) then
+  begin
+    // current node has ns defined, find attribute without namespace: <x:node attr="value">
+    Result := FindAttribute(aLocalName, outAttr);
+    if Result then
+      Exit;
+  end;
   SetLength(xQualifiedNameIds, 0);
   FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
 
@@ -2114,7 +2129,8 @@ begin
   end;
 end;
 
-procedure TXMLNode._SetAttribute(const aAttrName, aAttrValue: OWideString);
+procedure TXMLNode._SetAttribute(const aAttrName: OWideString;
+  const aAttrValue: OWideString);
 begin
   _AddAttribute(aAttrName, aAttrValue);
 end;
@@ -2909,6 +2925,33 @@ begin
   xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
   try
     xXPaths.LoadFromString(aXPath);
+
+    xCustomList := nil;//must be here -> list will be created in SelectNodes
+    Result := xXPaths.SelectNodes(@Self, xCustomList, aMaxNodeCount);
+    if Result then
+      outNodeList := (IInterface(xCustomList) as IXMLNodeList)
+    else
+      outNodeList := OwnerDocument.DummyResNodeList;
+  finally
+    xXPaths.Free;
+  end;
+end;
+
+function TXMLNode.SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
+  const aMaxNodeCount: Integer): IXMLNodeList;
+begin
+  SelectNodesNS(aNameSpaceURI, aXPath, Result{%H-}, aMaxNodeCount);
+end;
+
+function TXMLNode.SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
+  var outNodeList: IXMLNodeList; const aMaxNodeCount: Integer): Boolean;
+var
+  xXPaths: TXMLXPathList;
+  xCustomList: TXMLXPathNodeList;
+begin
+  xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
+  try
+    xXPaths.LoadFromString(aXPath, aNameSpaceURI);
 
     xCustomList := nil;//must be here -> list will be created in SelectNodes
     Result := xXPaths.SelectNodes(@Self, xCustomList, aMaxNodeCount);
@@ -4135,6 +4178,13 @@ begin
   Result := TXMLXPathNodeList(fResNodeList as IXMLNodeList);
 end;
 
+procedure TXMLXPathDOMAdapter.NodeFindQualifiedNames(
+  const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
+  const aLocalName: OWideString; var ioQualifiedNameIds: TXMLIntArray);
+begin
+  PXMLNode(aNode).FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, ioQualifiedNameIds);
+end;
+
 procedure TXMLXPathDOMAdapter.GetNodeAttributes(
   const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList);
 var
@@ -4204,12 +4254,18 @@ begin
   Result := fOwnerDocument.IndexOfString(aString);
 end;
 
-function TXMLXPathDOMAdapter.NodeFindAttribute(const aNode: TXMLXPathNode;
+function TXMLXPathDOMAdapter.NodeFindAttributeNS(const aNode: TXMLXPathNode;
+  const aNameSpaceURI: OWideString; const aAttrName: OWideString;
   const aAttrNameId: OHashedStringsIndex): TXMLXPathNode;
 var
   xAttr: PXMLNode;
+  xRes: Boolean;
 begin
-  if PXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-}) then
+  if aNameSpaceURI = '' then
+    xRes := PXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-})
+  else
+    xRes := PXMLNode(aNode).FindAttributeNS(aNameSpaceURI, aAttrName, xAttr{%H-});
+  if xRes then
     Result := xAttr
   else
     Result := nil;
