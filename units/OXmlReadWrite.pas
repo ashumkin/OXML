@@ -652,8 +652,14 @@ type
 
   //protected
     function GetCodePage: Word;
+    function GetReadNameSpacePrefix: OWideString;
+    function GetReadNameSpaceURI: OWideString;
+    function GetFastNameSpaces: Boolean;
     procedure SetCodePage(const aCodePage: Word);
     function GetURL: OWideString;
+    procedure SetReadNameSpacePrefix(const aReadNameSpacePrefix: OWideString);
+    procedure SetReadNameSpaceURI(const aReadNameSpaceURI: OWideString);
+    procedure SetFastNameSpaces(const aFastNameSpaces: Boolean);
     procedure SetURL(const aURL: OWideString);
     function GetVersion: OWideString;
     procedure SetVersion(const aVersion: OWideString);
@@ -735,6 +741,13 @@ type
     property StandAlone: OWideString read GetStandAlone write SetStandAlone;
     //document version - from <?xml version="???"?>
     property Version: OWideString read GetVersion write SetVersion;
+    //use a specific namespace for all reading from this document
+    property ReadNameSpaceURI: OWideString read GetReadNameSpaceURI write SetReadNameSpaceURI;
+    //use a specific namespace prefix for all reading from this document
+    property ReadNameSpacePrefix: OWideString read GetReadNameSpacePrefix write SetReadNameSpacePrefix;
+    //set to true to use optimizations for fast namespace support
+    // it could fail for some documents (like declaring different prefixes for the same namespaces etc.)
+    property FastNameSpaces: Boolean read GetFastNameSpaces write SetFastNameSpaces;
 
     //XML writer settings
     property WriterSettings: TXMLDocumentWriterSettings read GetWriterSettings;

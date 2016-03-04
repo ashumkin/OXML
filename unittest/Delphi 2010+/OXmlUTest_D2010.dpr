@@ -25,7 +25,10 @@ uses
   OWideSupp in '..\..\units\OWideSupp.pas',
   OXmlDOMVendor in '..\..\units\OXmlDOMVendor.pas',
   OXmlCSeq in '..\..\units\OXmlCSeq.pas',
-  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas',
+  OJsonUtils in '..\..\units\OJsonUtils.pas',
+  OJsonReadWrite in '..\..\units\OJsonReadWrite.pas',
+  OJsonUtf8ReadWrite in '..\..\units\OJsonUtf8ReadWrite.pas';
 
 var
   xTest: TOXmlUnitTest;

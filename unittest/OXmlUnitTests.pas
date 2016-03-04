@@ -44,7 +44,7 @@ uses
   ;
 
 const
-  cTestCount = 73;
+  cTestCount = 77;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -85,6 +85,9 @@ type
     function Test_OXmlPDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces2: Boolean;
     function Test_OXmlPDOM_TXMLDocument_NameSpaces3: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_NameSpaces4(const aFast: Boolean): Boolean;
+    function Test_OXmlPDOM_TXMLDocument_NameSpaces4_Full: Boolean;
+    function Test_OXmlPDOM_TXMLDocument_NameSpaces4_Fast: Boolean;
     function Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces: Boolean;
     function Test_OXmlPDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlPDOM_EntityTest1: Boolean;
@@ -111,6 +114,9 @@ type
     function Test_OXmlCDOM_TXMLDocument_NameSpaces1: Boolean;
     function Test_OXmlCDOM_TXMLDocument_NameSpaces2: Boolean;
     function Test_OXmlCDOM_TXMLDocument_NameSpaces3: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_NameSpaces4(const aFast: Boolean): Boolean;
+    function Test_OXmlCDOM_TXMLDocument_NameSpaces4_Full: Boolean;
+    function Test_OXmlCDOM_TXMLDocument_NameSpaces4_Fast: Boolean;
     function Test_OXmlCDOM_DoctypeEntityTest1: Boolean;
     function Test_OXmlCDOM_EntityTest1: Boolean;
     function Test_OXmlCDOM_ExternalDTD: Boolean;
@@ -550,6 +556,8 @@ begin
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces1, 'Test_OXmlPDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces2, 'Test_OXmlPDOM_TXMLDocument_NameSpaces2');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces3, 'Test_OXmlPDOM_TXMLDocument_NameSpaces3');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces4_Fast, 'Test_OXmlPDOM_TXMLDocument_NameSpaces4_Fast');
+  ExecuteFunction(Test_OXmlPDOM_TXMLDocument_NameSpaces4_Full, 'Test_OXmlPDOM_TXMLDocument_NameSpaces4_Full');
   ExecuteFunction(Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces, 'Test_OXmlPDOM_TXMLDocument_HeaderWithSpaces');
   ExecuteFunction(Test_OXmlPDOM_DoctypeEntityTest1, 'Test_OXmlPDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlPDOM_EntityTest1, 'Test_OXmlPDOM_EntityTest1');
@@ -574,6 +582,8 @@ begin
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces1, 'Test_OXmlCDOM_TXMLDocument_NameSpaces1');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces2, 'Test_OXmlCDOM_TXMLDocument_NameSpaces2');
   ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces3, 'Test_OXmlCDOM_TXMLDocument_NameSpaces3');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces4_Full, 'Test_OXmlCDOM_TXMLDocument_NameSpaces4_Full');
+  ExecuteFunction(Test_OXmlCDOM_TXMLDocument_NameSpaces4_Fast, 'Test_OXmlCDOM_TXMLDocument_NameSpaces4_Fast');
   ExecuteFunction(Test_OXmlCDOM_DoctypeEntityTest1, 'Test_OXmlCDOM_DoctypeEntityTest1');
   ExecuteFunction(Test_OXmlCDOM_EntityTest1, 'Test_OXmlCDOM_EntityTest1');
   ExecuteFunction(Test_OXmlCDOM_ExternalDTD, 'Test_OXmlCDOM_ExternalDTD');
@@ -2356,6 +2366,67 @@ begin
   Result := xXML.XML = outXML;
 end;
 
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_NameSpaces4(
+  const aFast: Boolean): Boolean;
+var
+  xXML: OXmlPDOM.IXMLDocument;
+  xRoot, xChild: OXmlPDOM.PXMLNode;
+  xNodeList: OXmlPDOM.IXMLNodeList;
+const
+  cNS1 = 'ns1';
+  cNS2 = 'ns2';
+  inXML =
+    '<x:root xmlns:x="'+cNS1+'" xmlns:x2="'+cNS2+'">'+
+      '<x:child x2:attr1="valueX1" attr1="value1" x:attr2="value2" x2:attr2="valueX2" attr3="value3"/>'+
+    '</x:root>';
+begin
+  xXML := OXmlPDOM.CreateXMLDoc;
+  xXML.LoadFromXML(inXML);
+  xXML.ReadNameSpaceURI := cNS1;
+  xXML.FastNameSpaces := aFast;
+  xRoot := xXML.DocumentElement;
+  Result := xRoot.FindChild('child', xChild{%H-});
+  if not Result then Exit;
+  Result := xChild.Attributes['attr1'] = 'value1';
+  if not Result then Exit;
+  Result := xChild.GetAttribute('attr2') = 'value2';
+  if not Result then Exit;
+  Result :=
+    xRoot.SelectNodes('child/@attr1', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'value1');
+  if not Result then Exit;
+  Result :=
+    xRoot.SelectNodes('child/@attr2', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'value2');
+  if not Result then Exit;
+
+  xXML.ReadNameSpaceURI := cNS2;
+  Result := xChild.Attributes['attr1'] = 'valueX1';
+  if not Result then Exit;
+  Result := xChild.Attributes['attr2'] = 'valueX2';
+  if not Result then Exit;
+  Result :=
+    xChild.SelectNodes('@attr1', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'valueX1');
+  if not Result then Exit;
+  Result :=
+    xChild.SelectNodes('@attr2', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'valueX2');
+  if not Result then Exit;
+  Result :=
+    not xChild.SelectNodes('@attr3', xNodeList{%H-}); // attr3 doesn't exist in x2 namespace
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_NameSpaces4_Fast: Boolean;
+begin
+  Result := Test_OXmlPDOM_TXMLDocument_NameSpaces4(True);
+end;
+
+function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_NameSpaces4_Full: Boolean;
+begin
+  Result := Test_OXmlPDOM_TXMLDocument_NameSpaces4(False);
+end;
+
 function TOXmlUnitTest.Test_OXmlPDOM_TXMLDocument_TabCRLF: Boolean;
 const
   {$IFDEF MSWINDOWS}
@@ -3527,6 +3598,67 @@ begin
     Exit;
   xXML.Node.AppendChild(xNode1);
   Result := xXML.XML = outXML;
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_NameSpaces4(
+  const aFast: Boolean): Boolean;
+var
+  xXML: OXmlCDOM.IXMLDocument;
+  xRoot, xChild: OXmlCDOM.TXMLNode;
+  xNodeList: OXmlCDOM.IXMLNodeList;
+const
+  cNS1 = 'ns1';
+  cNS2 = 'ns2';
+  inXML =
+    '<x:root xmlns:x="'+cNS1+'" xmlns:x2="'+cNS2+'">'+
+      '<x:child x2:attr1="valueX1" attr1="value1" x:attr2="value2" x2:attr2="valueX2" attr3="value3"/>'+
+    '</x:root>';
+begin
+  xXML := OXmlCDOM.CreateXMLDoc;
+  xXML.LoadFromXML(inXML);
+  xXML.ReadNameSpaceURI := cNS1;
+  xXML.FastNameSpaces := aFast;
+  xRoot := xXML.DocumentElement;
+  Result := xRoot.FindChild('child', xChild{%H-});
+  if not Result then Exit;
+  Result := xChild.Attributes['attr1'] = 'value1';
+  if not Result then Exit;
+  Result := xChild.GetAttribute('attr2') = 'value2';
+  if not Result then Exit;
+  Result :=
+    xRoot.SelectNodes('child/@attr1', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'value1');
+  if not Result then Exit;
+  Result :=
+    xRoot.SelectNodes('child/@attr2', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'value2');
+  if not Result then Exit;
+
+  xXML.ReadNameSpaceURI := cNS2;
+  Result := xChild.Attributes['attr1'] = 'valueX1';
+  if not Result then Exit;
+  Result := xChild.Attributes['attr2'] = 'valueX2';
+  if not Result then Exit;
+  Result :=
+    xChild.SelectNodes('@attr1', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'valueX1');
+  if not Result then Exit;
+  Result :=
+    xChild.SelectNodes('@attr2', xNodeList{%H-})
+    and (xNodeList.Count = 1) and (xNodeList[0].NodeValue = 'valueX2');
+  if not Result then Exit;
+  Result :=
+    not xChild.SelectNodes('@attr3', xNodeList{%H-}); // attr3 doesn't exist in x2 namespace
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_NameSpaces4_Fast: Boolean;
+begin
+  Result := Test_OXmlCDOM_TXMLDocument_NameSpaces4(True);
+end;
+
+function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_NameSpaces4_Full: Boolean;
+begin
+  Result := Test_OXmlCDOM_TXMLDocument_NameSpaces4(False);
 end;
 
 function TOXmlUnitTest.Test_OXmlCDOM_TXMLDocument_WhiteSpaceHandling: Boolean;

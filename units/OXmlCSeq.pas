@@ -55,6 +55,7 @@ type
     fReader: TXMLReader;
     fReaderToken: PXMLReaderToken;
     fDataRead: Boolean;
+    fReadNameSpacePrefix: OWideString;
     fTempReaderPath: TOWideStringList;
     fTempNodePath: TOWideStringList;
     fXmlDoc: TXMLDocument;
@@ -147,6 +148,8 @@ type
     property WhiteSpaceHandling: TXmlWhiteSpaceHandling read GetWhiteSpaceHandling write SetWhiteSpaceHandling;
     //XML reader settings
     property ReaderSettings: TXMLReaderSettings read GetReaderSettings;
+    //remove default namespace prefix from all element names and use it for sequential DOM as well
+    property ReadNameSpacePrefix: OWideString read fReadNameSpacePrefix write fReadNameSpacePrefix;
   public
     //Approximate position in original read stream
     //  exact position cannot be determined because of variable UTF-8 character lengths
@@ -226,6 +229,8 @@ end;
 
 function TXMLSeqParser.GoToNextChildElement(
   var outElementName: OWideString): Boolean;
+var
+  xNS, xLocalName: OWideString;
 begin
   fParseError := nil;
 
@@ -235,6 +240,12 @@ begin
       rtOpenElement:
       begin
         outElementName := fReaderToken.TokenName;
+        if fReadNameSpacePrefix <> '' then
+        begin
+          OXmlResolveNameSpace(outElementName, xNS{%H-}, xLocalName{%H-});
+          if xNS = fReadNameSpacePrefix then
+            outElementName := xLocalName;
+        end;
         Result := True;
         Exit;
       end;
@@ -378,6 +389,7 @@ begin
   Result := False;
   fParseError := nil;
 
+  fXmlDoc.ReadNameSpacePrefix := fReadNameSpacePrefix;
   TAccessXMLDoc(fXmlDoc).Loading := True;
   try
     fXmlDoc.Clear(False);

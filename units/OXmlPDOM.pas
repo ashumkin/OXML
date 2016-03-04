@@ -123,6 +123,8 @@ type
     procedure DeleteCChildren(const aDestroyList: Boolean; const aChildType: TXMLChildType);
     function FindCChild(const aNodeNameId: OHashedStringsIndex; const aChildType: TXMLChildType;
       var outNode: PXMLNode; var outNodeSearchedCount: Integer): Boolean;
+    function FindCChildNS(const aNameSpaceURI, aLocalName: OWideString;
+      const aChildType: TXMLChildType; var outNode: PXMLNode): Boolean;
     procedure FillCChildList(const aList: IXMLNodeList; const aChildType: TXMLChildType);
     function FindTempNameSpaceURI(const aNameSpacePrefix: OWideString;
       var outNameSpace: OWideString; const aSearchInParent: Boolean): Boolean;
@@ -160,6 +162,8 @@ type
     function GetAbsolutePath: OWideString;
     function GetNodeLevel: Integer;
     function BuildChildrenIndex: TXMLNodeIndex;
+    function _SelectNodes(const aNameSpaceURI, aNameSpacePrefix, aXPath: OWideString;
+      var outNodeList: IXMLNodeList; const aMaxNodeCount: Integer): Boolean;
 
     procedure QuickSort(aLow, aHigh: Integer; const aCompare: TXMLNodeCompare;
       const aChildNodeList: IXMLNodeList);
@@ -469,7 +473,7 @@ type
     //node level in the tree, root element = 1
     property NodeLevel: Integer read GetNodeLevel;
   end;
-  TXMLNodeArray = Array of TXMLNode;
+  TXMLNodeArray = array of TXMLNode;
   PXMLNodeArray = ^TXMLNodeArray;
 
   IXMLDocument = interface(ICustomXMLDocument)
@@ -549,10 +553,22 @@ type
     fReaderSettings: TXMLReaderSettings;
     fOnProgress: TDOMProgressEvent;
 
+    fReadNameSpaceURI: OWideString;
+    fReadNameSpacePrefix: OWideString;
+    fFastNameSpaces: Boolean;
+    fUseReadNameSpaceURI: TXMLNameSpaceHandling;
+
     fParseError: IOTextParseError;
 
+    procedure UpdateReadNameSpaces;
+    function GetReadNameSpacePrefix: OWideString;
+    procedure SetReadNameSpacePrefix(const aReadNameSpacePrefix: OWideString);
     function FindXMLDeclarationNode(var outXMLDeclarationNode: PXMLNode): Boolean;
+    function GetReadNameSpaceURI: OWideString;
+    function GetFastNameSpaces: Boolean;
     function GetXMLDeclarationAttribute(const aAttributeName: OWideString): OWideString;
+    procedure SetReadNameSpaceURI(const aReadNameSpaceURI: OWideString);
+    procedure SetFastNameSpaces(const aFastNameSpaces: Boolean);
     procedure SetXMLDeclarationAttribute(const aAttributeName, aAttributeValue: OWideString);
     function GetCodePage: Word;
     procedure SetCodePage(const aCodePage: Word);
@@ -671,6 +687,9 @@ type
     property Encoding: OWideString read GetEncoding write SetEncoding;
     property StandAlone: OWideString read GetStandAlone write SetStandAlone;
     property Version: OWideString read GetVersion write SetVersion;
+    property ReadNameSpaceURI: OWideString read fReadNameSpaceURI write SetReadNameSpaceURI;//Get; performance
+    property FastNameSpaces: Boolean read fFastNameSpaces write SetFastNameSpaces;
+    property ReadNameSpacePrefix: OWideString read fReadNameSpacePrefix write SetReadNameSpacePrefix;//Get; performance
 
     property WriterSettings: TXMLDocumentWriterSettings read fWriterSettings;
     property ReaderSettings: TXMLReaderSettings read fReaderSettings;
@@ -856,11 +875,14 @@ type
     function GetNodeType(const aNode: TXMLXPathNode): TXMLNodeType; override;
     procedure GetNodeInfo(const aNode: TXMLXPathNode; var outNodeInfo: TXMLXPathNodeInfo); override;
     function NodeHasAttributes(const aNode: TXMLXPathNode): Boolean; override;
-    function NodeFindAttributeNS(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
-      const aAttrName: OWideString; const aAttrNameId: OHashedStringsIndex): TXMLXPathNode; override;
+    function NodeFindAttribute(const aNode: TXMLXPathNode; const aNameSpaceURI, aNameSpacePrefix: OWideString;
+      const aAttrName: OWideString; const aAttrNameId, aAttrNameNSId: OHashedStringsIndex;
+      const aNameSpaceHandling: TXMLNameSpaceHandling): TXMLXPathNode; override;
     procedure GetNodeAttributes(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
     function GetNodeParent(const aNode: TXMLXPathNode): TXMLXPathNode; override;
     function GetNodeDOMDocument(const aNode: TXMLXPathNode): TXMLXPathNode; override;
+    function GetNodeNamespacePrefix(const aNode: TXMLXPathNode): OWideString; override;
+    function GetNodeNamespaceURI(const aNode: TXMLXPathNode): OWideString; override;
     function NodeHasChildNodes(const aNode: TXMLXPathNode): Boolean; override;
     procedure GetNodeChildren(const aParentNode: TXMLXPathNode; const aList: TXMLXPathResNodeList); override;
     procedure NodeFindQualifiedNames(const aNode: TXMLXPathNode; const aNameSpaceURI: OWideString;
@@ -1247,7 +1269,18 @@ end;
 function TXMLNode.FindAttribute(const aName: OWideString;
   var outAttr: PXMLNode): Boolean;
 begin
-  Result := FindAttributeById(fOwnerDocument.IndexOfString(aName), outAttr);
+  case fOwnerDocument.fUseReadNameSpaceURI of
+    nsFull: Result := FindAttributeNS(fOwnerDocument.ReadNameSpaceURI, aName, outAttr);
+    nsFast:
+    begin
+      Result := FindAttributeById(fOwnerDocument.IndexOfString(
+        OXmlApplyNameSpace(fOwnerDocument.fReadNameSpacePrefix, aName)), outAttr);
+      if not Result and (GetNameSpacePrefix=fOwnerDocument.fReadNameSpacePrefix) then
+        Result := FindAttributeById(fOwnerDocument.IndexOfString(aName), outAttr);
+    end;
+  else
+    Result := FindAttributeById(fOwnerDocument.IndexOfString(aName), outAttr);
+  end;
 end;
 
 procedure TXMLNode.FillCChildList(const aList: IXMLNodeList;
@@ -1346,29 +1379,8 @@ end;
 
 function TXMLNode.FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString;
   var outAttr: PXMLNode): Boolean;
-var
-  xQualifiedNameIds: TXMLIntArray;
-  I: Integer;
 begin
-  if (NameSpaceURI = aNameSpaceURI) then
-  begin
-    // current node has ns defined, find attribute without namespace: <x:node attr="value">
-    Result := FindAttribute(aLocalName, outAttr);
-    if Result then
-      Exit;
-  end;
-  SetLength(xQualifiedNameIds, 0);
-  FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
-
-  for I := Low(xQualifiedNameIds) to High(xQualifiedNameIds) do
-  if FindAttributeById(xQualifiedNameIds[I], outAttr) then
-  begin
-    Result := True;
-    Exit;
-  end;
-
-  Result := False;
-  outAttr := nil;
+  Result := FindCChildNS(aNameSpaceURI, aLocalName, ctAttribute, outAttr);
 end;
 
 function TXMLNode.FindAttributeNS(const aNameSpaceURI, aLocalName: OWideString;
@@ -1407,12 +1419,59 @@ begin
   Result := False;
 end;
 
+function TXMLNode.FindCChildNS(const aNameSpaceURI, aLocalName: OWideString;
+  const aChildType: TXMLChildType; var outNode: PXMLNode): Boolean;
+var
+  xQualifiedNameIds: TXMLIntArray;
+  I: Integer;
+  xLocalNameId: OHashedStringsIndex;
+begin
+  if (aChildType = ctAttribute) and (NameSpaceURI = aNameSpaceURI) then
+  begin
+    // current node has ns defined, find attribute without namespace: <x:node attr="value">
+    xLocalNameId := fOwnerDocument.IndexOfString(aLocalName);
+    if xLocalNameId >= 0 then
+    begin
+      Result := FindAttributeById(fOwnerDocument.IndexOfString(aLocalName), outNode);
+      if Result then
+        Exit;
+    end;
+  end;
+  SetLength(xQualifiedNameIds, 0);
+  FindQualifiedNames(fOwnerDocument.IndexOfString(aNameSpaceURI), aLocalName, xQualifiedNameIds);
+
+  for I := Low(xQualifiedNameIds) to High(xQualifiedNameIds) do
+  begin
+    case aChildType of
+      ctChild:
+        if FindChildById(xQualifiedNameIds[I], outNode) then
+        begin
+          Result := True;
+          Exit;
+        end;
+      ctAttribute:
+        if FindAttributeById(xQualifiedNameIds[I], outNode) then
+        begin
+          Result := True;
+          Exit;
+        end;
+    end;
+  end;
+  Result := False;
+  outNode := nil;
+end;
+
 function TXMLNode.FindChild(const aName: OWideString;
   var outNode: PXMLNode): Boolean;
 var
   x: Integer;
 begin
-  Result := FindCChild(OwnerDocument.IndexOfString(aName), ctChild, outNode, x{%H-});
+  case fOwnerDocument.fUseReadNameSpaceURI of
+    nsFull: Result := FindCChildNS(fOwnerDocument.ReadNameSpaceURI, aName, ctChild, outNode);
+    nsFast: Result := FindCChild(fOwnerDocument.IndexOfString(OXmlApplyNameSpace(fOwnerDocument.fReadNameSpacePrefix, aName)), ctChild, outNode, x{%H-});
+  else
+    Result := FindCChild(OwnerDocument.IndexOfString(aName), ctChild, outNode, x{%H-});
+  end;
 end;
 
 function TXMLNode.FindChildById(const aNameId: OHashedStringsIndex;
@@ -2126,6 +2185,28 @@ begin
       Result := fOwnerDocument.CreateNode(ntAttribute, aAttrName, aAttrValue);
       Append(Result, ctAttribute);
     end;
+  end;
+end;
+
+function TXMLNode._SelectNodes(const aNameSpaceURI, aNameSpacePrefix,
+  aXPath: OWideString; var outNodeList: IXMLNodeList;
+  const aMaxNodeCount: Integer): Boolean;
+var
+  xXPaths: TXMLXPathList;
+  xCustomList: TXMLXPathNodeList;
+begin
+  xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
+  try
+    xXPaths.LoadFromString(aXPath, aNameSpaceURI, aNameSpacePrefix);
+
+    xCustomList := nil;//must be here -> list will be created in SelectNodes
+    Result := xXPaths.SelectNodes(@Self, xCustomList, aMaxNodeCount);
+    if Result then
+      outNodeList := (IInterface(xCustomList) as IXMLNodeList)
+    else
+      outNodeList := OwnerDocument.DummyResNodeList;
+  finally
+    xXPaths.Free;
   end;
 end;
 
@@ -2918,22 +2999,12 @@ end;
 
 function TXMLNode.SelectNodes(const aXPath: OWideString;
   var outNodeList: IXMLNodeList; const aMaxNodeCount: Integer): Boolean;
-var
-  xXPaths: TXMLXPathList;
-  xCustomList: TXMLXPathNodeList;
 begin
-  xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
-  try
-    xXPaths.LoadFromString(aXPath);
-
-    xCustomList := nil;//must be here -> list will be created in SelectNodes
-    Result := xXPaths.SelectNodes(@Self, xCustomList, aMaxNodeCount);
-    if Result then
-      outNodeList := (IInterface(xCustomList) as IXMLNodeList)
-    else
-      outNodeList := OwnerDocument.DummyResNodeList;
-  finally
-    xXPaths.Free;
+  case fOwnerDocument.fUseReadNameSpaceURI of
+    nsFull: Result := _SelectNodes(fOwnerDocument.ReadNameSpaceURI, '', aXPath, outNodeList, aMaxNodeCount);
+    nsFast: Result := _SelectNodes('', fOwnerDocument.fReadNameSpacePrefix, aXPath, outNodeList, aMaxNodeCount);
+  else
+    Result := _SelectNodes('', '', aXPath, outNodeList, aMaxNodeCount);
   end;
 end;
 
@@ -2945,23 +3016,8 @@ end;
 
 function TXMLNode.SelectNodesNS(const aNameSpaceURI, aXPath: OWideString;
   var outNodeList: IXMLNodeList; const aMaxNodeCount: Integer): Boolean;
-var
-  xXPaths: TXMLXPathList;
-  xCustomList: TXMLXPathNodeList;
 begin
-  xXPaths := TXMLXPathList.Create(TXMLXPathDOMAdapter.Create(OwnerDocument));
-  try
-    xXPaths.LoadFromString(aXPath, aNameSpaceURI);
-
-    xCustomList := nil;//must be here -> list will be created in SelectNodes
-    Result := xXPaths.SelectNodes(@Self, xCustomList, aMaxNodeCount);
-    if Result then
-      outNodeList := (IInterface(xCustomList) as IXMLNodeList)
-    else
-      outNodeList := OwnerDocument.DummyResNodeList;
-  finally
-    xXPaths.Free;
-  end;
+  Result := _SelectNodes(aNameSpaceURI, '', aXPath, outNodeList, aMaxNodeCount);
 end;
 
 function TXMLNode.SetAttribute(const aName, aValue: OWideString): PXMLNode;
@@ -3453,6 +3509,7 @@ begin
   {$ENDIF}
 
   fWhiteSpaceHandling := wsPreserveInTextOnly;
+  fFastNameSpaces := True;
 
   Clear;
 end;
@@ -3618,6 +3675,21 @@ begin
   Result := fReaderSettings;
 end;
 
+function TXMLDocument.GetReadNameSpacePrefix: OWideString;
+begin
+  Result := fReadNameSpacePrefix;
+end;
+
+function TXMLDocument.GetReadNameSpaceURI: OWideString;
+begin
+  Result := fReadNameSpaceURI;
+end;
+
+function TXMLDocument.GetFastNameSpaces: Boolean;
+begin
+  Result := fFastNameSpaces;
+end;
+
 function TXMLDocument.GetStandAlone: OWideString;
 begin
   Result := GetXMLDeclarationAttribute('standalone');
@@ -3647,6 +3719,39 @@ begin
   begin
     Result := fTempChildNodes[aChildType].TryGetValue(aParentNode, {$IFNDEF O_GENERICS}TObject{$ELSE}TXMLChildNodeList{$ENDIF}(outList));
   end;
+end;
+
+procedure TXMLDocument.UpdateReadNameSpaces;
+var
+  xPrefixes: TOWideStringList;
+begin
+  if fReadNameSpaceURI <> '' then
+  begin
+    if not fFastNameSpaces then
+      fUseReadNameSpaceURI := nsFull
+    else
+    begin
+      fUseReadNameSpaceURI := nsFast;
+
+      xPrefixes := TOWideStringList.Create;
+      try
+        if Assigned(DocumentElement) then
+        begin
+          DocumentElement.FindNameSpacePrefixesByURI(fReadNameSpaceURI, xPrefixes);
+          if (xPrefixes.Count = 1) and (xPrefixes[0] <> '') then
+            fReadNameSpacePrefix := xPrefixes[0]
+          else
+            fUseReadNameSpaceURI := nsNo;
+        end;
+      finally
+        xPrefixes.Free;
+      end;
+    end;
+  end else
+  if fReadNameSpacePrefix <> '' then
+    fUseReadNameSpaceURI := nsFast
+  else
+    fUseReadNameSpaceURI := nsNo;
 end;
 
 function TXMLDocument.GetVersion: OWideString;
@@ -3843,6 +3948,42 @@ end;
 procedure TXMLDocument.SetOnProgress(const aOnProgress: TDOMProgressEvent);
 begin
   fOnProgress := aOnProgress;
+end;
+
+procedure TXMLDocument.SetReadNameSpacePrefix(
+  const aReadNameSpacePrefix: OWideString);
+begin
+  if fReadNameSpacePrefix=aReadNameSpacePrefix then
+    Exit;
+
+  fReadNameSpacePrefix := aReadNameSpacePrefix;
+  fReadNameSpaceURI := '';
+  if fReadNameSpacePrefix<>'' then
+    fUseReadNameSpaceURI := nsFast
+  else
+    fUseReadNameSpaceURI := nsNo;
+end;
+
+procedure TXMLDocument.SetReadNameSpaceURI(const aReadNameSpaceURI: OWideString
+  );
+begin
+  if fReadNameSpaceURI=aReadNameSpaceURI then
+    Exit;
+
+  fReadNameSpaceURI := aReadNameSpaceURI;
+  fReadNameSpacePrefix := '';
+
+  UpdateReadNameSpaces;
+end;
+
+procedure TXMLDocument.SetFastNameSpaces(const aFastNameSpaces: Boolean);
+begin
+  if fFastNameSpaces=aFastNameSpaces then
+    Exit;
+
+  fFastNameSpaces := aFastNameSpaces;
+
+  UpdateReadNameSpaces;
 end;
 
 procedure TXMLDocument.SetStandAlone(const aStandAlone: OWideString);
@@ -4230,6 +4371,18 @@ begin
   Result := PXMLNode(aNode).fNodeNameId;
 end;
 
+function TXMLXPathDOMAdapter.GetNodeNamespacePrefix(const aNode: TXMLXPathNode
+  ): OWideString;
+begin
+  Result := PXMLNode(aNode).NameSpacePrefix;
+end;
+
+function TXMLXPathDOMAdapter.GetNodeNamespaceURI(const aNode: TXMLXPathNode
+  ): OWideString;
+begin
+  Result := PXMLNode(aNode).NameSpaceURI;
+end;
+
 function TXMLXPathDOMAdapter.GetNodeParent(
   const aNode: TXMLXPathNode): TXMLXPathNode;
 begin
@@ -4254,17 +4407,27 @@ begin
   Result := fOwnerDocument.IndexOfString(aString);
 end;
 
-function TXMLXPathDOMAdapter.NodeFindAttributeNS(const aNode: TXMLXPathNode;
-  const aNameSpaceURI: OWideString; const aAttrName: OWideString;
-  const aAttrNameId: OHashedStringsIndex): TXMLXPathNode;
+function TXMLXPathDOMAdapter.NodeFindAttribute(const aNode: TXMLXPathNode;
+  const aNameSpaceURI, aNameSpacePrefix: OWideString;
+  const aAttrName: OWideString; const aAttrNameId,
+  aAttrNameNSId: OHashedStringsIndex;
+  const aNameSpaceHandling: TXMLNameSpaceHandling): TXMLXPathNode;
 var
   xAttr: PXMLNode;
   xRes: Boolean;
 begin
-  if aNameSpaceURI = '' then
-    xRes := PXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-})
+  case aNameSpaceHandling of
+    nsFull: xRes := PXMLNode(aNode).FindAttributeNS(aNameSpaceURI, aAttrName, xAttr{%H-});
+    nsFast:
+    begin
+      xRes := PXMLNode(aNode).FindAttributeById(aAttrNameNSId, xAttr{%H-});
+      if not xRes and (PXMLNode(aNode).NameSpacePrefix=aNameSpacePrefix) then
+        xRes := PXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-});
+    end;
   else
-    xRes := PXMLNode(aNode).FindAttributeNS(aNameSpaceURI, aAttrName, xAttr{%H-});
+    xRes := PXMLNode(aNode).FindAttributeById(aAttrNameId, xAttr{%H-})
+  end;
+
   if xRes then
     Result := xAttr
   else
