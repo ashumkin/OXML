@@ -659,6 +659,7 @@ end;
 destructor TSAXParser.Destroy;
 begin
   fReader.Free;
+  fAttributes.Free;
 
   inherited;
 end;
@@ -918,6 +919,7 @@ begin
   fDataRead := False;
   fParserState := spsPaused;
 
+  fAttributes.Free;
   fAttributes := TSAXAttributes.Create;
   fReader.SetAttributeTokens(fAttributes.fAttributeTokens);
 
@@ -1010,11 +1012,9 @@ begin
     end;
 
     if fDataRead and (fParserState = spsRunning) and not Assigned(fReader.ParseError) then
-    begin
       DoOnEndDocument;
-      FinishedParsing;
-    end;
   finally
+    FinishedParsing;
     if Assigned(fReader.ParseError) then
     begin
       fParseError := fReader.ParseError;
