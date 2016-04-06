@@ -53,7 +53,7 @@ License FAQ:
 3.) If I buy an OXml license, how long is the commercial license valid?
 
   The commercial license is perpetual for OXml source code that has been released
-  within a year after your purchase.
+  within 2 years after your purchase.
 
-  If you want to update to OXml source code that has been released after 1 year
+  If you want to update to OXml source code that has been released after 2 years
   of your purchase, you have to obtain a new license (with a 60% discount).
