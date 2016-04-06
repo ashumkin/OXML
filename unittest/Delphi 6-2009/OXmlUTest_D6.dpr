@@ -23,7 +23,10 @@ uses
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlSerialize in '..\..\units\OXmlSerialize.pas',
   OXmlCSeq in '..\..\units\OXmlCSeq.pas',
-  OXmlPSeq in '..\..\units\OXmlPSeq.pas';
+  OXmlPSeq in '..\..\units\OXmlPSeq.pas',
+  OJsonUtils in '..\..\units\OJsonUtils.pas',
+  OJsonUtf8ReadWrite in '..\..\units\OJsonUtf8ReadWrite.pas',
+  OJsonReadWrite in '..\..\units\OJsonReadWrite.pas';
 
 var
   xTest: TOXmlUnitTest;
