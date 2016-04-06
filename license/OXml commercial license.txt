@@ -6,11 +6,13 @@ Author, initial developer of the OXml library:
   http://www.kluug.net
   All rights reserved.
   
-This license applies to OXml if you purchased a commercial license from Kluug.net.
+This license applies to orders after April 1st, 2016 if you ordered the OXml license from Kluug.net.
 
  1) You may use OXml for any kind of end-user applications developed only by
     you (single-development license) or the company (company license) that
     purchased an OXml license.
+
+    Applications or libraries developed with OXml may not be in competition with OXml.
 
  2) Limitations
      a. Single developer license: only the license holder may use OXml.
@@ -25,13 +27,13 @@ This license applies to OXml if you purchased a commercial license from Kluug.ne
 
  3) License time
       With an OXml purchase, you receive a perpetual license for the OXml version
-      released at the moment of the purchase and all updates within one year after 
+      released at the moment of the purchase and all updates within 2 years after 
       the purchase.
 
-      I.e. you may use all updates of OXml that have been released within one year 
+      I.e. you may use all updates of OXml that have been released within 2 years 
       after the purchase in compliance with the commercial license.
       
-      If you want to use OXml updates released after one year of the purchase,
+      If you want to use OXml updates released after 2 years of the purchase,
       you have to either buy a new license or the "CPAL 1.0" License applies
       again.
 
