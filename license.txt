@@ -9,12 +9,12 @@ Author, initial developer of the OXml library:
 The contents of all files in the library are subject to the:
 
   1.) Common Public Attribution License Version 1.0 (CPAL-1.0)
-    -> see "OXml license CPAL 1.0.html" for full license text.
+    -> see "license/OXml license CPAL 1.0.html" for full license text.
 
   OR
 
   2.) OXml commercial license (if you purchased OXml from Kluug.net).
-    -> see "OXml commercial license.txt" for full license text.
+    -> see "license/OXml commercial license.txt" for full license text.
     
   There is an exception: the demos (in "demos/" directory) are public domain
   (if not stated differently).
