@@ -16,17 +16,24 @@ unit OXmlTestUnit;
 
 {$IFDEF FPC}
   {$DEFINE USE_FORIN}
+  {$DEFINE USE_DATEUTILS}
 {$ELSE}
-  {$IF CompilerVersion >= 20}//D2009
-    {$DEFINE USE_FORIN}
-    {$DEFINE USE_ANONYMOUS_METHODS}
-  {$IFEND}
-  {$IF CompilerVersion >= 21}//D2010
-    {$DEFINE USE_RTTI}
-  {$IFEND}
-  {$IF CompilerVersion >= 23}//DXE2
-    {$DEFINE USE_ADOM}
-  {$IFEND}
+  {$IFNDEF CONDITIONALEXPRESSIONS}
+    //D5
+    {$UNDEF USE_DELPHIXML}
+  {$ELSE}
+    {$DEFINE USE_DATEUTILS}
+    {$IF CompilerVersion >= 20}//D2009
+      {$DEFINE USE_FORIN}
+      {$DEFINE USE_ANONYMOUS_METHODS}
+    {$IFEND}
+    {$IF CompilerVersion >= 21}//D2010
+      {$DEFINE USE_RTTI}
+    {$IFEND}
+    {$IF CompilerVersion >= 23}//DXE2
+      {$DEFINE USE_ADOM}
+    {$IFEND}
+  {$ENDIF}
 {$ENDIF}
 
 interface
@@ -34,7 +41,7 @@ interface
 uses
   {$IFDEF FPC}LCLIntf, {$ELSE}Windows, {$ENDIF}
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, StdCtrls, ExtCtrls,
-  ComCtrls, DateUtils,
+  ComCtrls, {$IFDEF USE_DATEUTILS}DateUtils,{$ENDIF}
   {$IFDEF USE_RTTI}
   Generics.Collections,
   {$ENDIF}
@@ -1419,7 +1426,11 @@ begin
     xObject.MyEnum := enTwo;
     xObject.MySet := [enOne, enThree];
     xObject.MyDate := Trunc(Now);//get date only
+    {$IFDEF USE_DATEUTILS}
     xObject.MyDateTime := RecodeMilliSecond(Now, 0);//clear milliseconds
+    {$ELSE}
+    xObject.MyDateTime := 1;
+    {$ENDIF}
     xObject.MyTime := Frac(xObject.MyDateTime);//get time only
     xObject.MyFloat := 3.14;
     xObject.MyString := 'Kluug.net';

@@ -24,6 +24,13 @@ unit OXmlDOMVendor;
 
 }
 
+{$IFNDEF CONDITIONALEXPRESSIONS}
+  //D5
+  !!! The DOM vendor is supported only by Delphi 6 and newer !!!
+  (Because Delphi 5 doesn't include IXMLDocument, so there is nothing to support.)
+  FPC/Lazarus isn't supported either for the same reason.
+{$ENDIF}
+  
 {$I OXml.inc}
 
 {$IFDEF O_DELPHI_XE4_UP}
