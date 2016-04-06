@@ -1,6 +1,16 @@
 OXml Change Log
 ---------------
 
+Version 1.10 2016-04-06 [SVN commit: 126, https://sourceforge.net/p/oxml/code/126/]
+  - Implement extensive namespace support for DOM reading.
+  - Check length of string/buffer before calling SetLength (small performance gain).
+  - Fix TOHashedStringObjDictionary.Delete, delete also fObjects item.
+  - Add TCustomXMLWriterSettings.EscapeQuotes to force escaping single and double quotes. Patch from Luis Moreno
+  - Add TXMLNode.SelectNodesNS
+  - Fix memory leak in OXmlSAX when reading an empty document.
+  - Updated demos, added Delphi 5 demo and added information about why OXmlDOMVendor isn't supported on Delphi 5.
+
+
 Version 1.9 2015-12-07 [SVN commit: 112, https://sourceforge.net/p/oxml/code/112/]
   ! Breaking change: TXMLNode.GetElementsByTagName (OXmlPDOM.pas and OXmlCDOM.pas) now uses recoursive search by default to comply with XML standards.
   ! Breaking change: Fixed bug in TXMLSerializer and TXMLDeserializer: UseRoot is True now by default !
