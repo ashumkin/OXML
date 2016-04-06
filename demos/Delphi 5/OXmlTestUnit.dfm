@@ -16,7 +16,7 @@ object Form1: TForm1
   TextHeight = 13
   object LblTimeInfo: TLabel
     Left = 16
-    Top = 144
+    Top = 184
     Width = 83
     Height = 13
     Caption = 'Time values in [s]'
@@ -185,7 +185,7 @@ object Form1: TForm1
   end
   object Memo1: TMemo
     Left = 16
-    Top = 160
+    Top = 200
     Width = 289
     Height = 409
     Lines.Strings = (
@@ -195,12 +195,21 @@ object Form1: TForm1
   end
   object Memo2: TMemo
     Left = 312
-    Top = 160
+    Top = 200
     Width = 289
     Height = 409
     Lines.Strings = (
       'Memo2')
     ScrollBars = ssBoth
     TabOrder = 19
+  end
+  object BtnTestReadNamespace: TButton
+    Left = 16
+    Top = 144
+    Width = 193
+    Height = 25
+    Caption = 'Read document with namespaces'
+    TabOrder = 20
+    OnClick = BtnTestReadNamespaceClick
   end
 end

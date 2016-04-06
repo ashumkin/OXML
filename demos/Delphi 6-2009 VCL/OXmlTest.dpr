@@ -19,7 +19,7 @@ uses
   OXmlCDOM in '..\..\units\OXmlCDOM.pas',
   OXmlCSeq in '..\..\units\OXmlCSeq.pas',
   OXmlPSeq in '..\..\units\OXmlPSeq.pas',
-  OXmlSerialize in '..\..\OXmlSerialize.pas';
+  OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
 {$R *.res}
 

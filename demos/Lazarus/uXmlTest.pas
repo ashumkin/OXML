@@ -87,6 +87,7 @@ type
 
   TForm1 = class(TForm)
     BtnReadPerformanceTest: TButton;
+    BtnTestReadNamespace: TButton;
     BtnWritePerformanceTest: TButton;
     BtnResaveTest: TButton;
     BtnXmlDirectWrite: TButton;
@@ -107,6 +108,7 @@ type
     BtnDeserializeRTTI: TButton;
     Memo1: TMemo;
     Memo2: TMemo;
+    procedure BtnTestReadNamespaceClick(Sender: TObject);
     procedure BtnXmlDirectWriteClick(Sender: TObject);
     procedure BtnReadPerformanceTestClick(Sender: TObject);
     procedure BtnTestXPathClick(Sender: TObject);
@@ -1738,6 +1740,35 @@ begin
     'XML as it is read and understood by OXml:'+sLineBreak+sLineBreak;
 
   TestOXmlPDOM;
+end;
+
+procedure TForm1.BtnTestReadNamespaceClick(Sender: TObject);
+const
+  cXML: array[0..1] of OWideString =
+   ('<x:root xmlns:x="test">'+sLineBreak+
+    ' <x:title>Namespace fun</x:title>'+sLineBreak+
+    '</x:root>',
+    '<y:root xmlns:y="test">'+sLineBreak+
+    ' <y:title>Namespace fun</y:title>'+sLineBreak+
+    '</y:root>');
+var
+  xXML: IXMLDocument;
+  xChild: PXMLNode;
+  I: Integer;
+begin
+  Memo1.Lines.Clear;
+  for I := Low(cXML) to High(cXML) do
+  begin
+    Memo1.Lines.Add('Test document '+IntToStr(I));
+    xXML := OXmlPDOM.CreateXMLDoc;
+    xXML.LoadFromXML(cXML[I]);
+    xXML.ReadNameSpaceURI := 'test';
+    if xXML.DocumentElement.FindChild('title', xChild{%H-}) then
+      Memo1.Lines.Add('FindChild: '+xChild.Text);
+    if xXML.DocumentElement.SelectNode('title', xChild) then
+      Memo1.Lines.Add('SelectNode: '+xChild.Text);
+    Memo1.Lines.Add('');
+  end;
 end;
 
 procedure TForm1.BtnTestSAXClick(Sender: TObject);
@@ -3497,5 +3528,3 @@ begin
 end;
 
 end.
-
-
