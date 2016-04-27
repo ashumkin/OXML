@@ -324,12 +324,6 @@ implementation
 uses
   OXmlLng;
 
-type
-  TValueHelper = record helper for TValue
-  public
-    function AsSet: Integer;
-  end;
-
 function TRttiPropertyHelper_IsDefaultValue(const aProperty: TRttiProperty; const aValue: TValue): Boolean; inline;
 begin
   Result :=
@@ -549,7 +543,7 @@ begin
         tkChar: _WriteObjectProperty(aTagName, OWideString(Char(aValue.AsOrdinal)));
         tkWChar: _WriteObjectProperty(aTagName, OWideString(WideChar(aValue.AsOrdinal)));
         tkEnumeration: _WriteObjectProperty(aTagName, GetEnumName(aType.Handle, aValue.AsOrdinal));
-        tkSet: _WriteObjectProperty(aTagName, SetToString(aType.Handle, aValue.AsSet, False));
+        tkSet: _WriteObjectProperty(aTagName, SetToString(aType.Handle, Integer(aValue.GetReferenceToRawData^), False));
       end;
     end;
     tkString, tkLString, tkUString, tkWString:
@@ -1276,13 +1270,6 @@ begin
     inherited SetUseRoot(aUseRoot);
 end;
 
-{ TValueHelper }
-
-function TValueHelper.AsSet: Integer;
-begin
-  Result := Self.FData.FAsSLong;//get private field hook
-end;
-
 { TRttiContextHelper }
 
 function TRttiContextHelper.GetRealObjectType(const aValue: TValue;
@@ -1304,7 +1291,7 @@ function TRttiContextHelper.GetRealObjectType<T>(
 var
   xObject: TObject;
 begin
-  Result := Self.GetType(TypeInfo(T));//TypeInfo
+  Result := Self.GetType(TypeInfo(T));
   if (Result.TypeKind = tkClass) then
   begin
     xObject := PObject(@aObject)^;

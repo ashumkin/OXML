@@ -10,7 +10,7 @@ unit OXmlUnitTests;
       {$ZEROBASEDSTRINGS OFF}
       {$LEGACYIFEND ON}
     {$IFEND}
-    {$IF CompilerVersion >= 21}
+    {$IF CompilerVersion >= 22}
       {$DEFINE USE_RTTI}
     {$IFEND}
     {$IF CompilerVersion < 20}
