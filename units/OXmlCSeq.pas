@@ -61,7 +61,7 @@ type
     fXmlDoc: TXMLDocument;
     fParseError: IOTextParseError;
 
-    function ReadNextChildNodeCustom(const aOnlyElementHeader: Boolean;
+    function ReadNextChildNodeCustom(const aOnlyElements, aOnlyElementHeader: Boolean;
       var outElementIsOpen: Boolean): Boolean;
 
     function GetWhiteSpaceHandling: TXmlWhiteSpaceHandling;
@@ -110,13 +110,13 @@ type
     //  only XML elements supported, no attributes!
     //  (examples: "/root/node/child", "node/child", "//node" etc.)
     function GoToPath(const aPath: OWideString): Boolean;
-    //seek to next child XML element and read its name, text nodes are ignored.
+    //seek to next child XML element and read its name, all other nodes (text, PIs etc) are ignored.
     //  if no child element is found (result=false), the reader position will
     //    be set after the parent's closing element (i.e. no GoToPath('..') call
     //    is needed).
     function GoToNextChildElement(var outElementName: OWideString): Boolean;
 
-    //seek to next child XML element and read the header, text nodes are ignored.
+    //seek to next child XML element and read the header, all other nodes (text, PIs etc) are ignored.
     //  (e.g. '<child attr="value">' will be read
     //  aElementIsOpen will be set to true if the element is open (<node>).
     //  if no child element is found (result=false), the reader position will
@@ -126,8 +126,11 @@ type
       var outElementIsOpen: Boolean): Boolean;
     //the same as ReadNextChildElementHeader, but no information is returned
     function SkipNextChildElementHeader(var outElementIsOpen: Boolean): Boolean;
+    //the same as ReadNextChildElementHeader, but text nodes and PIs are read as well.
+    function ReadNextChildHeader(var outNode: TXMLNode;
+      var outElementIsOpen: Boolean): Boolean;
 
-    //seek to next child XML element and read the header, text nodes are ignored.
+    //seek to next child XML element and read the header, all other nodes (text, PIs etc) are ignored.
     //  (e.g. '<child attr="value">' will be read
     //  if element has child nodes, the parser will seek to the closing element
     //  so that the same parent level is reached again
@@ -352,9 +355,9 @@ end;
 function TXMLSeqParser.ReadNextChildElementHeader(
   var outNode: TXMLNode; var outElementIsOpen: Boolean): Boolean;
 begin
-  Result := ReadNextChildNodeCustom(True, outElementIsOpen);
+  Result := ReadNextChildNodeCustom(True, True, outElementIsOpen);
   if Result then
-    outNode := fXmlDoc.DocumentElement;
+    outNode := fXmlDoc.Node.FirstChild;
 end;
 
 function TXMLSeqParser.ReadNextChildElementHeaderClose(
@@ -367,11 +370,19 @@ begin
     GoToPath('..');//go back to parent
 end;
 
+function TXMLSeqParser.ReadNextChildHeader(var outNode: TXMLNode;
+  var outElementIsOpen: Boolean): Boolean;
+begin
+  Result := ReadNextChildNodeCustom(False, True, outElementIsOpen);
+  if Result then
+    outNode := fXmlDoc.Node.FirstChild;
+end;
+
 function TXMLSeqParser.ReadNextChildNode(var outNode: TXMLNode): Boolean;
 var
   x: Boolean;
 begin
-  Result := ReadNextChildNodeCustom(False, x{%H-}) and fXmlDoc.Node.HasChildNodes;
+  Result := ReadNextChildNodeCustom(False, False, x{%H-}) and fXmlDoc.Node.HasChildNodes;
 
   if Result then
     outNode := fXmlDoc.Node.FirstChild;
@@ -380,11 +391,10 @@ end;
 type
   TAccessXMLDoc = class(TXMLDocument);
 
-function TXMLSeqParser.ReadNextChildNodeCustom(
-  const aOnlyElementHeader: Boolean; var outElementIsOpen: Boolean): Boolean;
+function TXMLSeqParser.ReadNextChildNodeCustom(const aOnlyElements,
+  aOnlyElementHeader: Boolean; var outElementIsOpen: Boolean): Boolean;
 var
   xLastNode: TXMLNode;
-  xBreakReading: TXMLBreakReading;
 begin
   Result := False;
   fParseError := nil;
@@ -414,6 +424,29 @@ begin
               xLastNode := fXmlDoc.Node.AddChild(fReaderToken.TokenName);
               Break;
             end;
+            rtOpenXMLDeclaration:
+            if not aOnlyElements then
+            begin
+              xLastNode := fXmlDoc.Node.AddXMLDeclaration;
+              Break;
+            end;
+            rtProcessingInstruction, rtEntityReference, rtText, rtCData, rtComment:
+            if not aOnlyElements then
+            begin
+              case fReaderToken.TokenType of
+                rtProcessingInstruction: xLastNode := fXmlDoc.Node.AddProcessingInstruction(fReaderToken.TokenName, fReaderToken.TokenValue);
+                rtEntityReference: xLastNode := fXmlDoc.Node.AddEntityReference(fReaderToken.TokenName);
+                rtText: xLastNode := fXmlDoc.Node.AddText(fReaderToken.TokenValue);
+                rtCData: xLastNode := fXmlDoc.Node.AddCDATASection(fReaderToken.TokenValue);
+                rtComment: xLastNode := fXmlDoc.Node.AddComment(fReaderToken.TokenValue);
+              end;
+              if Assigned(xLastNode) then
+              begin
+                outElementIsOpen := False;
+                Result := True;
+                Exit;
+              end;
+            end;
             rtCloseElement://parent element may be closed
               Exit;
           end;
@@ -427,14 +460,8 @@ begin
     if not aOnlyElementHeader then
     begin
       //read whole element contents
-      xBreakReading := fReader.ReaderSettings.BreakReading;
-      fReader.ReaderSettings.BreakReading := brAfterDocumentElement;
       fReader.ResetDocumentElement;
-      try
-        Result := xLastNode.LoadFromReader(fReader, fReaderToken, fXmlDoc.Node);
-      finally
-        fReader.ReaderSettings.BreakReading := xBreakReading;
-      end;
+      Result := xLastNode.LoadFromReader(fReader, fReaderToken, fXmlDoc.Node);
     end else
     begin
       //read only element header

@@ -44,7 +44,7 @@ uses
   ;
 
 const
-  cTestCount = 77;
+  cTestCount = 81;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -147,9 +147,13 @@ type
   private
     //OXmlPSeq.pas
     function Test_OXmlPSeq_TXMLSeqParser_Test1: Boolean;
+    function Test_OXmlPSeq_TXMLSeqParser_Test2: Boolean;
+    function Test_OXmlPSeq_TXMLSeqParser_Test3: Boolean;
   private
     //OXmlCSeq.pas
     function Test_OXmlCSeq_TXMLSeqParser_Test1: Boolean;
+    function Test_OXmlCSeq_TXMLSeqParser_Test2: Boolean;
+    function Test_OXmlCSeq_TXMLSeqParser_Test3: Boolean;
   private
     //OXmlXPath.pas
     function Test_OXmlXPath_Test1: Boolean;
@@ -599,7 +603,11 @@ begin
   ExecuteFunction(Test_TSAXParser_WhiteSpaceHandling, 'Test_TSAXParser_WhiteSpaceHandling');
   ExecuteFunction(Test_TSAXHandler_Test1, 'Test_TSAXHandler_Test1');
   ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test1, 'Test_OXmlPSeq_TXMLSeqParser_Test1');
+  ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test2, 'Test_OXmlPSeq_TXMLSeqParser_Test2');
+  ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test3, 'Test_OXmlPSeq_TXMLSeqParser_Test3');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test1, 'Test_OXmlCSeq_TXMLSeqParser_Test1');
+  ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test2, 'Test_OXmlCSeq_TXMLSeqParser_Test2');
+  ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test3, 'Test_OXmlCSeq_TXMLSeqParser_Test3');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
   ExecuteFunction(Test_OXmlSerializer_Test1True, 'Test_OXmlSerializer_Test1True');
   ExecuteFunction(Test_OXmlSerializer_Test1False, 'Test_OXmlSerializer_Test1False');
@@ -1452,6 +1460,140 @@ begin
   Result := True;
 end;
 
+function TOXmlUnitTest.Test_OXmlPSeq_TXMLSeqParser_Test2: Boolean;
+const
+  inXml: OWideString =
+    '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
+    '<root>'+sLineBreak+
+    '  <?PI pi1 ?>'+sLineBreak+
+    '  Text1'+sLineBreak+
+    '  &quot;'+sLineBreak+
+    '  <row name="row1" />'+sLineBreak+
+    '  <![CDATA[cDaTa]]>'+
+    '  <row name="row2">Some text</row>'+sLineBreak+
+    '  <?PI pi2 ?>'+sLineBreak+
+    '  <row name="row3" />'+sLineBreak+
+    '  Text2'+sLineBreak+
+    '</root>'+sLineBreak;
+  outStr: OWideString = 'pi1;Text1;";row1;cDaTa;row2(Some text);pi2;row3;Text2;';
+var
+  xXMLSeq: OXmlPSeq.TXMLSeqParser;
+  xNode: OXmlPDOM.PXMLNode;
+  xOpened: Boolean;
+  xStr: OWideString;
+begin
+  Result := False;
+  xStr := '';
+
+  xXMLSeq := OXmlPSeq.TXMLSeqParser.Create;
+  try
+    xXMLSeq.InitXML(inXml);
+    xXMLSeq.WhiteSpaceHandling := wsTrim;
+    xXMLSeq.ReaderSettings.ExpandEntities := False;
+
+    if not(xXMLSeq.GoToPath('/root')) then
+      Exit;
+
+    if not((xXMLSeq.ReadNextChildElementHeader({%H-}xNode, {%H-}xOpened)) and xOpened) then
+      Exit;
+
+    while xXMLSeq.ReadNextChildHeader({%H-}xNode, {%H-}xOpened) do
+    begin
+      case xNode.NodeType of
+        ntElement:
+        begin
+          xStr := xStr + xNode.GetAttribute('name');
+          if xOpened then
+          begin
+            while xXMLSeq.ReadNextChildNode(xNode) do
+            begin
+              if xNode.NodeType = ntText then
+                xStr := xStr + '('+xNode.NodeValue+')'
+              else
+                Exit;
+            end;
+          end;
+          xStr := xStr + ';';
+        end;
+        ntProcessingInstruction: xStr := xStr + Trim(xNode.NodeValue) + ';';
+        ntText, ntEntityReference, ntCData: xStr := xStr + Trim(xNode.NodeValue) + ';';
+      else
+        Exit;
+      end;
+    end;
+
+    Result := (xStr = outStr);
+  finally
+    xXMLSeq.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlPSeq_TXMLSeqParser_Test3: Boolean;
+const
+  inXml: OWideString =
+    '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
+    '<root>'+sLineBreak+
+    '  <?PI pi1 ?>'+sLineBreak+
+    '  Text1'+sLineBreak+
+    '  &quot;'+sLineBreak+
+    '  <row name="row1" />'+sLineBreak+
+    '  <![CDATA[cDaTa]]>'+
+    '  <row name="row2">Some text</row>'+sLineBreak+
+    '  <?PI pi2 ?>'+sLineBreak+
+    '  <row name="row3" />'+sLineBreak+
+    '  Text2'+sLineBreak+
+    '</root>'+sLineBreak;
+  outStr: OWideString = 'pi1;Text1;";row1;cDaTa;row2(Some text);pi2;row3;Text2;';
+var
+  xXMLSeq: OXmlPSeq.TXMLSeqParser;
+  xNode, xChildNode: OXmlPDOM.PXMLNode;
+  xStr: OWideString;
+  xOpened: Boolean;
+begin
+  Result := False;
+  xStr := '';
+
+  xXMLSeq := OXmlPSeq.TXMLSeqParser.Create;
+  try
+    xXMLSeq.InitXML(inXml);
+    xXMLSeq.WhiteSpaceHandling := wsTrim;
+    xXMLSeq.ReaderSettings.ExpandEntities := False;
+
+    if not(xXMLSeq.GoToPath('/root')) then
+      Exit;
+
+    if not((xXMLSeq.ReadNextChildElementHeader({%H-}xNode, {%H-}xOpened)) and xOpened) then
+      Exit;
+
+    while xXMLSeq.ReadNextChildNode({%H-}xNode) do
+    begin
+      case xNode.NodeType of
+        ntElement:
+        begin
+          xStr := xStr + xNode.GetAttribute('name');
+          xChildNode := nil;
+          while xNode.GetNextChild(xChildNode) do
+          begin
+            if xChildNode.NodeType = ntText then
+              xStr := xStr + '('+xChildNode.NodeValue+')'
+            else
+              Exit;
+          end;
+          xStr := xStr + ';';
+        end;
+        ntProcessingInstruction: xStr := xStr + Trim(xNode.NodeValue) + ';';
+        ntText, ntEntityReference, ntCData: xStr := xStr + Trim(xNode.NodeValue) + ';';
+      else
+        Exit;
+      end;
+    end;
+
+    Result := (xStr = outStr);
+  finally
+    xXMLSeq.Free;
+  end;
+end;
+
 function TOXmlUnitTest.Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
 var
   xReader: TXMLReader;
@@ -1633,6 +1775,140 @@ begin
 
           xStr := xStr + xName+':'+xValue+';'
         end;
+      end;
+    end;
+
+    Result := (xStr = outStr);
+  finally
+    xXMLSeq.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCSeq_TXMLSeqParser_Test2: Boolean;
+const
+  inXml: OWideString =
+    '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
+    '<root>'+sLineBreak+
+    '  <?PI pi1 ?>'+sLineBreak+
+    '  Text1'+sLineBreak+
+    '  &quot;'+sLineBreak+
+    '  <row name="row1" />'+sLineBreak+
+    '  <![CDATA[cDaTa]]>'+
+    '  <row name="row2">Some text</row>'+sLineBreak+
+    '  <?PI pi2 ?>'+sLineBreak+
+    '  <row name="row3" />'+sLineBreak+
+    '  Text2'+sLineBreak+
+    '</root>'+sLineBreak;
+  outStr: OWideString = 'pi1;Text1;";row1;cDaTa;row2(Some text);pi2;row3;Text2;';
+var
+  xXMLSeq: OXmlCSeq.TXMLSeqParser;
+  xNode: OXmlCDOM.TXMLNode;
+  xOpened: Boolean;
+  xStr: OWideString;
+begin
+  Result := False;
+  xStr := '';
+
+  xXMLSeq := OXmlCSeq.TXMLSeqParser.Create;
+  try
+    xXMLSeq.InitXML(inXml);
+    xXMLSeq.WhiteSpaceHandling := wsTrim;
+    xXMLSeq.ReaderSettings.ExpandEntities := False;
+
+    if not(xXMLSeq.GoToPath('/root')) then
+      Exit;
+
+    if not((xXMLSeq.ReadNextChildElementHeader({%H-}xNode, {%H-}xOpened)) and xOpened) then
+      Exit;
+
+    while xXMLSeq.ReadNextChildHeader({%H-}xNode, {%H-}xOpened) do
+    begin
+      case xNode.NodeType of
+        ntElement:
+        begin
+          xStr := xStr + xNode.GetAttribute('name');
+          if xOpened then
+          begin
+            while xXMLSeq.ReadNextChildNode(xNode) do
+            begin
+              if xNode.NodeType = ntText then
+                xStr := xStr + '('+xNode.NodeValue+')'
+              else
+                Exit;
+            end;
+          end;
+          xStr := xStr + ';';
+        end;
+        ntProcessingInstruction: xStr := xStr + Trim(xNode.NodeValue) + ';';
+        ntText, ntEntityReference, ntCData: xStr := xStr + Trim(xNode.NodeValue) + ';';
+      else
+        Exit;
+      end;
+    end;
+
+    Result := (xStr = outStr);
+  finally
+    xXMLSeq.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCSeq_TXMLSeqParser_Test3: Boolean;
+const
+  inXml: OWideString =
+    '<?xml version="1.0" encoding="UTF-8"?>'+sLineBreak+
+    '<root>'+sLineBreak+
+    '  <?PI pi1 ?>'+sLineBreak+
+    '  Text1'+sLineBreak+
+    '  &quot;'+sLineBreak+
+    '  <row name="row1" />'+sLineBreak+
+    '  <![CDATA[cDaTa]]>'+
+    '  <row name="row2">Some text</row>'+sLineBreak+
+    '  <?PI pi2 ?>'+sLineBreak+
+    '  <row name="row3" />'+sLineBreak+
+    '  Text2'+sLineBreak+
+    '</root>'+sLineBreak;
+  outStr: OWideString = 'pi1;Text1;";row1;cDaTa;row2(Some text);pi2;row3;Text2;';
+var
+  xXMLSeq: OXmlCSeq.TXMLSeqParser;
+  xNode, xChildNode: OXmlCDOM.TXMLNode;
+  xStr: OWideString;
+  xOpened: Boolean;
+begin
+  Result := False;
+  xStr := '';
+
+  xXMLSeq := OXmlCSeq.TXMLSeqParser.Create;
+  try
+    xXMLSeq.InitXML(inXml);
+    xXMLSeq.WhiteSpaceHandling := wsTrim;
+    xXMLSeq.ReaderSettings.ExpandEntities := False;
+
+    if not(xXMLSeq.GoToPath('/root')) then
+      Exit;
+
+    if not((xXMLSeq.ReadNextChildElementHeader({%H-}xNode, {%H-}xOpened)) and xOpened) then
+      Exit;
+
+    while xXMLSeq.ReadNextChildNode({%H-}xNode) do
+    begin
+      case xNode.NodeType of
+        ntElement:
+        begin
+          xStr := xStr + xNode.GetAttribute('name');
+          xChildNode := nil;
+          while xNode.GetNextChild(xChildNode) do
+          begin
+            if xChildNode.NodeType = ntText then
+              xStr := xStr + '('+xChildNode.NodeValue+')'
+            else
+              Exit;
+          end;
+          xStr := xStr + ';';
+        end;
+        ntProcessingInstruction: xStr := xStr + Trim(xNode.NodeValue) + ';';
+        ntText, ntEntityReference, ntCData: xStr := xStr + Trim(xNode.NodeValue) + ';';
+      else
+        Exit;
       end;
     end;
 
