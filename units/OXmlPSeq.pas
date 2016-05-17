@@ -68,6 +68,9 @@ type
     procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
     function GetReaderSettings: TXMLReaderSettings;
     function GetApproxStreamPosition: OStreamInt;
+    function GetFilePosition: OStreamInt;
+    function GetLine: OStreamInt;
+    function GetLinePosition: OStreamInt;
     function GetStreamSize: OStreamInt;
   protected
     procedure DoCreate; virtual;
@@ -160,6 +163,13 @@ type
     //size of original stream
     property StreamSize: OStreamInt read GetStreamSize;
 
+    //Character position in text
+    //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
+    //  -> in Delphi the position is always correct
+    property FilePosition: OStreamInt read GetFilePosition;//absolute character position in file (in character units, not bytes), 1-based
+    property LinePosition: OStreamInt read GetLinePosition;//current character in line, 1-based
+    property Line: OStreamInt read GetLine;//current line, 1-based
+
     property ParseError: IOTextParseError read fParseError;
   end;
 
@@ -213,6 +223,21 @@ end;
 function TXMLSeqParser.GetApproxStreamPosition: OStreamInt;
 begin
   Result := fReader.ApproxStreamPosition;
+end;
+
+function TXMLSeqParser.GetFilePosition: OStreamInt;
+begin
+  Result := fReader.FilePosition;
+end;
+
+function TXMLSeqParser.GetLine: OStreamInt;
+begin
+  Result := fReader.Line;
+end;
+
+function TXMLSeqParser.GetLinePosition: OStreamInt;
+begin
+  Result := fReader.LinePosition;
 end;
 
 function TXMLSeqParser.GetReaderSettings: TXMLReaderSettings;
