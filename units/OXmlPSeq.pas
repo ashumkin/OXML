@@ -71,6 +71,8 @@ type
     function GetFilePosition: OStreamInt;
     function GetLine: OStreamInt;
     function GetLinePosition: OStreamInt;
+    function GetNodePath(const aIndex: Integer): OWideString;
+    function GetNodePathCount: Integer;
     function GetStreamSize: OStreamInt;
   protected
     procedure DoCreate; virtual;
@@ -133,6 +135,11 @@ type
     function ReadNextChildHeader(var outNode: PXMLNode;
       var outElementIsOpen: Boolean): Boolean;
 
+    //read all nodes in the current level and fill them as children into aNode
+    //  can be useful after ReadNextChildElementHeader to read the whole
+    //  element contents
+    function ReadAllChildNodesInto(const aNode: PXMLNode): Boolean;
+
     //seek to next child XML element and read the header, all other nodes (text, PIs etc) are ignored.
     //  (e.g. '<child attr="value">' will be read
     //  if element has child nodes, the parser will seek to the closing element
@@ -170,10 +177,18 @@ type
     property LinePosition: OStreamInt read GetLinePosition;//current character in line, 1-based
     property Line: OStreamInt read GetLine;//current line, 1-based
 
+    //current path in XML document
+    property NodePath[const aIndex: Integer]: OWideString read GetNodePath;
+    //count of elements in path
+    property NodePathCount: Integer read GetNodePathCount;
+
     property ParseError: IOTextParseError read fParseError;
   end;
 
 implementation
+
+type
+  TAccessXMLDoc = class(TXMLDocument);
 
 { TXMLSeqParser }
 
@@ -238,6 +253,16 @@ end;
 function TXMLSeqParser.GetLinePosition: OStreamInt;
 begin
   Result := fReader.LinePosition;
+end;
+
+function TXMLSeqParser.GetNodePath(const aIndex: Integer): OWideString;
+begin
+  Result := fReader.NodePath[aIndex];
+end;
+
+function TXMLSeqParser.GetNodePathCount: Integer;
+begin
+  Result := fReader.NodePathCount;
 end;
 
 function TXMLSeqParser.GetReaderSettings: TXMLReaderSettings;
@@ -359,6 +384,21 @@ begin
   DoInit;
 end;
 
+function TXMLSeqParser.ReadAllChildNodesInto(const aNode: PXMLNode): Boolean;
+begin
+  Assert(aNode.OwnerDocument = fXmlDoc);
+
+  TAccessXMLDoc(fXmlDoc).Loading := True;
+  try
+    Result := aNode.LoadFromReader(fReader, fReaderToken, aNode.ParentNode);
+  finally
+    if Assigned(fReader.ParseError) then
+      fParseError := fReader.ParseError;
+
+    TAccessXMLDoc(fXmlDoc).Loading := False;
+  end;
+end;
+
 function TXMLSeqParser.SkipNextChildElementHeader(
   var outElementIsOpen: Boolean): Boolean;
 var
@@ -412,9 +452,6 @@ begin
   if Result then
     outNode := fXmlDoc.Node.FirstChild;
 end;
-
-type
-  TAccessXMLDoc = class(TXMLDocument);
 
 function TXMLSeqParser.ReadNextChildNodeCustom(const aOnlyElements,
   aOnlyElementHeader: Boolean; var outElementIsOpen: Boolean): Boolean;

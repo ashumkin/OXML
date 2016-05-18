@@ -44,7 +44,7 @@ uses
   ;
 
 const
-  cTestCount = 81;
+  cTestCount = 83;
 
 type
   TObjFunc = function(): Boolean of object;
@@ -149,11 +149,13 @@ type
     function Test_OXmlPSeq_TXMLSeqParser_Test1: Boolean;
     function Test_OXmlPSeq_TXMLSeqParser_Test2: Boolean;
     function Test_OXmlPSeq_TXMLSeqParser_Test3: Boolean;
+    function Test_OXmlPSeq_TXMLSeqParser_Test4: Boolean;
   private
     //OXmlCSeq.pas
     function Test_OXmlCSeq_TXMLSeqParser_Test1: Boolean;
     function Test_OXmlCSeq_TXMLSeqParser_Test2: Boolean;
     function Test_OXmlCSeq_TXMLSeqParser_Test3: Boolean;
+    function Test_OXmlCSeq_TXMLSeqParser_Test4: Boolean;
   private
     //OXmlXPath.pas
     function Test_OXmlXPath_Test1: Boolean;
@@ -605,9 +607,11 @@ begin
   ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test1, 'Test_OXmlPSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test2, 'Test_OXmlPSeq_TXMLSeqParser_Test2');
   ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test3, 'Test_OXmlPSeq_TXMLSeqParser_Test3');
+  ExecuteFunction(Test_OXmlPSeq_TXMLSeqParser_Test4, 'Test_OXmlPSeq_TXMLSeqParser_Test4');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test1, 'Test_OXmlCSeq_TXMLSeqParser_Test1');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test2, 'Test_OXmlCSeq_TXMLSeqParser_Test2');
   ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test3, 'Test_OXmlCSeq_TXMLSeqParser_Test3');
+  ExecuteFunction(Test_OXmlCSeq_TXMLSeqParser_Test4, 'Test_OXmlCSeq_TXMLSeqParser_Test4');
   ExecuteFunction(Test_OXmlXPath_Test1, 'Test_OXmlXPath_Test1');
   ExecuteFunction(Test_OXmlSerializer_Test1True, 'Test_OXmlSerializer_Test1True');
   ExecuteFunction(Test_OXmlSerializer_Test1False, 'Test_OXmlSerializer_Test1False');
@@ -1594,6 +1598,81 @@ begin
   end;
 end;
 
+function TOXmlUnitTest.Test_OXmlPSeq_TXMLSeqParser_Test4: Boolean;
+const
+  inXML: OWideString =
+    '<?xml version="1.0" encoding="utf-8"?>'+
+    '<root>'+
+    '  <Package>'+
+    '    <Blocks>'+
+    '      <Block Number="1">'+
+    '        <Area Total="100" Unit="m"/>'+
+    '        <Parcels>'+
+    '          <Parcel Number="1">'+
+    '            <Area>'+
+    '              <Area>10</Area>'+
+    '            </Area>'+
+    '          </Parcel>'+
+    '          <Parcel Number="2">'+
+    '            <Area>'+
+    '              <Area>20</Area>'+
+    '            </Area>'+
+    '          </Parcel>'+
+    '        </Parcels>'+
+    '        <SpatialData>'+
+    '          <Entity_Spatial Ent_Sys="30">'+
+    '            <Spatial_Element Number="3" />'+
+    '          </Entity_Spatial>'+
+    '        </SpatialData>'+
+    '      </Block>'+
+    '    </Blocks>'+
+    '  </Package>'+
+    '</root>';
+var
+  xSeq: OXmlPSeq.TXMLSeqParser;
+  xNode: OXmlPDOM.PXMLNode;
+  xOpen: Boolean;
+  I: Integer;
+begin
+  Result := False;
+  xSeq := OXmlPSeq.TXMLSeqParser.Create;
+  try
+    xSeq.InitXML(inXML);
+    xSeq.GoToPath('/root');
+
+    I := 1;
+    while xSeq.NodePathCount > 0 do
+    begin
+      if xSeq.ReadNextChildHeader(xNode{%H-}, xOpen{%H-}) then
+      begin
+        if (xNode.NodeType = ntElement) and (xNode.NodeName='Parcel') and xOpen then
+        begin
+          // parse parcel
+          xSeq.ReadAllChildNodesInto(xNode);
+          if StrToIntDef(xNode.GetAttribute('Number'), 0) <> I then
+            Exit;
+          if StrToIntDef(xNode.SelectNodeDummy('Area/Area').Text, 0) <> I*10 then
+            Exit;
+          Inc(I);
+        end else
+        if (xNode.NodeType = ntElement) and (xNode.NodeName='Entity_Spatial') and xOpen then
+        begin
+          // parse Entity_Spatial
+          xSeq.ReadAllChildNodesInto(xNode);
+          if StrToIntDef(xNode.GetAttribute('Ent_Sys'), 0) <> I*10 then
+            Exit;
+          if StrToIntDef(xNode.SelectNodeDummy('Spatial_Element/@Number').NodeValue, 0) <> I then
+            Exit;
+          Inc(I);
+        end;
+      end;
+    end;
+    Result := I = 4;
+  finally
+    xSeq.Free;
+  end;
+end;
+
 function TOXmlUnitTest.Test_TXMLReader_FinishOpenElementClose_NodeName_Empty: Boolean;
 var
   xReader: TXMLReader;
@@ -1915,6 +1994,81 @@ begin
     Result := (xStr = outStr);
   finally
     xXMLSeq.Free;
+  end;
+end;
+
+function TOXmlUnitTest.Test_OXmlCSeq_TXMLSeqParser_Test4: Boolean;
+const
+  inXML: OWideString =
+    '<?xml version="1.0" encoding="utf-8"?>'+
+    '<root>'+
+    '  <Package>'+
+    '    <Blocks>'+
+    '      <Block Number="1">'+
+    '        <Area Total="100" Unit="m"/>'+
+    '        <Parcels>'+
+    '          <Parcel Number="1">'+
+    '            <Area>'+
+    '              <Area>10</Area>'+
+    '            </Area>'+
+    '          </Parcel>'+
+    '          <Parcel Number="2">'+
+    '            <Area>'+
+    '              <Area>20</Area>'+
+    '            </Area>'+
+    '          </Parcel>'+
+    '        </Parcels>'+
+    '        <SpatialData>'+
+    '          <Entity_Spatial Ent_Sys="30">'+
+    '            <Spatial_Element Number="3" />'+
+    '          </Entity_Spatial>'+
+    '        </SpatialData>'+
+    '      </Block>'+
+    '    </Blocks>'+
+    '  </Package>'+
+    '</root>';
+var
+  xSeq: OXmlCSeq.TXMLSeqParser;
+  xNode: OXmlCDOM.TXMLNode;
+  xOpen: Boolean;
+  I: Integer;
+begin
+  Result := False;
+  xSeq := OXmlCSeq.TXMLSeqParser.Create;
+  try
+    xSeq.InitXML(inXML);
+    xSeq.GoToPath('/root');
+
+    I := 1;
+    while xSeq.NodePathCount > 0 do
+    begin
+      if xSeq.ReadNextChildHeader(xNode{%H-}, xOpen{%H-}) then
+      begin
+        if (xNode.NodeType = ntElement) and (xNode.NodeName='Parcel') and xOpen then
+        begin
+          // parse parcel
+          xSeq.ReadAllChildNodesInto(xNode);
+          if StrToIntDef(xNode.GetAttribute('Number'), 0) <> I then
+            Exit;
+          if StrToIntDef(xNode.SelectNodeDummy('Area/Area').Text, 0) <> I*10 then
+            Exit;
+          Inc(I);
+        end else
+        if (xNode.NodeType = ntElement) and (xNode.NodeName='Entity_Spatial') and xOpen then
+        begin
+          // parse Entity_Spatial
+          xSeq.ReadAllChildNodesInto(xNode);
+          if StrToIntDef(xNode.GetAttribute('Ent_Sys'), 0) <> I*10 then
+            Exit;
+          if StrToIntDef(xNode.SelectNodeDummy('Spatial_Element/@Number').NodeValue, 0) <> I then
+            Exit;
+          Inc(I);
+        end;
+      end;
+    end;
+    Result := I = 4;
+  finally
+    xSeq.Free;
   end;
 end;
 
