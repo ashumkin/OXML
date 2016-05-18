@@ -393,9 +393,7 @@ begin
   if fOwnsObjects then
   {$ENDIF}
   for I := 0 to Count-1 do
-  begin
     SetObject(I, nil);
-  end;
 
   inherited Clear(aFullClear);
 
@@ -428,7 +426,15 @@ begin
 end;
 
 destructor TOHashedStringObjDictionary.Destroy;
+var
+  I: Integer;
 begin
+  {$IFNDEF O_ARC}
+  if fOwnsObjects then
+  {$ENDIF}
+  for I := 0 to Count-1 do
+    SetObject(I, nil);
+
   inherited Destroy;
 
   fObjects.Free;//must be after destroy -> fObjects is used in Clear!
@@ -794,8 +800,11 @@ begin
 end;
 
 destructor TOHashedStrings.Destroy;
+var
+  I: Integer;
 begin
-  Clear(True);
+  for I := 0 to fItemLength-1 do
+    Dispose(POHashItem(fItems[I]));
 
   inherited;
 end;
