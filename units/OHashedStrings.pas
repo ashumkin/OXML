@@ -712,9 +712,12 @@ procedure TOHashedStrings.Clear(const aFullClear: Boolean);
 var
   I: OHashedStringsIndex;
 begin
+  if fNextItemId = 0 then
+    Exit;
+
   fNextItemId := 0;
 
-  if aFullClear then
+  if (aFullClear or (fLastHashI > 1)) and (fLastHashI > 0) then // if there is a lot of buckets, ClearBuckets is slow (when called a lot of times, e.g. in sequential parser)
   begin
     for I := 0 to fItemLength-1 do
       Dispose(POHashItem(fItems[I]));
@@ -860,12 +863,17 @@ procedure TOHashedStrings.GrowBuckets;
 var
   I: OHashedStringsIndex;
   xTableSize: LongWord;
+  xGrow: Boolean;
 begin
-  ClearBuckets;
-
   xTableSize := cHashTable[fLastHashI];
+  xGrow := xTableSize > LongWord(Length(fBuckets));
 
+  if xGrow then
+    ClearBuckets;
   SetLength(fBuckets, xTableSize);
+  if not xGrow then
+    ClearBuckets;
+
   fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
 
   SetLength(fItems, fMaxItemsBeforeGrowBuckets);
@@ -1000,9 +1008,12 @@ procedure TOVirtualHashedStrings.Clear(const aFullClear: Boolean);
 var
   I: OHashedStringsIndex;
 begin
+  if fNextItemId = 0 then
+    Exit;
+
   fNextItemId := 0;
 
-  if aFullClear then
+  if (aFullClear or (fLastHashI > 1)) and (fLastHashI > 0) then // if there is a lot of buckets, ClearBuckets is slow (when called a lot of times, e.g. in sequential parser)
   begin
     for I := 0 to fItemLength-1 do
       Dispose(POVirtualHashItem(fItems[I]));
@@ -1114,8 +1125,11 @@ begin
 end;
 
 destructor TOVirtualHashedStrings.Destroy;
+var
+  I: Integer;
 begin
-  Clear(True);
+  for I := 0 to fItemLength-1 do
+    Dispose(POVirtualHashItem(fItems[I]));
 
   inherited;
 end;
