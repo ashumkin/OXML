@@ -322,8 +322,11 @@ type
     fRemaining: Integer;//fAllocLength-fUsedLength
 
     fDefBufferLength: Integer;
+    procedure SetUsedLength(const aUsedLength: Integer);
   protected
     procedure AssignTo(Dest: TPersistent); override;
+  public
+    constructor Create(const aBufferLength: Integer = 1024);
   public
     procedure Clear(const aFullClear: Boolean = True);
     procedure GetBuffer(var outString: OWideString); overload;
@@ -332,14 +335,12 @@ type
     procedure RemoveLastChar;
     procedure RemoveLastString(const aLength: Integer);
 
-    procedure WriteChar(const aChar: OWideChar);
-    procedure WriteString(const aString: OWideString); overload;//outPosition 1-based!
-    procedure WriteString(const aString: OWideString; var outPosition, outLength: Integer); overload;//outPosition 1-based!
+    function WriteChar(const aChar: OWideChar): TOTextBuffer;
+    function WriteString(const aString: OWideString): TOTextBuffer; overload;//outPosition 1-based!
+    function WriteString(const aString: OWideString; var outPosition, outLength: Integer): TOTextBuffer; overload;//outPosition 1-based!
     procedure Grow(const aMinChars: Integer);
-
-    constructor Create(const aBufferLength: Integer = 1024);
   public
-    property UsedLength: Integer read fUsedLength;
+    property UsedLength: Integer read fUsedLength write SetUsedLength;
     property AllocLength: Integer read fAllocLength;
     property Remaining: Integer read fRemaining;
   end;
@@ -527,7 +528,7 @@ implementation
 
 uses
 {$IFDEF FPC}
-  LazUTF8, LazFileUtils,
+  LazUTF8, LazFileUtils, LConvEncoding,
 {$ELSE}
   {$IFNDEF O_DELPHI_2009_UP}
     {$IFDEF O_DELPHI_6_UP}
@@ -1035,9 +1036,17 @@ end;
 
 {$IFDEF O_HASBYTESTRINGS}
 function ASToOWS(const aAS: AnsiString): OWideString;
+{$IFDEF FPC}{$IFDEF MSWINDOWS}
+var
+  Enc: Boolean;
+{$ENDIF}{$ENDIF}
 begin
   {$IFDEF FPC}
-  Result := AnsiToUtf8(aAS);
+    {$IFDEF MSWINDOWS}
+    Result := ConvertEncodingToUTF8(aAS, GetDefaultTextEncoding, Enc);
+    {$ELSE}
+    Result := CP1252ToUTF8(aAS);
+    {$ENDIF}
   {$ELSE}
   Result := OWideString(aAS);
   {$ENDIF}
@@ -2173,7 +2182,14 @@ begin
   end;
 end;
 
-procedure TOTextBuffer.WriteChar(const aChar: OWideChar);
+procedure TOTextBuffer.SetUsedLength(const aUsedLength: Integer);
+begin
+  if fUsedLength = aUsedLength then Exit;
+  Assert(aUsedLength < fUsedLength);
+  fUsedLength := aUsedLength;
+end;
+
+function TOTextBuffer.WriteChar(const aChar: OWideChar): TOTextBuffer;
 begin
   if fRemaining = 0 then
     Grow(1);
@@ -2181,17 +2197,19 @@ begin
   Inc(fUsedLength);
   Dec(fRemaining);
   fBuffer[fUsedLength-1] := aChar;
+
+  Result := Self;
 end;
 
-procedure TOTextBuffer.WriteString(const aString: OWideString);
+function TOTextBuffer.WriteString(const aString: OWideString): TOTextBuffer;
 var
   xPos, xLen: Integer;
 begin
-  WriteString(aString, xPos{%H-}, xLen{%H-});
+  Result := WriteString(aString, xPos{%H-}, xLen{%H-});
 end;
 
-procedure TOTextBuffer.WriteString(const aString: OWideString; var outPosition,
-  outLength: Integer);
+function TOTextBuffer.WriteString(const aString: OWideString; var outPosition,
+  outLength: Integer): TOTextBuffer;
 {$IFDEF O_DELPHI_2007_DOWN}
 var
   I: Integer;
@@ -2216,6 +2234,7 @@ begin
     Move(aString[1], fBuffer[outPosition-1], outLength*SizeOf(OWideChar));
     {$ENDIF}
   end;
+  Result := Self;
 end;
 
 end.
