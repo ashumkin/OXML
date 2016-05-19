@@ -368,8 +368,8 @@ type
     procedure ReleaseDocument;
   public
     //write string
-    procedure WriteString(const aString: OWideString);
-    procedure WriteChar(const aChar: OWideChar);
+    function WriteString(const aString: OWideString): TOTextWriter;
+    function WriteChar(const aChar: OWideChar): TOTextWriter;
     //write the whole temporary buffer to the destination stream
     procedure EnsureTempStringWritten;
   public
@@ -562,9 +562,18 @@ end;
 constructor TOUTF8StringReader.Create(const aString: OUTF8Container);
 begin
   fString := aString;
-  fCurrentChar := @fString[OUTF8Container_FirstElement];
-  fCurrentCharBegin := fCurrentChar;
-  fCurrentCharEnd := @fString[Length(fString)-1+OUTF8Container_FirstElement];
+  if Length(fString) = 0 then
+  begin
+    fCurrentChar := nil;
+    fCurrentCharBegin := nil;
+    fCurrentCharEnd := nil;
+    fEOF := True;
+  end else
+  begin
+    fCurrentChar := @fString[OUTF8Container_FirstElement];
+    fCurrentCharBegin := fCurrentChar;
+    fCurrentCharEnd := @fString[Length(fString)-1+OUTF8Container_FirstElement];
+  end;
   fFilePosition := 1;
 end;
 
@@ -1341,37 +1350,36 @@ begin
   end;
 end;
 
-procedure TOTextWriter.WriteChar(const aChar: OWideChar);
+function TOTextWriter.WriteChar(const aChar: OWideChar): TOTextWriter;
 begin
+  Result := Self;
+
   if fTempStringPosition > fTempStringLength then
-  begin
     EnsureTempStringWritten;//WRITE TEMP BUFFER
-  end;
 
   fTempString[fTempStringPosition] := aChar;
   Inc(fTempStringPosition);
 end;
 
-procedure TOTextWriter.WriteString(const aString: OWideString);
+function TOTextWriter.WriteString(const aString: OWideString): TOTextWriter;
 var
   xStringLength: Integer;
   {$IFDEF O_DELPHI_2007_DOWN}
   I: Integer;
   {$ENDIF}
 begin
+  Result := Self;
+
   xStringLength := Length(aString);
   if xStringLength = 0 then
     Exit;
 
   if fTempStringPosition-1 + xStringLength > fTempStringLength then
-  begin
     EnsureTempStringWritten;//WRITE TEMP BUFFER
-  end;
 
   if xStringLength > fTempStringLength then
-  begin
-    WriteStringToStream(aString, -1);
-  end else
+    WriteStringToStream(aString, -1)
+  else
   begin
     {$IFDEF O_DELPHI_2007_DOWN}
     //Move() is extremly slow here in Delphi 7, copy char-by-char is faster also for long strings!!! (this may be a delphi bug)
