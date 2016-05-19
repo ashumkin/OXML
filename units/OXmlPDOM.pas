@@ -87,6 +87,18 @@ type
   TXMLNodeCompare = function(const aNode1, aNode2: PXMLNode): Integer;
   {$ENDIF}
 
+  TXMLChildEnumerator = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fParent: PXMLNode;
+    fChildType: TXMLChildType;
+    fCurrent: PXMLNode;
+  public
+    constructor Create(const aParent: PXMLNode; const aChildType: TXMLChildType);
+    function MoveNext: Boolean;
+    function GetEnumerator: TXMLChildEnumerator;
+    property Current: PXMLNode read fCurrent;
+  end;
+
   TXMLNode = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fNodeType: TXMLNodeType;
@@ -94,8 +106,8 @@ type
     fNodeValueId: OHashedStringsIndex;
     fParentNode: PXMLNode;
 
-    fFirstCChild: Array[TXMLChildType] of PXMLNode;
-    fLastCChild: Array[TXMLChildType] of PXMLNode;
+    fFirstCChild: array[TXMLChildType] of PXMLNode;
+    fLastCChild: array[TXMLChildType] of PXMLNode;
     fNextSibling: PXMLNode;
     fPreviousSibling: PXMLNode;
 
@@ -153,6 +165,8 @@ type
     function GetChildNodes: TXMLChildNodeList;
     function GetAttributeCount: Integer;
     function GetChildCount: Integer;
+    function GetAttributeEnumerator: TXMLChildEnumerator;
+    function GetChildEnumerator: TXMLChildEnumerator;
     function TryGetChildNodes(var outList: TXMLChildNodeList; const aChildType: TXMLChildType): Boolean;
     function GetIsTextElement: Boolean;
     //assign only basic properties: PreserveWhiteSpace
@@ -260,11 +274,13 @@ type
     // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property AttributeNodes: TXMLChildNodeList read GetAttributeNodes;
     property AttributeCount: Integer read GetAttributeCount;
+    property AttributeEnumerator: TXMLChildEnumerator read GetAttributeEnumerator;
     //element children
     // for performance reasons please avoid using ChildNodes - use FirstChild+NextSibling instead!
     // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property ChildNodes: TXMLChildNodeList read GetChildNodes;
     property ChildCount: Integer read GetChildCount;
+    property ChildEnumerator: TXMLChildEnumerator read GetChildEnumerator;
 
     //iterate through all children from first to last (get first for ioChildEnum=nil)
     function GetNextChild(var ioChildEnum: PXMLNode): Boolean;
@@ -938,6 +954,26 @@ end;
 function CreateXMLDoc(const aRootNodeName: OWideString; const aAddXMLDeclaration: Boolean): IXMLDocument;
 begin
   Result := TXMLDocument.Create(aRootNodeName, aAddXMLDeclaration);
+end;
+
+{ TXMLChildEnumerator }
+
+constructor TXMLChildEnumerator.Create(const aParent: PXMLNode;
+  const aChildType: TXMLChildType);
+begin
+  fParent := aParent;
+  fChildType := aChildType;
+  fCurrent := nil;
+end;
+
+function TXMLChildEnumerator.GetEnumerator: TXMLChildEnumerator;
+begin
+  Result := Self;
+end;
+
+function TXMLChildEnumerator.MoveNext: Boolean;
+begin
+  Result := fParent.GetNextCChild(fCurrent, fChildType);
 end;
 
 { TXMLNode }
@@ -1758,6 +1794,11 @@ begin
     Result := aDefaultValue;
 end;
 
+function TXMLNode.GetAttributeEnumerator: TXMLChildEnumerator;
+begin
+  Result := TXMLChildEnumerator.Create(@Self, ctAttribute);
+end;
+
 {$IFDEF BCB}
 function TXMLNode.GetAttributeFromBegin(const aIndex: Integer): PXMLNode;
 begin
@@ -1817,6 +1858,11 @@ begin
     Inc(Result);
     xChild := xChild.fNextSibling;
   end;
+end;
+
+function TXMLNode.GetChildEnumerator: TXMLChildEnumerator;
+begin
+  Result := TXMLChildEnumerator.Create(@Self, ctChild);
 end;
 
 {$IFDEF BCB}

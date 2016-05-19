@@ -85,6 +85,18 @@ type
   TXMLNodeCompare = function(const aNode1, aNode2: TXMLNode): Integer;
   {$ENDIF}
 
+  TXMLChildEnumerator = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fParent: TXMLNode;
+    fChildType: TXMLChildType;
+    fCurrent: TXMLNode;
+  public
+    constructor Create(const aParent: TXMLNode; const aChildType: TXMLChildType);
+    function MoveNext: Boolean;
+    function GetEnumerator: TXMLChildEnumerator;
+    property Current: TXMLNode read fCurrent;
+  end;
+
   TXMLNode = class(TObject)
   private
     fNodeType: TXMLNodeType;
@@ -147,6 +159,8 @@ type
     function GetChildNodes: TXMLChildNodeList; virtual;
     function GetAttributeCount: Integer; virtual;
     function GetChildCount: Integer; virtual;
+    function GetAttributeEnumerator: TXMLChildEnumerator;
+    function GetChildEnumerator: TXMLChildEnumerator;
 
     procedure DoDestroy; virtual;//due to NextGen
 
@@ -258,11 +272,13 @@ type
     // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property AttributeNodes: TXMLChildNodeList read GetAttributeNodes;
     property AttributeCount: Integer read GetAttributeCount;
+    property AttributeEnumerator: TXMLChildEnumerator read GetAttributeEnumerator;
     //element children
     // for performance reasons please avoid using ChildNodes - use FirstChild+NextSibling or GetNextChild instead!
     // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property ChildNodes: TXMLChildNodeList read GetChildNodes;
     property ChildCount: Integer read GetChildCount;
+    property ChildEnumerator: TXMLChildEnumerator read GetChildEnumerator;
 
     //iterate through all children from first to last (get first for ioChildEnum=nil)
     function GetNextChild(var ioChildEnum: TXMLNode): Boolean;
@@ -945,6 +961,26 @@ begin
   Result := TXMLDocument.Create(aRootNodeName, aAddXMLDeclaration);
 end;
 
+{ TXMLChildEnumerator }
+
+constructor TXMLChildEnumerator.Create(const aParent: TXMLNode;
+  const aChildType: TXMLChildType);
+begin
+  fParent := aParent;
+  fChildType := aChildType;
+  fCurrent := nil;
+end;
+
+function TXMLChildEnumerator.GetEnumerator: TXMLChildEnumerator;
+begin
+  Result := Self;
+end;
+
+function TXMLChildEnumerator.MoveNext: Boolean;
+begin
+  Result := fParent.GetNextCChild(fCurrent, fChildType);
+end;
+
 { TXMLNode }
 
 function TXMLNode.AddAttribute(const aAttrName, aAttrValue: OWideString): TXMLNode;
@@ -1611,6 +1647,11 @@ begin
     Result := aDefaultValue;
 end;
 
+function TXMLNode.GetAttributeEnumerator: TXMLChildEnumerator;
+begin
+  Result := TXMLChildEnumerator.Create(Self, ctAttribute);
+end;
+
 {$IFDEF BCB}
 function TXMLNode.GetAttributeFromBegin(const aIndex: Integer): TXMLNode;
 begin
@@ -1650,6 +1691,11 @@ end;
 function TXMLNode.GetChildCount: Integer;
 begin
   Result := 0;
+end;
+
+function TXMLNode.GetChildEnumerator: TXMLChildEnumerator;
+begin
+  Result := TXMLChildEnumerator.Create(Self, ctChild);
 end;
 
 {$IFDEF BCB}
