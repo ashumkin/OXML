@@ -68,6 +68,7 @@ type
     procedure SetWhiteSpaceHandling(const aWhiteSpaceHandling: TXmlWhiteSpaceHandling);
     function GetReaderSettings: TXMLReaderSettings;
     function GetApproxStreamPosition: OStreamInt;
+    function GetEof: Boolean;
     function GetFilePosition: OStreamInt;
     function GetLine: OStreamInt;
     function GetLinePosition: OStreamInt;
@@ -170,6 +171,9 @@ type
     //size of original stream
     property StreamSize: OStreamInt read GetStreamSize;
 
+    //Returns true if end-of-file is reached
+    property Eof: Boolean read GetEof;//C++ Builder: conflict with uppercase EOF constant in stdio.h
+
     //Character position in text
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
     //  -> in Delphi the position is always correct
@@ -238,6 +242,11 @@ end;
 function TXMLSeqParser.GetApproxStreamPosition: OStreamInt;
 begin
   Result := fReader.ApproxStreamPosition;
+end;
+
+function TXMLSeqParser.GetEof: Boolean;
+begin
+  Result := fReader.Eof;
 end;
 
 function TXMLSeqParser.GetFilePosition: OStreamInt;

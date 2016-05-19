@@ -534,6 +534,7 @@ type
     procedure Comment;
     procedure DocType;
     procedure ProcessingInstruction;
+    function GetEof: Boolean;
     function GetFilePosition: OStreamInt;
     function GetLinePosition: OStreamInt;
     function GetLine: OStreamInt;
@@ -625,6 +626,9 @@ type
     property ApproxStreamPosition: OStreamInt read GetApproxStreamPosition;
     //size of original stream
     property StreamSize: OStreamInt read GetStreamSize;
+
+    //Returns true if end-of-file is reached
+    property Eof: Boolean read GetEof;//C++ Builder: conflict with uppercase EOF constant in stdio.h
 
     //Character position in text
     //  -> in Lazarus, the position is always in UTF-8 characters (no way to go around that since Lazarus uses UTF-8).
@@ -1836,6 +1840,11 @@ end;
 function TXMLReader.GetEncoding: TEncoding;
 begin
   Result := fReader.Encoding;
+end;
+
+function TXMLReader.GetEof: Boolean;
+begin
+  Result := fReader.Eof;
 end;
 
 function TXMLReader.GetOwnsEncoding: Boolean;
