@@ -140,6 +140,9 @@ type
     function AddObject(const aText: OWideString; const aObject: TObject;
       var outNewEntry: Boolean): OHashedStringsIndex; overload;
     function AddObject(const aText: OWideString; const aObject: TObject): OHashedStringsIndex; overload;
+    function AddPObject(const aText: OWideString; const aObject: Pointer;
+      var outNewEntry: Boolean): OHashedStringsIndex; overload;
+    function AddPObject(const aText: OWideString; const aObject: Pointer): OHashedStringsIndex; overload;
     procedure Delete(const aIndex: OHashedStringsIndex); overload; override;
     procedure Clear(const aFullClear: Boolean = True); override;
 
@@ -383,6 +386,21 @@ function TOHashedStringObjDictionary.AddObject(const aText: OWideString;
 begin
   Result := Add(aText, outNewEntry);
   SetObject(Result, aObject);
+end;
+
+function TOHashedStringObjDictionary.AddPObject(const aText: OWideString;
+  const aObject: Pointer): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := AddPObject(aText, aObject, x{%H-});
+end;
+
+function TOHashedStringObjDictionary.AddPObject(const aText: OWideString;
+  const aObject: Pointer; var outNewEntry: Boolean): OHashedStringsIndex;
+begin
+  Result := Add(aText, outNewEntry);
+  SetPObject(Result, aObject);
 end;
 
 procedure TOHashedStringObjDictionary.Clear(const aFullClear: Boolean);
