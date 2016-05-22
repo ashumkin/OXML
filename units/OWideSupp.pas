@@ -165,9 +165,11 @@ type
   //Lazarus: UTF8
   {$IFDEF O_DELPHI_2007_DOWN}
   OFastString = AnsiString;
+  OFastChar = AnsiChar;
   POFastChar = PAnsiChar;
   {$ELSE}
   OFastString = OWideString;
+  OFastChar = OWideChar;
   POFastChar = POWideChar;
   {$ENDIF}
 
