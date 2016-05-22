@@ -150,6 +150,8 @@ type
     function GetObject(const aIndex: OHashedStringsIndex): TObject;
     procedure SetPObject(const aIndex: OHashedStringsIndex; const aObject: Pointer);
     function GetPObject(const aIndex: OHashedStringsIndex): Pointer;
+    function TryGetObject(const aText: OWideString; var outObject: TObject): Boolean;
+    function TryGetPObject(const aText: OWideString; var outObject: Pointer): Boolean;
 
     property OwnsObjects: Boolean read fOwnsObjects write fOwnsObjects;//OwnsObjects doesn't have any function in ARC
 
@@ -236,7 +238,7 @@ type
     fCaseSensitive: Boolean;
     fItems: array of POVirtualHashItem;//array indexed by index
     fNextItemId: OHashedStringsIndex;//next list index to use
-    fItemLength: OHashedStringsIndex;//count of allocated items in fList
+    fItemLength: OHashedStringsIndex;//count of allocated items in fItems
     fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
     fBuckets: array of POVirtualHashItem;//array indexed by hash
     fLastHashI: OHashedStringsIndex;
@@ -281,9 +283,95 @@ type
     property Count: OHashedStringsIndex read fNextItemId;
   end;
 
+  OValueIndex = Integer;
+  POGenericHashItem = ^TOGenericHashItem;
+  TOGenericHashItem = packed record
+    fNext: POGenericHashItem;
+    fValueIndex: OValueIndex;
+    fIndex: OHashedStringsIndex;
+  end;
+
+  TOGenericHashedList = class(TPersistent)
+  private
+    fPointerSize: ONativeUInt;
+    fItems: array of POGenericHashItem;//array indexed by index
+    fNextItemId: OHashedStringsIndex;//next list index to use
+    fItemLength: OHashedStringsIndex;//count of allocated items in fItems
+    fMaxItemsBeforeGrowBuckets: OHashedStringsIndex;
+    fBuckets: array of POGenericHashItem;//array indexed by hash
+    fLastHashI: OHashedStringsIndex;
+    fBlockDelete: Integer;//speeds up multiple delete() calls
+
+  protected
+    function GetPointer(const aValueIndex: OHashedStringsIndex): Pointer; virtual; abstract;
+
+    function Find(const aKey: Pointer; var outHash: OHashedStringsIndex): POGenericHashItem;//aKey must be already processed with LowerCaseIfNotCaseSensitive
+    procedure AddItem(const aItem: POGenericHashItem; const aHash: OHashedStringsIndex);
+
+    procedure GrowBuckets;
+    procedure ClearBuckets;
+  public
+    constructor Create(const aPointerSize: ONativeUInt);
+    destructor Destroy; override;
+  protected
+    function HashedIndexOf(const aPointer: Pointer): OHashedStringsIndex;
+    function ValueIndexOf(const aPointer: Pointer): OValueIndex;
+
+    function DeleteByPointer(const aPointer: Pointer; const aDecValueIndex: Boolean = True): Boolean;
+  protected
+    function PGet(const aIndex: OHashedStringsIndex): OValueIndex;
+    function PGetItem(const aIndex: OHashedStringsIndex): POGenericHashItem;
+
+    function PAdd(const aValueIndex: OValueIndex; var outNewEntry: Boolean): OHashedStringsIndex;
+    function DeleteByValueIndex(const aValueIndex: OValueIndex; const aDecValueIndex: Boolean = True): Boolean;
+  public
+    procedure DeleteByHashIndex(const aIndex: OHashedStringsIndex; const aDecValueIndex: Boolean = True);
+
+    procedure Clear(const aFullClear: Boolean = True);
+    procedure BeginDelete;//speeds up multiple delete calls in a row
+    procedure EndDelete;
+    procedure EndDeleteForce;
+
+    property ValueIndex[const aIndex: OHashedStringsIndex]: OValueIndex read PGet;
+    property Count: OHashedStringsIndex read fNextItemId;
+  end;
+
+  TOHashedIntegerList = class(TOGenericHashedList)
+  private
+    fValueList: array of Integer;
+    fNextValueIndex: OHashedStringsIndex;
+    function GetItem(const aIndex: OHashedStringsIndex): Integer;
+  protected
+    function GetPointer(const aValueIndex: OHashedStringsIndex): Pointer; override;
+  public
+    constructor Create;
+  public
+    function Add(const aValue: Integer): OHashedStringsIndex; overload;
+    function Add(const aValue: Integer; var outNewEntry: Boolean): OHashedStringsIndex; overload;
+  public
+    property Items[const aIndex: OHashedStringsIndex]: Integer read GetItem; default;
+  end;
+
+  TOHashedExtendedList = class(TOGenericHashedList)
+  private
+    fValueList: array of Extended;
+    fNextValueIndex: OHashedStringsIndex;
+    function GetItem(const aIndex: OHashedStringsIndex): Extended;
+  protected
+    function GetPointer(const aValueIndex: OHashedStringsIndex): Pointer; override;
+  public
+    constructor Create;
+  public
+    function Add(const aValue: Extended): OHashedStringsIndex; overload;
+    function Add(const aValue: Extended; var outNewEntry: Boolean): OHashedStringsIndex; overload;
+  public
+    property Items[const aIndex: OHashedStringsIndex]: Extended read GetItem; default;
+  end;
+
 function OHashedStringsIndexAssigned(const aId: OHashedStringsIndex): Boolean;{$IFDEF O_INLINE}inline;{$ENDIF}
 function HashOf(const aKey: OWideString): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
 function HashOfFast(const aKey: OFastString): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
+function HashOfPointer(const aKey: Pointer; const aLength: ONativeUInt): Cardinal; {$IFDEF O_INLINE}inline;{$ENDIF}
 function LowerCaseIfNotCaseSensitive(const aText: OWideString; const aCaseSensitive: Boolean): OWideString; {$IFDEF O_INLINE}inline;{$ENDIF}
 function FastLowerCaseIfNotCaseSensitive(const aText: OFastString; const aCaseSensitive: Boolean): OFastString; {$IFDEF O_INLINE}inline;{$ENDIF}
 
@@ -295,6 +383,15 @@ implementation
 uses
   OXmlLng
   {$IFDEF FPC}, LazUTF8{$ENDIF};
+
+const
+  cHashTable: array[0..27] of LongWord =
+  ( 53,         97,         193,       389,       769,
+    1543,       3079,       6151,      12289,     24593,
+    49157,      98317,      196613,    393241,    786433,
+    1572869,    3145739,    6291469,   12582917,  25165843,
+    50331653,   100663319,  201326611, 402653189, 805306457,
+    1610612741, 3221225473, 4294967291 );
 
 function LowerCaseIfNotCaseSensitive(const aText: OWideString; const aCaseSensitive: Boolean): OWideString;
 begin
@@ -317,48 +414,401 @@ begin
   Result := aId <> OHASHEDSTRINGSINDEX_UNASSIGNED;
 end;
 
-function HashOf(const aKey: OWideString): Cardinal;
-{$IFDEF O_UNICODE}
+{$IFOPT Q+}{$DEFINE _Q_ON}{$Q-}{$ENDIF} // disable overflow checks
+{$IFOPT R+}{$DEFINE _R_ON}{$R-}{$ENDIF} // disable range checks
+function HashOfPointer(const aKey: Pointer; const aLength: ONativeUInt): Cardinal;
+//FNV-1a hash
 var
+  xK: PByteArray;
   I: Integer;
 begin
-  Result := 0;
-  for I := 1 to Length(aKey) do
-    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
-      Ord(aKey[I]);
-{$ELSE}
-var
-  I, xLen: Integer;
-  xK: PAnsiChar;
+  Result := 2166136261;
+  xK := aKey;
+  for I := 0 to aLength-1 do
+    Result := (Result xor Cardinal(xK[I])) * 16777619;
+end;
+{$IFDEF _Q_ON}{$Q+}{$UNDEF _Q_ON}{$ENDIF}
+{$IFDEF _R_ON}{$R+}{$UNDEF _R_ON}{$ENDIF}
+
+function HashOf(const aKey: OWideString): Cardinal;
 begin
-  Result := 0;
-  xLen := Length(aKey);
-  if xLen > 0 then
-  begin
-    xK := @aKey[1];
-    for I := 1 to xLen*2 do
-    begin
-      Result := ((Result shl 2) or (Result shr (SizeOf(Result)*8 - 2))) xor
-        Ord(xK^);
-      Inc(xK);
-    end;
-  end;
-{$ENDIF}
+  if aKey<>'' then
+    Result := HashOfPointer(@aKey[1], Length(aKey)*SizeOf(OWideChar))
+  else
+    Result := 2166136261;
 end;
 
 function HashOfFast(const aKey: OFastString): Cardinal;
-{$IFDEF O_UNICODE}
 begin
-  Result := HashOf(aKey);
-{$ELSE}
+  if aKey<>'' then
+    Result := HashOfPointer(@aKey[1], Length(aKey)*SizeOf(OFastChar))
+  else
+    Result := 2166136261;
+end;
+
+{ TOHashedExtendedList }
+
+constructor TOHashedExtendedList.Create;
+begin
+  inherited Create(SizeOf(Extended));
+
+  SetLength(fValueList, 32);
+end;
+
+function TOHashedExtendedList.Add(const aValue: Extended): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := Add(aValue, x{%H-});
+end;
+
+function TOHashedExtendedList.Add(const aValue: Extended;
+  var outNewEntry: Boolean): OHashedStringsIndex;
+begin
+  if fNextValueIndex = Length(fValueList) then
+    SetLength(fValueList, Length(fValueList)*2);
+
+  fValueList[fNextValueIndex] := aValue;
+  Inc(fNextValueIndex);
+  Result := inherited PAdd(fNextValueIndex-1, outNewEntry);
+  if not outNewEntry then
+    Dec(fNextValueIndex);
+end;
+
+function TOHashedExtendedList.GetItem(const aIndex: OHashedStringsIndex
+  ): Extended;
+begin
+  Result := fValueList[PGet(aIndex)];
+end;
+
+function TOHashedExtendedList.GetPointer(const aValueIndex: OHashedStringsIndex
+  ): Pointer;
+begin
+  if (aValueIndex<0) or (aValueIndex>=fNextValueIndex) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  Result := @fValueList[aValueIndex];
+end;
+
+{ TOHashedIntegerList }
+
+constructor TOHashedIntegerList.Create;
+begin
+  inherited Create(SizeOf(Integer));
+
+  SetLength(fValueList, 32);
+end;
+
+function TOHashedIntegerList.Add(const aValue: Integer): OHashedStringsIndex;
+var
+  x: Boolean;
+begin
+  Result := Add(aValue, x{%H-});
+end;
+
+function TOHashedIntegerList.Add(const aValue: Integer; var outNewEntry: Boolean
+  ): OHashedStringsIndex;
+begin
+  if fNextValueIndex = Length(fValueList) then
+    SetLength(fValueList, Length(fValueList)*2);
+
+  fValueList[fNextValueIndex] := aValue;
+  Inc(fNextValueIndex);
+  Result := inherited PAdd(fNextValueIndex-1, outNewEntry);
+  if not outNewEntry then
+    Dec(fNextValueIndex);
+end;
+
+function TOHashedIntegerList.GetItem(const aIndex: OHashedStringsIndex
+  ): Integer;
+begin
+  Result := fValueList[PGet(aIndex)];
+end;
+
+function TOHashedIntegerList.GetPointer(const aValueIndex: OHashedStringsIndex
+  ): Pointer;
+begin
+  if (aValueIndex<0) or (aValueIndex>=fNextValueIndex) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  Result := @fValueList[aValueIndex];
+end;
+
+{ TOGenericHashedList }
+
+constructor TOGenericHashedList.Create(const aPointerSize: ONativeUInt);
+begin
+  inherited Create;
+
+  Assert(aPointerSize > 0);
+  fPointerSize := aPointerSize;
+
+  GrowBuckets;
+end;
+
+function TOGenericHashedList.PAdd(const aValueIndex: OValueIndex;
+  var outNewEntry: Boolean): OHashedStringsIndex;
+var
+  xBucket: POGenericHashItem;
+  xHash: OHashedStringsIndex;
+  xPointer: Pointer;
+begin
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
+  xPointer := GetPointer(aValueIndex);
+  xBucket := Find(xPointer, xHash{%H-});
+  if Assigned(xBucket) then
+  begin
+    Result := xBucket.fIndex;
+    outNewEntry := False;
+    Exit;
+  end;
+
+  if fNextItemId = fMaxItemsBeforeGrowBuckets then
+  begin
+    GrowBuckets;
+    xHash := HashOfPointer(xPointer, fPointerSize) mod Cardinal(Length(fBuckets));//must be here!!! -> the hash is changed!!!
+  end;
+
+  if fNextItemId = fItemLength then
+  begin
+    New(fItems[fNextItemId]);
+    Inc(fItemLength);
+  end;
+
+  xBucket := fItems[fNextItemId];
+  xBucket.fValueIndex := aValueIndex;
+  xBucket.fIndex := fNextItemId;
+  Result := fNextItemId;
+
+  AddItem(xBucket, xHash);
+
+  Inc(fNextItemId);
+
+  outNewEntry := True;
+end;
+
+procedure TOGenericHashedList.AddItem(const aItem: POGenericHashItem;
+  const aHash: OHashedStringsIndex);
+begin
+  aItem.fNext := fBuckets[aHash];
+  fBuckets[aHash] := aItem;
+end;
+
+procedure TOGenericHashedList.BeginDelete;
+begin
+  Inc(fBlockDelete);
+end;
+
+procedure TOGenericHashedList.Clear(const aFullClear: Boolean);
+var
+  I: OHashedStringsIndex;
+begin
+  if fNextItemId = 0 then
+    Exit;
+
+  fNextItemId := 0;
+
+  if (aFullClear or (fLastHashI > 1)) and (fLastHashI > 0) then // if there is a lot of buckets, ClearBuckets is slow (when called a lot of times, e.g. in sequential parser)
+  begin
+    for I := 0 to fItemLength-1 do
+      Dispose(POVirtualHashItem(fItems[I]));
+    fItemLength := 0;
+
+    fLastHashI := 0;
+    GrowBuckets;
+  end else
+  begin
+    ClearBuckets;
+  end;
+end;
+
+procedure TOGenericHashedList.ClearBuckets;
+var
+  I: OHashedStringsIndex;
+begin
+  for I := 0 to Length(fBuckets)-1 do
+    fBuckets[I] := nil;
+end;
+
+procedure TOGenericHashedList.DeleteByHashIndex(
+  const aIndex: OHashedStringsIndex; const aDecValueIndex: Boolean);
+var
+  xBucket, xRunner, xPrevious: POGenericHashItem;
+  xHash: OHashedStringsIndex;
+  I: OHashedStringsIndex;
+begin
+  xBucket := GetPointer(aIndex);
+
+  //move current bucket to last position
+  if aIndex < High(fItems) then
+  begin
+    System.Move(fItems[aIndex+1], fItems[aIndex], (Count-aIndex)*SizeOf(POVirtualHashItem));
+    fItems[Count-1] := xBucket;
+  end;
+  Dec(fNextItemId);
+  if fBlockDelete = 0 then
+    for I := aIndex to Count-1 do
+      Dec(fItems[I].fIndex);
+
+  //if string was deleted from original string container, decrement value indizes
+  if aDecValueIndex then
+    for I := 0 to Count-1 do
+      if fItems[I].fValueIndex > xBucket.fValueIndex then
+        Dec(fItems[I].fValueIndex);
+
+  //remove from hash table
+  xHash := HashOfPointer(GetPointer(xBucket.fValueIndex), fPointerSize) mod Cardinal(Length(fBuckets));
+  xRunner := fBuckets[xHash];
+  xPrevious := nil;
+  while (xRunner <> nil) and (xRunner <> xBucket) do
+  begin
+    xPrevious := xRunner;
+    xRunner := xRunner.fNext;
+  end;
+  Assert(xRunner = xBucket);
+  if Assigned(xPrevious) then
+    xPrevious.fNext := xBucket.fNext
+  else
+    fBuckets[xHash] := xBucket.fNext;
+end;
+
+function TOGenericHashedList.DeleteByPointer(const aPointer: Pointer;
+  const aDecValueIndex: Boolean): Boolean;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := HashedIndexOf(aPointer);
+  Result := xIndex >= 0;
+  if Result then
+    DeleteByHashIndex(xIndex, aDecValueIndex);
+end;
+
+function TOGenericHashedList.DeleteByValueIndex(
+  const aValueIndex: OValueIndex; const aDecValueIndex: Boolean): Boolean;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := HashedIndexOf(GetPointer(aValueIndex));
+  Result := xIndex >= 0;
+  if Result then
+    DeleteByHashIndex(xIndex, aDecValueIndex);
+end;
+
+destructor TOGenericHashedList.Destroy;
 var
   I: Integer;
 begin
-  Result := 0;
-  for I := 1 to Length(aKey) do
-    Result := ((Result shl 2) or (Result shr (SizeOf(Result) * 8 - 2))) xor
-      Ord(aKey[I]);
-{$ENDIF}
+  for I := 0 to fItemLength-1 do
+    Dispose(POVirtualHashItem(fItems[I]));
+
+  inherited Destroy;
+end;
+
+procedure TOGenericHashedList.EndDelete;
+var
+  I: Integer;
+begin
+  if fBlockDelete > 0 then
+    Dec(fBlockDelete);
+
+  if fBlockDelete = 0 then
+    for I := 0 to Count-1 do
+      fItems[I].fIndex := I;
+end;
+
+procedure TOGenericHashedList.EndDeleteForce;
+begin
+  if fBlockDelete > 0 then
+  begin
+    fBlockDelete := 1;
+    EndDelete;
+  end;
+end;
+
+function TOGenericHashedList.Find(const aKey: Pointer;
+  var outHash: OHashedStringsIndex): POGenericHashItem;
+begin
+  outHash := HashOfPointer(aKey, fPointerSize) mod Cardinal(Length(fBuckets));
+  Result := fBuckets[outHash];
+  while Result <> nil do
+  begin
+    if CompareMem(GetPointer(Result.fValueIndex), aKey, fPointerSize) then
+      Exit
+    else
+      Result := Result.fNext;
+  end;
+end;
+
+function TOGenericHashedList.PGet(const aIndex: OHashedStringsIndex
+  ): OValueIndex;
+begin
+  if (aIndex < 0) or (aIndex >= fNextItemId) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  Result := fItems[aIndex].fValueIndex;
+end;
+
+function TOGenericHashedList.PGetItem(const aIndex: OHashedStringsIndex
+  ): POGenericHashItem;
+begin
+  if (aIndex < 0) or (aIndex >= fNextItemId) then
+    raise EListError.Create(OXmlLng_ListIndexOutOfRange);
+
+  Result := fItems[aIndex];
+end;
+
+procedure TOGenericHashedList.GrowBuckets;
+var
+  I: OHashedStringsIndex;
+  xTableSize: LongWord;
+begin
+  ClearBuckets;
+
+  xTableSize := cHashTable[fLastHashI];
+
+  SetLength(fBuckets, xTableSize);
+  fMaxItemsBeforeGrowBuckets := (xTableSize * 2) div 3;
+
+  SetLength(fItems, fMaxItemsBeforeGrowBuckets);
+
+  for I := 0 to fNextItemId-1 do
+    AddItem(fItems[I], HashOfPointer(GetPointer(fItems[I].fValueIndex), fPointerSize) mod Cardinal(Length(fBuckets)));
+
+  Inc(fLastHashI);
+end;
+
+function TOGenericHashedList.HashedIndexOf(const aPointer: Pointer
+  ): OHashedStringsIndex;
+var
+  xP: POGenericHashItem;
+  xH: OHashedStringsIndex;
+begin
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
+  xP := Find(aPointer, xH{%H-});
+  if xP <> nil then
+    Result := xP.fIndex
+  else
+    Result := -1;
+end;
+
+function TOGenericHashedList.ValueIndexOf(const aPointer: Pointer
+  ): OValueIndex;
+var
+  xP: POGenericHashItem;
+  xH: OHashedStringsIndex;
+begin
+  if fBlockDelete > 0 then
+    EndDeleteForce;
+
+  xP := Find(aPointer, xH{%H-});
+  if xP <> nil then
+    Result := xP.fValueIndex
+  else
+    Result := -1;
 end;
 
 
@@ -489,6 +939,28 @@ procedure TOHashedStringObjDictionary.SetPObject(
   const aIndex: OHashedStringsIndex; const aObject: Pointer);
 begin
   fObjects[aIndex] := aObject;
+end;
+
+function TOHashedStringObjDictionary.TryGetObject(const aText: OWideString;
+  var outObject: TObject): Boolean;
+var
+  xObj: Pointer;
+begin
+  Result := TryGetPObject(aText, xObj{%H-});
+  outObject := TObject(xObj);
+end;
+
+function TOHashedStringObjDictionary.TryGetPObject(const aText: OWideString;
+  var outObject: Pointer): Boolean;
+var
+  xIndex: OHashedStringsIndex;
+begin
+  xIndex := IndexOf(aText);
+  Result := xIndex >= 0;
+  if Result then
+    outObject := GetPObject(xIndex)
+  else
+    outObject := nil;
 end;
 
 { TOHashedStringDictionary }
@@ -876,15 +1348,6 @@ begin
 
   Result := fItems[aIndex];
 end;
-
-const
-  cHashTable: array[0..27] of LongWord =
-  ( 53,         97,         193,       389,       769,
-    1543,       3079,       6151,      12289,     24593,
-    49157,      98317,      196613,    393241,    786433,
-    1572869,    3145739,    6291469,   12582917,  25165843,
-    50331653,   100663319,  201326611, 402653189, 805306457,
-    1610612741, 3221225473, 4294967291 );
 
 procedure TOHashedStrings.GrowBuckets;
 var
