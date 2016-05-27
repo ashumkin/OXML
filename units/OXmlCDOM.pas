@@ -720,7 +720,18 @@ type
     property ParseError: IOTextParseError read GetParseError;
   end;
 
-  TXMLResNodeListEnumerator = class;
+  TXMLResNodeListEnumerator = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fList: IXMLNodeList;
+    fIndex: Integer;
+  public
+    procedure Init(const aList: IXMLNodeList);
+    function GetCurrent: TXMLNode;
+    function MoveNext: Boolean;
+  public
+    property Current: TXMLNode read GetCurrent;
+  end;
+
   IXMLNodeList = interface
     ['{9FD530D4-B35E-467E-916A-07B5E3D83AC6}']
 
@@ -753,20 +764,18 @@ type
     function GetNext(var ioNode: TXMLNode): Boolean;
     function GetPrevious(var ioNode: TXMLNode): Boolean;
 
-    {$IFDEF O_ENUMERATORS}
     function GetEnumerator: TXMLResNodeListEnumerator;
-    {$ENDIF}
 
     property Nodes[const aIndex: Integer]: TXMLNode read Get; default;
     property Count: Integer read GetCount;
   end;
 
-  TXMLChildNodeListEnumerator = class(TObject)
+  TXMLChildNodeListEnumerator = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
   private
     fList: TXMLChildNodeList;
     fCurrent: TXMLNode;
   public
-    constructor Create(aList: TXMLChildNodeList);
+    procedure Init(const aList: TXMLChildNodeList);
     function GetCurrent: TXMLNode;
     function MoveNext: Boolean;
   public
@@ -815,24 +824,10 @@ type
     function GetNext(var ioNode: TXMLNode): Boolean;
     function GetPrevious(var ioNode: TXMLNode): Boolean;
 
-    {$IFDEF O_ENUMERATORS}
     function GetEnumerator: TXMLChildNodeListEnumerator;
-    {$ENDIF}
 
     property Nodes[const aIndex: Integer]: TXMLNode read Get; default;
     property Count: Integer read GetCount;
-  end;
-
-  TXMLResNodeListEnumerator = class(TObject)
-  private
-    fList: IXMLNodeList;
-    fIndex: Integer;
-  public
-    constructor Create(aList: IXMLNodeList);
-    function GetCurrent: TXMLNode;
-    function MoveNext: Boolean;
-  public
-    property Current: TXMLNode read GetCurrent;
   end;
 
   TXMLResNodeList = class(TInterfacedObject, IXMLNodeList)
@@ -872,9 +867,7 @@ type
     function GetNext(var ioNodeEnum: TXMLNode): Boolean;
     function GetPrevious(var ioNodeEnum: TXMLNode): Boolean;
 
-    {$IFDEF O_ENUMERATORS}
     function GetEnumerator: TXMLResNodeListEnumerator;
-    {$ENDIF}
 
     property Nodes[const aIndex: Integer]: TXMLNode read Get; default;
     property Count: Integer read GetCount;
@@ -3589,10 +3582,8 @@ end;
 
 { TXMLResNodeListEnumerator }
 
-constructor TXMLResNodeListEnumerator.Create(aList: IXMLNodeList);
+procedure TXMLResNodeListEnumerator.Init(const aList: IXMLNodeList);
 begin
-  inherited Create;
-
   fList := aList;
   fIndex := -1;
 end;
@@ -3704,12 +3695,10 @@ begin
     Result := nil;
 end;
 
-{$IFDEF O_ENUMERATORS}
 function TXMLResNodeList.GetEnumerator: TXMLResNodeListEnumerator;
 begin
-  Result := TXMLResNodeListEnumerator.Create(Self);
+  Result.Init(Self);
 end;
-{$ENDIF}
 
 function TXMLResNodeList.GetNext(var ioNodeEnum: TXMLNode): Boolean;
 begin
@@ -4134,12 +4123,10 @@ begin
   fChildType := aChildType;
 end;
 
-{$IFDEF O_ENUMERATORS}
 function TXMLChildNodeList.GetEnumerator: TXMLChildNodeListEnumerator;
 begin
-  Result := TXMLChildNodeListEnumerator.Create(Self);
+  Result.Init(Self);
 end;
-{$ENDIF}
 
 function TXMLChildNodeList.GetFirst: TXMLNode;
 begin
@@ -4284,10 +4271,8 @@ end;
 
 { TXMLChildNodeListEnumerator }
 
-constructor TXMLChildNodeListEnumerator.Create(aList: TXMLChildNodeList);
+procedure TXMLChildNodeListEnumerator.Init(const aList: TXMLChildNodeList);
 begin
-  inherited Create;
-
   fList := aList;
   fCurrent := nil;
 end;

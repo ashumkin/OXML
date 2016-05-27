@@ -159,7 +159,8 @@ type
     property PObjects[const aIndex: OHashedStringsIndex]: Pointer read GetPObject write SetPObject;
   end;
 
-  TOHashedStringDictionaryEnum = class;
+  TOHashedStringDictionary = class;
+
   {$IFDEF O_GENERICS}
   TOHashedStringDictionaryPair = TPair<OWideString,OWideString>;
   {$ELSE}
@@ -168,6 +169,18 @@ type
     Value: OWideString;
   end;
   {$ENDIF}
+
+  TOHashedStringDictionaryEnumerator = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fIndex: OHashedStringsIndex;
+    fDictionary: TOHashedStringDictionary;
+  public
+    procedure Init(const aDictionary: TOHashedStringDictionary);
+    function GetCurrent: TOHashedStringDictionaryPair;
+    function MoveNext: Boolean;
+  public
+    property Current: TOHashedStringDictionaryPair read GetCurrent;
+  end;
 
   TOHashedStringDictionary = class(TPersistent)
   private
@@ -199,21 +212,7 @@ type
     property Items[const aKey: OWideString]: OWideString read GetValueOfKey write SetValueOfKey; default;
     property Pairs[const aIndex: OHashedStringsIndex]: TOHashedStringDictionaryPair read GetPair;
 
-    {$IFDEF O_ENUMERATORS}
-    function GetEnumerator: TOHashedStringDictionaryEnum;
-    {$ENDIF}
-  end;
-
-  TOHashedStringDictionaryEnum = class(TObject)
-  private
-    fIndex: OHashedStringsIndex;
-    fDictionary: TOHashedStringDictionary;
-  public
-    constructor Create(aDictionary: TOHashedStringDictionary);
-    function GetCurrent: TOHashedStringDictionaryPair;
-    function MoveNext: Boolean;
-  public
-    property Current: TOHashedStringDictionaryPair read GetCurrent;
+    function GetEnumerator: TOHashedStringDictionaryEnumerator;
   end;
 
   POVirtualHashItem = ^TOVirtualHashItem;
@@ -965,12 +964,10 @@ end;
 
 { TOHashedStringDictionary }
 
-{$IFDEF O_ENUMERATORS}
-function TOHashedStringDictionary.GetEnumerator: TOHashedStringDictionaryEnum;
+function TOHashedStringDictionary.GetEnumerator: TOHashedStringDictionaryEnumerator;
 begin
-  Result := TOHashedStringDictionaryEnum.Create(Self);
+  Result.Init(Self);
 end;
-{$ENDIF}
 
 function TOHashedStringDictionary.GetKey(const aIndex: OHashedStringsIndex): OWideString;
 begin
@@ -1093,23 +1090,21 @@ begin
   end;
 end;
 
-{ TOHashedStringDictionaryEnum }
+{ TOHashedStringDictionaryEnumerator }
 
-constructor TOHashedStringDictionaryEnum.Create(
-  aDictionary: TOHashedStringDictionary);
+procedure TOHashedStringDictionaryEnumerator.Init(
+  const aDictionary: TOHashedStringDictionary);
 begin
-  inherited Create;
-
   fIndex := -1;
   fDictionary := aDictionary;
 end;
 
-function TOHashedStringDictionaryEnum.GetCurrent: TOHashedStringDictionaryPair;
+function TOHashedStringDictionaryEnumerator.GetCurrent: TOHashedStringDictionaryPair;
 begin
   Result := fDictionary.Pairs[fIndex];
 end;
 
-function TOHashedStringDictionaryEnum.MoveNext: Boolean;
+function TOHashedStringDictionaryEnumerator.MoveNext: Boolean;
 begin
   Result := (fIndex < fDictionary.Count - 1);
   if Result then

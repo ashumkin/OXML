@@ -78,8 +78,21 @@ type
     property NodeValue: OWideString read fToken.TokenValue;
   end;
 
+  TSAXAttributes = class;
   PSAXAttribute = ^TSAXAttribute;
-  TSAXAttributeEnum = class;
+
+  TSAXAttributeEnumerator = {$IFDEF O_PACKED}packed{$ENDIF} {$IFDEF O_EXTRECORDS}record{$ELSE}object{$ENDIF}
+  private
+    fIndex: OHashedStringsIndex;
+    fSAXAttributes: TSAXAttributes;
+  public
+    procedure Init(const aSAXAttributes: TSAXAttributes);
+    function GetCurrent: PSAXAttribute;
+    function MoveNext: Boolean;
+  public
+    property Current: PSAXAttribute read GetCurrent;
+  end;
+
   TSAXAttributes = class(TObject)
   private
     fAttributeTokens: TXMLReaderTokenList;
@@ -117,20 +130,7 @@ type
     property Count: Integer read GetCount;
     property Items[const aIndex: Integer]: PSAXAttribute read GetAttributeItem; default;
 
-    {$IFDEF O_ENUMERATORS}
-    function GetEnumerator: TSAXAttributeEnum;
-    {$ENDIF}
-  end;
-  TSAXAttributeEnum = class(TObject)
-  private
-    fIndex: OHashedStringsIndex;
-    fSAXAttributes: TSAXAttributes;
-  public
-    constructor Create(aSAXAttributes: TSAXAttributes);
-    function GetCurrent: PSAXAttribute;
-    function MoveNext: Boolean;
-  public
-    property Current: PSAXAttribute read GetCurrent;
+    function GetEnumerator: TSAXAttributeEnumerator;
   end;
 
   {$IFDEF O_ANONYMOUS_METHODS}
@@ -1231,29 +1231,25 @@ begin
     Result := nil;
 end;
 
-{$IFDEF O_ENUMERATORS}
-function TSAXAttributes.GetEnumerator: TSAXAttributeEnum;
+function TSAXAttributes.GetEnumerator: TSAXAttributeEnumerator;
 begin
-  Result := TSAXAttributeEnum.Create(Self);
+  Result.Init(Self);
 end;
-{$ENDIF}
 
-{ TSAXAttributeEnum }
+{ TSAXAttributeEnumerator }
 
-constructor TSAXAttributeEnum.Create(aSAXAttributes: TSAXAttributes);
+procedure TSAXAttributeEnumerator.Init(const aSAXAttributes: TSAXAttributes);
 begin
-  inherited Create;
-
   fIndex := -1;
   fSAXAttributes := aSAXAttributes;
 end;
 
-function TSAXAttributeEnum.GetCurrent: PSAXAttribute;
+function TSAXAttributeEnumerator.GetCurrent: PSAXAttribute;
 begin
   Result := fSAXAttributes[fIndex];
 end;
 
-function TSAXAttributeEnum.MoveNext: Boolean;
+function TSAXAttributeEnumerator.MoveNext: Boolean;
 begin
   Result := (fIndex < fSAXAttributes.Count - 1);
   if Result then
