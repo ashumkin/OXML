@@ -199,6 +199,8 @@ function OXmlIsLocalNameNS(const aNodeName, aNameSpace, aLocalName: OWideString)
 
 //all ISO formatting functions are thread-safe
 function ISOBoolToStr(const aValue: Boolean; const aWritten: Boolean = False): string; {$IFDEF O_INLINE}inline;{$ENDIF}
+function ISOIntToStr(const aValue: Integer): string; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
+function ISOIntToStr(const aValue: Int64): string; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOFloatToStr(const aValue: Extended): string; {$IFDEF FPC}inline;{$ENDIF}//MUST NOT BE INLINE FOR DELPHI
 function ISODateToStr(const aDate: TDateTime): string; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISODateTimeToStr(const aDateTime: TDateTime): string; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -213,6 +215,7 @@ function ISOStrToTime(const aString: string): TDateTime; {$IFDEF O_INLINE}inline
 
 function ISOStrToBoolDef(const aString: string; const aDefValue: Boolean): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOStrToIntDef(const aString: string; const aDefValue: Integer): Integer; {$IFDEF O_INLINE}inline;{$ENDIF}
+function ISOStrToInt64Def(const aString: string; const aDefValue: Int64): Int64; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOStrToFloatDef(const aString: string; const aDefValue: Extended): Extended; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOStrToDateDef(const aString: string; const aDefDate: TDateTime): TDateTime; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOStrToDateTimeDef(const aString: string; const aDefDateTime: TDateTime): TDateTime; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -220,6 +223,7 @@ function ISOStrToTimeDef(const aString: string; const aDefTime: TDateTime): TDat
 
 function ISOTryStrToBool(const aString: string; var outValue: Boolean): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOTryStrToInt(const aString: string; var outValue: Integer): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
+function ISOTryStrToInt64(const aString: string; var outValue: Int64): Boolean; {$IFDEF O_INLINE}inline;{$ENDIF}
 function ISOTryStrToFloat(const aString: string; var outValue: Extended): Boolean; overload; {$IFDEF FPC}inline;{$ENDIF}//MUST NOT BE INLINE FOR DELPHI
 {$IFDEF O_EXTENDEDTYPE}
 function ISOTryStrToFloat(const aString: string; var outValue: Double): Boolean; overload; {$IFDEF O_INLINE}inline;{$ENDIF}
@@ -324,6 +328,16 @@ begin
   Result := ISO_BOOL_CONST[aValue, aWritten];
 end;
 
+function ISOIntToStr(const aValue: Integer): string;
+begin
+  Result := IntToStr(aValue);
+end;
+
+function ISOIntToStr(const aValue: Int64): string;
+begin
+  Result := IntToStr(aValue);
+end;
+
 function ISOFloatToStr(const aValue: Extended): string;
 {$IFDEF O_DELPHI_6_DOWN}
 var
@@ -400,6 +414,12 @@ begin
     Result := aDefValue;
 end;
 
+function ISOStrToInt64Def(const aString: string; const aDefValue: Int64): Int64;
+begin
+  if not ISOTryStrToInt64(aString, Result{%H-}) then
+    Result := aDefValue;
+end;
+
 function ISOStrToFloatDef(const aString: string; const aDefValue: Extended): Extended;
 begin
   if not ISOTryStrToFloat(aString, Result{%H-}) then
@@ -454,6 +474,11 @@ end;
 function ISOTryStrToInt(const aString: string; var outValue: Integer): Boolean;
 begin
   Result := TryStrToInt(aString, outValue);
+end;
+
+function ISOTryStrToInt64(const aString: string; var outValue: Int64): Boolean;
+begin
+  Result := TryStrToInt64(aString, outValue);
 end;
 
 function ISOTryStrToFloat(const aString: string; var outValue: Extended): Boolean;
