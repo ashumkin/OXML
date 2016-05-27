@@ -93,7 +93,7 @@ type
     fChildType: TXMLChildType;
     fCurrent: PXMLNode;
   public
-    constructor Create(const aParent: PXMLNode; const aChildType: TXMLChildType);
+    procedure Init(const aParent: PXMLNode; const aChildType: TXMLChildType);
     function MoveNext: Boolean;
     function GetEnumerator: TXMLChildEnumerator;
     property Current: PXMLNode read fCurrent;
@@ -165,10 +165,8 @@ type
     function GetChildNodes: TXMLChildNodeList;
     function GetAttributeCount: Integer;
     function GetChildCount: Integer;
-    {$IFDEF O_ENUMERATORS}
     function GetAttributeEnumerator: TXMLChildEnumerator;
     function GetChildEnumerator: TXMLChildEnumerator;
-    {$ENDIF}
     function TryGetChildNodes(var outList: TXMLChildNodeList; const aChildType: TXMLChildType): Boolean;
     function GetIsTextElement: Boolean;
     //assign only basic properties: PreserveWhiteSpace
@@ -276,17 +274,13 @@ type
     // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property AttributeNodes: TXMLChildNodeList read GetAttributeNodes;
     property AttributeCount: Integer read GetAttributeCount;
-    {$IFDEF O_ENUMERATORS}
     property AttributeEnumerator: TXMLChildEnumerator read GetAttributeEnumerator;
-    {$ENDIF}
     //element children
     // for performance reasons please avoid using ChildNodes - use FirstChild+NextSibling instead!
     // read "Performance optimizations" on http://www.kluug.net/oxml.php for further details
     property ChildNodes: TXMLChildNodeList read GetChildNodes;
     property ChildCount: Integer read GetChildCount;
-    {$IFDEF O_ENUMERATORS}
     property ChildEnumerator: TXMLChildEnumerator read GetChildEnumerator;
-    {$ENDIF}
 
     //iterate through all children from first to last (get first for ioChildEnum=nil)
     function GetNextChild(var ioChildEnum: PXMLNode): Boolean;
@@ -964,7 +958,7 @@ end;
 
 { TXMLChildEnumerator }
 
-constructor TXMLChildEnumerator.Create(const aParent: PXMLNode;
+procedure TXMLChildEnumerator.Init(const aParent: PXMLNode;
   const aChildType: TXMLChildType);
 begin
   fParent := aParent;
@@ -1800,12 +1794,10 @@ begin
     Result := aDefaultValue;
 end;
 
-{$IFDEF O_ENUMERATORS}
 function TXMLNode.GetAttributeEnumerator: TXMLChildEnumerator;
 begin
-  Result := TXMLChildEnumerator.Create(@Self, ctAttribute);
+  Result.Init(@Self, ctAttribute);
 end;
-{$ENDIF}
 
 {$IFDEF BCB}
 function TXMLNode.GetAttributeFromBegin(const aIndex: Integer): PXMLNode;
@@ -1868,12 +1860,10 @@ begin
   end;
 end;
 
-{$IFDEF O_ENUMERATORS}
 function TXMLNode.GetChildEnumerator: TXMLChildEnumerator;
 begin
-  Result := TXMLChildEnumerator.Create(@Self, ctChild);
+  Result.Init(@Self, ctChild);
 end;
-{$ENDIF}
 
 {$IFDEF BCB}
 function TXMLNode.GetChildFromBegin(const aIndex: Integer): PXMLNode;
