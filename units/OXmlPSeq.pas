@@ -78,6 +78,8 @@ type
   protected
     procedure DoCreate; virtual;
     procedure DoInit; virtual;
+  protected
+    property Reader: TXMLReader read fReader;
   public
     //create
     constructor Create; overload;
