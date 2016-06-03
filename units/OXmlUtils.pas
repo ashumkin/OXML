@@ -240,6 +240,7 @@ function TryStrToFloat(const aStr: string; var outValue: Extended): Boolean; ove
 function TryStrToFloat(const aStr: string; var outValue: Double): Boolean; overload;
 function TryEncodeDate(aYear, aMonth, aDay: Word; var outDate: TDateTime): Boolean;
 function TryEncodeTime(aHour, aMin, aSec, aMSec: Word; var outTime: TDateTime): Boolean;
+function TryStrToDate(const S: string; var outValue: TDateTime): Boolean;
 {$ENDIF}
 {$IFDEF O_TRYENCODEDATETIME}
 function TryEncodeDateTime(aYear, aMonth, aDay, aHour, aMin, aSec,
@@ -1080,6 +1081,77 @@ begin
     outTime := (aHour * 3600000 + aMin * 60000 + aSec * 1000 + aMSec) / MSecsPerDay;
     Result := True;
   end;
+end;
+
+function TryStrToDate(const S: string; var outValue: TDateTime): Boolean;
+var
+  xDF: string;
+  xOrder: array[0..2] of Char;
+  xNumStrs: array[0..2] of string;
+  xDay, xMonth, xYear: Integer;
+  xInd, I: Integer;
+  xNum: Pointer;
+begin
+  xDF := ShortDateFormat;
+  xInd := 0;
+  I := 1;
+  while (I <= Length(xDF)) and (xInd <= High(xOrder)) do
+  begin
+    xOrder[xInd] := LowerCase(String(xDF[I]))[1];
+    while (I <= Length(xDF)) and (xDF[I] in ['a'..'z', 'A'..'Z', ' ', '0'..'9']) do
+      Inc(I);
+    Inc(I);
+    Inc(xInd);
+  end;
+
+  for I := Low(xOrder) to High(xOrder) do
+    if not(xOrder[I] in ['m', 'd', 'y']) then
+      raise Exception.CreateFmt('TryStrToDate internal error, DateFormat: %s', [xDF]);
+
+  for I := Low(xNumStrs) to High(xNumStrs) do
+    xNumStrs[I] := '';
+
+  I := 1;
+  xInd := 0;
+  while (I <= Length(S)) and (xInd <= High(xOrder)) do
+  begin
+    if S[I] in ['0'..'9'] then
+      xNumStrs[xInd] := xNumStrs[xInd] + S[I]
+    else if xNumStrs[xInd]<>'' then
+      Inc(xInd);
+    Inc(I);
+  end;
+
+  xDay := 0;
+  xMonth := 0;
+  xYear := 0;
+
+  Result := True;
+  for I := Low(xNumStrs) to High(xNumStrs) do
+  begin
+    if xOrder[I] = 'm' then
+      xNum := @xMonth
+    else
+    if xOrder[I] = 'y' then
+      xNum := @xYear
+    else
+    if xOrder[I] = 'd' then
+      xNum := @xDay;
+
+    if not TryStrToInt(xNumStrs[I], Integer(xNum^)) then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+
+  if not((xYear >= 1) and (xYear <= 9999) and (xMonth >= 1) and (xMonth <= 12) and (xDay >= 1) and (xDay <= 31))
+  then begin
+    Result := False;
+    Exit;
+  end;
+
+  Result := TryEncodeDate(Word(xYear), Word(xMonth), Word(xDay), outValue);
 end;
 {$ENDIF}
 
