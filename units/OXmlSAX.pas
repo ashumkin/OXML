@@ -849,7 +849,8 @@ begin
 
     Result := StartParsing;
   finally
-    fReader.ReleaseDocument;
+    if fParserState <> spsPaused then
+      fReader.ReleaseDocument;
   end;
 end;
 
@@ -1014,7 +1015,8 @@ begin
     if fDataRead and (fParserState = spsRunning) and not Assigned(fReader.ParseError) then
       DoOnEndDocument;
   finally
-    FinishedParsing;
+    if fParserState <> spsPaused then
+      FinishedParsing;
     if Assigned(fReader.ParseError) then
     begin
       fParseError := fReader.ParseError;
