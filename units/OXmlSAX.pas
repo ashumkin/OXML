@@ -299,6 +299,7 @@ type
     procedure DoOnEndElement(const aName: OWideString); virtual;
 
   protected
+    FReaderToken: PXMLReaderToken;
     function StartParsing: Boolean;
     procedure FinishedParsing;
   public
@@ -590,7 +591,9 @@ begin
       fActiveChildHandler := nil;
   end else
   begin
-    if (fThisElementStartLevel = Sender.GetNodePathCount+1) and (fThisElementName = aName) then
+    if ((Sender.FReaderToken.TokenType = rtCloseElement) and (fThisElementStartLevel = Sender.GetNodePathCount + 1))
+        or ((Sender.FReaderToken.TokenType = rtFinishOpenElementClose) and (fThisElementStartLevel = Sender.GetNodePathCount))
+      and (fThisElementName = aName) then
     begin
       fThisElementStartLevel := -1;
       DoOnEndThisElement(Sender, aName);
@@ -946,7 +949,6 @@ function TSAXParser.ResumeParsing: Boolean;
     fDataRead := True;
   end;
 var
-  xReaderToken: PXMLReaderToken;
   xValue: OWideString;
 begin
   if fParserState <> spsPaused then
@@ -955,17 +957,17 @@ begin
   fParserState := spsRunning;
   Result := True;
   try
-    while (fParserState = spsRunning) and fReader.ReadNextToken(xReaderToken{%H-}) do
+    while (fParserState = spsRunning) and fReader.ReadNextToken(FReaderToken{%H-}) do
     begin
-      case xReaderToken.TokenType of
+      case FReaderToken.TokenType of
         rtText, rtCData, rtEntityReference:
-          if fDataRead or not OXmlIsWhiteSpace(xReaderToken.TokenValue)
+          if fDataRead or not OXmlIsWhiteSpace(FReaderToken.TokenValue)
           then//omit empty text before root node
           begin
             if not fDataRead then
               _StartDocument;
 
-            xValue := xReaderToken.TokenValue;
+            xValue := FReaderToken.TokenValue;
             if (fWhiteSpaceHandling = wsPreserveInTextOnly) and OXmlIsWhiteSpace(xValue)
             then begin
               xValue := '';
@@ -982,7 +984,7 @@ begin
       else//case
         if not fDataRead then
           _StartDocument;
-        case xReaderToken.TokenType of
+        case FReaderToken.TokenType of
           rtFinishOpenElementClose, rtFinishOpenElement:
           begin
             fAttributes.CreateIndex;
@@ -996,18 +998,18 @@ begin
               else
                 fPreserveWhiteSpaceTree[fReader.NodePathCount-1] := pwInherit;
             end;
-            DoOnStartElement(xReaderToken.TokenName, fAttributes);
-            if xReaderToken.TokenType = rtFinishOpenElementClose then
-              DoOnEndElement(xReaderToken.TokenName);
+            DoOnStartElement(FReaderToken.TokenName, fAttributes);
+            if FReaderToken.TokenType = rtFinishOpenElementClose then
+              DoOnEndElement(FReaderToken.TokenName);
           end;
           rtFinishXMLDeclarationClose:
           begin
             fAttributes.CreateIndex;
             DoOnXMLDeclaration(fAttributes);
           end;
-          rtCloseElement: DoOnEndElement(xReaderToken.TokenName);
-          rtComment: DoOnComment(xReaderToken.TokenValue);
-          rtProcessingInstruction: DoOnProcessingInstruction(xReaderToken.TokenName, xReaderToken.TokenValue);
+          rtCloseElement: DoOnEndElement(FReaderToken.TokenName);
+          rtComment: DoOnComment(FReaderToken.TokenValue);
+          rtProcessingInstruction: DoOnProcessingInstruction(FReaderToken.TokenName, FReaderToken.TokenValue);
         end;
       end;
     end;
