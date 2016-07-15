@@ -542,6 +542,9 @@ end;
 function TSAXHandler.RemoveChildHandler(const aElementName: OWideString
   ): Boolean;
 begin
+  // if deleted child handler is now active
+  if Assigned(fActiveChildHandler) and (FindChildHandler(aElementName) = fActiveChildHandler) then
+    fActiveChildHandler := nil;
   Result := fChildHandlers.Delete(aElementName);
 end;
 
@@ -587,8 +590,10 @@ begin
   if Assigned(fActiveChildHandler) then
   begin
     fActiveChildHandler._DoOnEndElement(Sender, aName);
-    if fActiveChildHandler.fThisElementStartLevel = -1 then//fActiveChildHandler was closed
-      fActiveChildHandler := nil;
+    // active child handler can be removed in the previous call
+    if Assigned(fActiveChildHandler) then
+      if fActiveChildHandler.fThisElementStartLevel = -1 then//fActiveChildHandler was closed
+        fActiveChildHandler := nil;
   end else
   begin
     if ((Sender.FReaderToken.TokenType = rtCloseElement) and (fThisElementStartLevel = Sender.GetNodePathCount + 1))
