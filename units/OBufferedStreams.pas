@@ -414,7 +414,7 @@ begin
     end else
     begin
       //OUTSIDE TEMP RANGE, CLEAR TEMP STREAM
-      Result := fStream.Seek(soFromBeginning, xAbsolutePosition);
+      Result := fStream.Seek(xAbsolutePosition, soFromBeginning);
       fStreamPosition := Result;
       fTempBufferUsedLength := 0;
       fTempBufferPosition := 0;

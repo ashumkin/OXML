@@ -2533,7 +2533,7 @@ begin
     SetLength(outBuffer, xStream.Size);
     if xStream.Size > 0 then
     begin
-      xStream.Seek(0, soFromBeginning);
+      xStream.Seek(Int64(0), soFromBeginning);
       xStream.ReadBuffer(outBuffer[0], xStream.Size);
     end;
   finally
@@ -2617,7 +2617,7 @@ begin
     SetLength(outXML, xStream.Size div SizeOf(OWideChar));
     if xStream.Size > 0 then
     begin
-      xStream.Seek(0, soFromBeginning);
+      xStream.Seek(Int64(0), soFromBeginning);
       xStream.ReadBuffer(outXML[1], xStream.Size);
     end;
   finally
@@ -2663,7 +2663,7 @@ begin
     SetLength(outXML, xStream.Size);
     if xStream.Size > 0 then
     begin
-      xStream.Seek(0, soFromBeginning);
+      xStream.Seek(Int64(0), soFromBeginning);
       xStream.ReadBuffer(outXML[OUTF8Container_FirstElement], xStream.Size);
     end;
   finally
