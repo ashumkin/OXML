@@ -217,10 +217,17 @@ end;
 
 destructor TXMLSeqParser.Destroy;
 begin
+  {$IFDEF AUTOREFCOUNT}
+  fReader.DisposeOf;
+  fTempNodePath.DisposeOf;
+  fTempReaderPath.DisposeOf;
+  fXmlDoc.DisposeOf;
+  {$ELSE AUTOREFCOUNT}
   fReader.Free;
   fTempNodePath.Free;
   fTempReaderPath.Free;
   fXmlDoc.Free;
+  {$ENDIF AUTOREFCOUNT}
 
   inherited;
 end;
