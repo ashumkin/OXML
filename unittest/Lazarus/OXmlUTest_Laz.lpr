@@ -6,7 +6,8 @@ uses
   {$IFDEF UNIX}{$IFDEF UseCThreads}
   cthreads,
   {$ENDIF}{$ENDIF}
-  Classes, SysUtils, OXmlUnitTests, OXmlXPath, OBufferedStreams, ODictionary,
+  Classes, SysUtils, StrUtils,
+  OXmlUnitTests, OXmlXPath, OBufferedStreams, ODictionary,
   OEncoding, OHashedStrings, OTextReadWrite, OWideSupp, OXmlLng, OXmlReadWrite,
   OXmlSAX, OXmlUtils, OXmlPDOM, OXmlCDOM, OXmlSerialize, OJsonUtf8ReadWrite,
   OJsonUtils;
@@ -21,7 +22,12 @@ begin
   try
     xTest.OXmlTestAll(xStrL);
     for I := 0 to xStrL.Count-1 do
+    begin
       Writeln(xStrL[I]);
+      if AnsiStartsText('ERROR', xStrL[i])
+           or AnsiStartsText('WARNING', xStrL[i]) then
+         ExitCode := 1;
+    end;
   finally
     xStrL.Free;
     xTest.Free;

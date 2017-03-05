@@ -1,0 +1,20 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+    DefaultTarget="Build">
+    <PropertyGroup>
+        <ProjectName>OXML project to test it is compilable</ProjectName>
+        <DryRun Condition="'$(DryRun)' == 'true'"></DryRun>
+        <Platform Condition="'$(Platform)' == ''">Win32</Platform>
+        <Config Condition="'$(Config)' == ''">Release</Config>
+        <Parallel Condition="'$(Parallel)' == ''">true</Parallel>
+        <DemoProject Condition="$(BDS.Contains('Codegear'))">demos\Delphi 6-2009 VCL\OXmlTest.dproj</DemoProject>
+        <DemoProject Condition="$(BDS.Contains('Embarcadero'))">demos\Delphi 2010+ VCL\OXmlTest.dproj</DemoProject>
+    </PropertyGroup>
+    <Target Name="Build">
+        <MSBuild
+            Projects="$(DemoProject)"
+            BuildInParallel="$(Parallel)"
+            Properties="Platform=$(Platform);Config=$(Config);KibitzCompile=$(DryRun)"
+            Targets="Build"
+        />
+    </Target>
+</Project>

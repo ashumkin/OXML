@@ -21,8 +21,6 @@ uses
   OXmlPSeq in '..\..\units\OXmlPSeq.pas',
   OXmlSerialize in '..\..\units\OXmlSerialize.pas';
 
-{$R *.res}
-
 begin
   Application.Initialize;
   Application.CreateForm(TForm1, Form1);

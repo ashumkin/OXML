@@ -2,11 +2,10 @@ program OXmlUTest_D6;
 
 {$APPTYPE CONSOLE}
 
-{$R *.res}
-
 uses
   SysUtils,
   Classes,
+  StrUtils,
   OXmlUnitTests in '..\OXmlUnitTests.pas',
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   ODictionary in '..\..\units\ODictionary.pas',
@@ -38,13 +37,21 @@ begin
   try
     xTest.OXmlTestAll(xStrL);
     for I := 0 to xStrL.Count-1 do
+    begin
       Writeln(xStrL[I]);
+      if AnsiStartsText('ERROR', xStrL[i])
+          or AnsiStartsText('WARNING', xStrL[i]) then
+        ExitCode := 1;
+    end;
   finally
     xStrL.Free;
     xTest.Free;
   end;
 
-  Writeln;
-  Write('Press enter to close.');
-  Readln;
+  if ParamStr(1) = '-i' then
+  begin
+    Writeln;
+    Write('Press ENTER to close.');
+    Readln;
+  end;
 end.

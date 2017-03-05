@@ -1,8 +1,10 @@
 program OXmlTest;
 
 uses
+  {$IFNDEF ANDROID}
   Forms,
   OXmlTestUnit in 'OXmlTestUnit.pas' {Form1},
+  {$ENDIF ANDROID}
   OBufferedStreams in '..\..\units\OBufferedStreams.pas',
   ODictionary in '..\..\units\ODictionary.pas',
   OEncoding in '..\..\units\OEncoding.pas',
@@ -22,11 +24,11 @@ uses
   OXmlCSeq in '..\..\units\OXmlCSeq.pas',
   OXmlPSeq in '..\..\units\OXmlPSeq.pas';
 
-{$R *.res}
-
 begin
+  {$IFNDEF ANDROID}
   Application.Initialize;
   Application.MainFormOnTaskbar := True;
   Application.CreateForm(TForm1, Form1);
   Application.Run;
+  {$ENDIF ANDROID}
 end.
